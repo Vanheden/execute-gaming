@@ -1,4 +1,5 @@
 import { community } from '../data/servers.js'
+import DiscordWidget from './DiscordWidget.jsx'
 
 export default function Community() {
   return (
@@ -26,6 +27,7 @@ export default function Community() {
               </a>
             ) : null}
           </div>
+          <DiscordWidget />
         </div>
 
         <ul className="community__perks">

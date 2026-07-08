@@ -22,6 +22,13 @@ Ideas for growing the site, grouped by theme. Effort is a rough guide:
 - **Richer profiles + member search** — bio/favourite server, roster search & filter
 - **SEO & social preview** — Open Graph/Twitter tags + generated card image
 - **Automated DB backups** — `npm run backup` (VACUUM INTO) + cron
+- **Live Discord widget** — who's online in Discord right now (guild widget API)
+- **Public profile pages** — shareable `/u/:key` pages with badges
+- **Achievements / badges** — auto (founder/veteran/staff) + admin-granted
+- **Extended admin panel** — ban list, private member notes, per-member badges
+- **Audit log** — every admin action recorded and browsable
+- **Self-hosted analytics** — privacy-friendly page-view counts, no third parties
+- **Security hardening** — headers, write rate-limiting, banned-login block
 
 ---
 
@@ -37,26 +44,30 @@ Ideas for growing the site, grouped by theme. Effort is a rough guide:
 
 - **Playtime / points leaderboard** (L ⭐) — a *real* leaderboard ranked by time
   played or points, instead of join order. Biggest payoff from having SQLite.
-- **Live Discord widget** (S) — show who's online in Discord right now.
+- ~~Live Discord widget~~ ✅ — shows who's online in Discord (needs the guild
+  widget enabled in Discord → Server Settings → Widget).
 - **"Server is full / online" badges** surfaced higher on the page (S).
 
 ## 👥 Community & members
 
 - ~~Richer profiles~~ ✅ — bio + favourite server, editable on your profile.
 - ~~Member search & filters~~ ✅ — search the roster by name + filter by role.
-- **Public profile pages** (M) — shareable `/u/username` pages.
-- **Achievements / badges** (M ⭐) — founding member, veteran, event winner, etc.
+- ~~Public profile pages~~ ✅ — shareable `/u/:key` pages (badges, roles, bio).
+- ~~Achievements / badges~~ ✅ — auto (founder/veteran/staff) + admin-granted
+  (event champion, bug hunter, supporter, …). Catalog in `src/data/achievements.js`.
 
 ## 🛠️ Admin & operations
 
 - ~~Announcement banner~~ ✅ — dismissible site-wide notice (info/warning/critical).
-- **Extended admin panel** (M ⭐) — ban list, member notes, activity log.
-- **Audit log** (S ⭐) — record role changes and admin actions.
+- ~~Extended admin panel~~ ✅ — ban list, private member notes, badge granting,
+  all inside the profile → Members tab.
+- ~~Audit log~~ ✅ — every admin action recorded, browsable in the admin panel.
 
 ## 💜 Support the community (optional)
 
 - **Donations / VIP** (M) — Ko-fi / PayPal / Stripe link, optional perks.
-- **Supporter badge** (S ⭐) — highlight people who donate.
+- **Supporter badge** (S ⭐) — highlight people who donate. *(A `supporter`
+  achievement already exists — just grant it.)*
 
 ## ✨ Polish & infra
 
@@ -64,17 +75,20 @@ Ideas for growing the site, grouped by theme. Effort is a rough guide:
 - ~~Automated DB backups~~ ✅ — `npm run backup` (VACUUM INTO); schedule via cron.
 - ~~One `.env` for dev & prod~~ ✅ — dev auto-uses localhost for OAuth; the
   `PUBLIC_BASE_URL` in `.env` only applies when `NODE_ENV=production`.
-- **Security review** (S) — quick pass before wider launch / heavier traffic.
-- **Switch `passport-discord`** (S) — it's unmaintained; move to a maintained
-  Discord strategy at some point.
-- **Analytics** (S) — self-hosted (e.g. Umami) to see traffic without trackers.
+- ~~Security review~~ ✅ — security headers, write rate-limiting, request size
+  cap, banned-login block. See `SECURITY.md`.
+- ~~Switch `passport-discord`~~ ✅ — replaced with the maintained `passport-oauth2`
+  (custom Discord profile fetch); behaviour unchanged.
+- ~~Analytics~~ ✅ — self-hosted, privacy-friendly page-view counts (no cookies,
+  no PII, no third parties) in the admin panel.
 
 ---
 
 ### Suggested next steps
 
-1. **News/patch notes** — highest engagement for the effort, and the first
-   feature that really uses your admin role.
-2. **Player count graph** or **playtime leaderboard** — shows off the live data
-   and gives members a reason to come back.
-3. **Member search + richer profiles** — nice as the community grows.
+Most of the roadmap is now built. What's left:
+
+1. **Playtime / points leaderboard** (L) — the big remaining feature; a real
+   ranked ladder from tracked play data. Best payoff for member retention.
+2. **"Server full / online" badges** higher on the page (S) — quick polish.
+3. **Donations / VIP** (M) — optional; the `supporter` badge is already there.

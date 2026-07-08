@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { servers } from '../data/servers.js'
+import { linkProps } from '../lib/router.js'
+import Badges from './Badges.jsx'
 
 function serverName(id) {
   return servers.find((s) => s.id === id)?.name || id
@@ -121,10 +123,14 @@ export default function Members() {
                         {m.provider === 'discord' ? 'Discord' : m.provider === 'steam' ? 'Steam' : m.provider}
                       </span>
                       <RoleTags roles={m.discordRoles} />
+                      <Badges badges={m.badges} size="sm" max={4} />
                       {m.favoriteServer && (
                         <span className="mroster__fav">★ {serverName(m.favoriteServer)}</span>
                       )}
                       {m.bio && <p className="mroster__bio">{m.bio}</p>}
+                      <a className="mroster__view" {...linkProps(`/u/${m.key}`)}>
+                        View profile →
+                      </a>
                     </div>
                   </article>
                 ))}

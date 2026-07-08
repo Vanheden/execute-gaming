@@ -13,8 +13,20 @@ import { createHash } from 'node:crypto'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { configureAuth, enabledProviders } from './auth.js'
-import { listUsers, setRole, updateProfile } from './store.js'
+import {
+  listUsers,
+  listUsersAdmin,
+  getUserById,
+  setRole,
+  setBan,
+  setNote,
+  updateProfile,
+} from './store.js'
 import { startPolling, getHistory } from './stats.js'
+import { fetchWidget } from './discord.js'
+import { badgesForUser, grantAchievement, revokeAchievement, GRANTABLE } from './achievements.js'
+import { logAudit, listAudit } from './audit.js'
+import { recordHit, summary as analyticsSummary } from './analytics.js'
 import {
   listNews,
   createNews,
@@ -49,7 +61,46 @@ if (isProd) app.set('trust proxy', 1)
 // Persist sessions to disk so restarts/deploys don't log everyone out.
 const FileStore = sessionFileStore(session)
 
-app.use(express.json())
+app.use(express.json({ limit: '64kb' }))
+
+// --- Security headers ------------------------------------------------------
+// Sensible defaults that don't need a dependency. Caddy adds HSTS + handles TLS
+// in production; these cover clickjacking, MIME sniffing and referrer leakage.
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff')
+  res.setHeader('X-Frame-Options', 'DENY')
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin')
+  res.setHeader('X-Permitted-Cross-Domain-Policies', 'none')
+  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin')
+  next()
+})
+
+// --- Simple in-memory rate limiter for writes ------------------------------
+// Per-IP sliding window on mutating requests. Enough to blunt abuse without a
+// dependency or shared store; resets on restart, which is fine for this scale.
+const rateHits = new Map()
+const RATE_WINDOW_MS = 60 * 1000
+const RATE_MAX = 60 // mutating requests per IP per minute
+setInterval(() => {
+  const cutoff = Date.now() - RATE_WINDOW_MS
+  for (const [ip, hits] of rateHits) {
+    const kept = hits.filter((t) => t > cutoff)
+    if (kept.length) rateHits.set(ip, kept)
+    else rateHits.delete(ip)
+  }
+}, RATE_WINDOW_MS).unref()
+
+app.use((req, res, next) => {
+  if (req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS') return next()
+  const ip = req.ip || req.socket.remoteAddress || 'unknown'
+  const now = Date.now()
+  const hits = (rateHits.get(ip) || []).filter((t) => t > now - RATE_WINDOW_MS)
+  hits.push(now)
+  rateHits.set(ip, hits)
+  if (hits.length > RATE_MAX) return res.status(429).json({ error: 'too many requests' })
+  next()
+})
+
 app.use(
   session({
     store: new FileStore({
@@ -74,13 +125,22 @@ app.use(passport.session())
 
 configureAuth(passport)
 
+// Shared post-login handler. Banned members are logged straight back out so a
+// ban takes effect on their next login without needing to touch sessions.
+function finishLogin(req, res) {
+  if (req.user?.banned) {
+    return req.logout(() => req.session.destroy(() => res.redirect(`${FRONTEND}/?login=banned`)))
+  }
+  res.redirect(`${FRONTEND}/?login=success`)
+}
+
 // --- Discord ---------------------------------------------------------------
 if (enabledProviders.discord) {
   app.get('/auth/discord', passport.authenticate('discord'))
   app.get(
     '/auth/discord/callback',
     passport.authenticate('discord', { failureRedirect: `${FRONTEND}/?login=failed` }),
-    (req, res) => res.redirect(`${FRONTEND}/?login=success`),
+    finishLogin,
   )
 }
 
@@ -90,7 +150,7 @@ if (enabledProviders.steam) {
   app.get(
     '/auth/steam/callback',
     passport.authenticate('steam', { failureRedirect: `${FRONTEND}/?login=failed` }),
-    (req, res) => res.redirect(`${FRONTEND}/?login=success`),
+    finishLogin,
   )
 }
 
@@ -98,8 +158,12 @@ if (enabledProviders.steam) {
 // Which providers are configured (so the UI can enable/disable buttons).
 app.get('/api/config', (req, res) => res.json({ providers: enabledProviders }))
 
-// The currently logged-in user (or null).
-app.get('/api/me', (req, res) => res.json({ user: req.user || null }))
+// The currently logged-in user (or null), decorated with earned badges.
+app.get('/api/me', (req, res) => {
+  if (!req.user) return res.json({ user: null })
+  const rank = memberRank(req.user.id)
+  res.json({ user: { ...req.user, key: keyOf(req.user.id), rank, badges: badgesForUser(req.user, rank) } })
+})
 
 // --- Announcement banner (public read, admin write) ------------------------
 app.get('/api/announcement', (req, res) => res.json({ announcement: getAnnouncement() }))
@@ -109,7 +173,19 @@ app.put('/api/announcement', ensureAdmin, (req, res) => {
   const level = ['info', 'warning', 'critical'].includes(req.body?.level)
     ? req.body.level
     : 'info'
-  res.json({ announcement: setAnnouncement({ message, level }) })
+  const announcement = setAnnouncement({ message, level })
+  logAudit({
+    actor: req.user,
+    action: message ? 'announcement.set' : 'announcement.clear',
+    detail: message ? { level, message } : null,
+  })
+  res.json({ announcement })
+})
+
+// --- Analytics beacon (public, no PII) -------------------------------------
+app.post('/api/hit', (req, res) => {
+  recordHit(req.body?.path)
+  res.status(204).end()
 })
 
 // Player-count history for a server (public). ?hours= (default 24, max 168).
@@ -118,12 +194,19 @@ app.get('/api/servers/:id/history', (req, res) => {
   res.json({ points: getHistory(req.params.id, hours) })
 })
 
-// --- Public members roster -------------------------------------------------
-// Anyone can view the community roster. Only safe, non-identifying fields are
-// exposed (a hashed key instead of the raw Discord/Steam id).
-app.get('/api/members', (req, res) => {
-  const members = listUsers().map((u) => ({
-    key: createHash('sha1').update(u.id).digest('hex').slice(0, 12),
+// A stable, non-identifying public key for a user (never expose the raw id).
+const keyOf = (id) => createHash('sha1').update(id).digest('hex').slice(0, 12)
+
+// 1-based join position (used for the "Founding Member" badge). null if unknown.
+function memberRank(id) {
+  const i = listUsers().findIndex((u) => u.id === id)
+  return i === -1 ? null : i + 1
+}
+
+// Public-safe serialisation of a member, including earned badges.
+function publicMember(u, rank) {
+  return {
+    key: keyOf(u.id),
     username: u.username,
     avatar: u.avatar,
     provider: u.provider,
@@ -131,9 +214,36 @@ app.get('/api/members', (req, res) => {
     discordRoles: u.discordRoles || [],
     bio: u.bio || null,
     favoriteServer: u.favoriteServer || null,
+    badges: badgesForUser(u, rank),
+    rank,
     createdAt: u.createdAt,
-  }))
+  }
+}
+
+// --- Public members roster -------------------------------------------------
+// Anyone can view the community roster. Only safe, non-identifying fields are
+// exposed (a hashed key instead of the raw Discord/Steam id). Banned members
+// are hidden. Ranks are computed before hiding so join order stays stable.
+app.get('/api/members', (req, res) => {
+  const members = listUsers()
+    .map((u, i) => ({ u, rank: i + 1 }))
+    .filter(({ u }) => !u.banned)
+    .map(({ u, rank }) => publicMember(u, rank))
   res.json({ members })
+})
+
+// A single public profile by its hashed key (for shareable /u/:key pages).
+app.get('/api/profile/:key', (req, res) => {
+  const all = listUsers()
+  const i = all.findIndex((u) => keyOf(u.id) === req.params.key)
+  if (i === -1 || all[i].banned) return res.status(404).json({ error: 'not found' })
+  res.json({ member: publicMember(all[i], i + 1) })
+})
+
+// --- Live Discord widget (public) ------------------------------------------
+app.get('/api/discord/widget', async (req, res) => {
+  const widget = await fetchWidget(process.env.DISCORD_GUILD_ID)
+  res.json({ widget })
 })
 
 // Update your own profile (bio + favourite server).
@@ -258,9 +368,14 @@ app.delete('/api/suggestions/:id', ensureAuth, (req, res) => {
   res.json({ ok: true })
 })
 
-// List all registered members.
+// List all registered members (with moderation fields + badges + rank).
 app.get('/api/admin/users', ensureAdmin, (req, res) => {
-  res.json({ users: listUsers() })
+  const users = listUsersAdmin().map((u, i) => ({
+    ...u,
+    rank: i + 1,
+    badges: badgesForUser(u, i + 1),
+  }))
+  res.json({ users })
 })
 
 // Promote / demote a member.
@@ -271,7 +386,66 @@ app.post('/api/admin/users/:id/role', ensureAdmin, (req, res) => {
   }
   const user = setRole(req.params.id, role)
   if (!user) return res.status(404).json({ error: 'not found' })
+  logAudit({ actor: req.user, action: 'role.set', targetId: user.id, targetName: user.username, detail: role })
   res.json({ user })
+})
+
+// Ban / unban a member. They're logged out on their next login attempt.
+app.post('/api/admin/users/:id/ban', ensureAdmin, (req, res) => {
+  const banned = !!req.body?.banned
+  const reason = req.body?.reason ? str(req.body.reason, 280) : null
+  if (req.params.id === req.user.id) {
+    return res.status(400).json({ error: "you can't ban yourself" })
+  }
+  const user = setBan(req.params.id, banned, reason)
+  if (!user) return res.status(404).json({ error: 'not found' })
+  logAudit({
+    actor: req.user,
+    action: banned ? 'user.ban' : 'user.unban',
+    targetId: user.id,
+    targetName: user.username,
+    detail: reason,
+  })
+  res.json({ user })
+})
+
+// Set (or clear) a private admin note on a member.
+app.post('/api/admin/users/:id/note', ensureAdmin, (req, res) => {
+  const note = req.body?.note ? str(req.body.note, 1000) : null
+  const user = setNote(req.params.id, note)
+  if (!user) return res.status(404).json({ error: 'not found' })
+  logAudit({ actor: req.user, action: 'user.note', targetId: user.id, targetName: user.username })
+  res.json({ ok: true })
+})
+
+// Grant an achievement badge.
+app.post('/api/admin/users/:id/achievements', ensureAdmin, (req, res) => {
+  const code = req.body?.code
+  if (!GRANTABLE.includes(code)) return res.status(400).json({ error: 'invalid achievement' })
+  const target = getUserById(req.params.id)
+  if (!target) return res.status(404).json({ error: 'not found' })
+  grantAchievement(target.id, code, req.user.id)
+  logAudit({ actor: req.user, action: 'achievement.grant', targetId: target.id, targetName: target.username, detail: code })
+  res.json({ rank: memberRank(target.id), badges: badgesForUser(target, memberRank(target.id)) })
+})
+
+// Revoke an achievement badge.
+app.delete('/api/admin/users/:id/achievements/:code', ensureAdmin, (req, res) => {
+  const target = getUserById(req.params.id)
+  if (!target) return res.status(404).json({ error: 'not found' })
+  revokeAchievement(target.id, req.params.code)
+  logAudit({ actor: req.user, action: 'achievement.revoke', targetId: target.id, targetName: target.username, detail: req.params.code })
+  res.json({ rank: memberRank(target.id), badges: badgesForUser(target, memberRank(target.id)) })
+})
+
+// Audit log (most recent first).
+app.get('/api/admin/audit', ensureAdmin, (req, res) => {
+  res.json({ entries: listAudit(req.query.limit) })
+})
+
+// Traffic analytics summary.
+app.get('/api/admin/analytics', ensureAdmin, (req, res) => {
+  res.json(analyticsSummary(req.query.days))
 })
 
 // Log out.

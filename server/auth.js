@@ -5,13 +5,37 @@
 // server boots fine even before you've set them up. The frontend asks
 // /api/config which providers are enabled and disables the buttons otherwise.
 // ---------------------------------------------------------------------------
-import discordPkg from 'passport-discord'
+import OAuth2Strategy from 'passport-oauth2'
 import steamPkg from 'passport-steam'
 import { upsertUser } from './store.js'
 import { fetchGuildMemberRoles, resolveRoles } from './discord.js'
 
-const DiscordStrategy = discordPkg.Strategy || discordPkg
 const SteamStrategy = steamPkg.Strategy || steamPkg
+
+const DISCORD_AUTH_URL = 'https://discord.com/api/oauth2/authorize'
+const DISCORD_TOKEN_URL = 'https://discord.com/api/oauth2/token'
+const DISCORD_USER_URL = 'https://discord.com/api/users/@me'
+
+// Fetch the Discord user object with the access token. passport-oauth2 doesn't
+// know about Discord's profile shape, so we parse it ourselves. (Replaces the
+// unmaintained passport-discord package with the maintained passport-oauth2.)
+async function fetchDiscordProfile(accessToken, done) {
+  try {
+    const res = await fetch(DISCORD_USER_URL, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    })
+    if (!res.ok) return done(new Error(`Discord profile fetch failed (${res.status})`))
+    const j = await res.json()
+    done(null, {
+      id: j.id,
+      username: j.username,
+      global_name: j.global_name,
+      avatar: j.avatar,
+    })
+  } catch (err) {
+    done(err)
+  }
+}
 
 // Public URL the browser uses for OAuth callbacks. In dev we always use the
 // local Vite server (via its proxy) so a production PUBLIC_BASE_URL in .env
@@ -38,16 +62,17 @@ export function configureAuth(passport) {
       .map((s) => s.trim())
       .filter(Boolean)
 
-    passport.use(
-      new DiscordStrategy(
-        {
-          clientID: process.env.DISCORD_CLIENT_ID,
-          clientSecret: process.env.DISCORD_CLIENT_SECRET,
-          callbackURL: `${BASE}/auth/discord/callback`,
-          // guilds.members.read lets us read the user's roles in our guild.
-          scope: ['identify', 'guilds.members.read'],
-        },
-        async (accessToken, refreshToken, profile, done) => {
+    const discordStrategy = new OAuth2Strategy(
+      {
+        authorizationURL: DISCORD_AUTH_URL,
+        tokenURL: DISCORD_TOKEN_URL,
+        clientID: process.env.DISCORD_CLIENT_ID,
+        clientSecret: process.env.DISCORD_CLIENT_SECRET,
+        callbackURL: `${BASE}/auth/discord/callback`,
+        // guilds.members.read lets us read the user's roles in our guild.
+        scope: ['identify', 'guilds.members.read'],
+      },
+      async (accessToken, refreshToken, profile, done) => {
           try {
             const avatar = profile.avatar
               ? `https://cdn.discordapp.com/avatars/${profile.id}/${profile.avatar}.png`
@@ -71,8 +96,10 @@ export function configureAuth(passport) {
             done(err)
           }
         },
-      ),
     )
+    // Teach the generic OAuth2 strategy how to read a Discord profile.
+    discordStrategy.userProfile = fetchDiscordProfile
+    passport.use('discord', discordStrategy)
   }
 
   if (enabledProviders.steam) {

@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '../auth/AuthContext.jsx'
 import { servers } from '../data/servers.js'
 import { apiSend } from '../lib/api.js'
+import { linkProps } from '../lib/router.js'
+import AdminPanel from './AdminPanel.jsx'
+import Badges from './Badges.jsx'
 
 function serverName(id) {
   return servers.find((s) => s.id === id)?.name || id
@@ -90,15 +93,12 @@ function ProfileEditForm({ user, onCancel, onSaved }) {
 export default function ProfileModal({ open, onClose }) {
   const { user, logout, refresh } = useAuth()
   const [tab, setTab] = useState('profile')
-  const [members, setMembers] = useState(null)
-  const [busy, setBusy] = useState('')
   const [editingProfile, setEditingProfile] = useState(false)
   const isAdmin = user?.role === 'admin'
 
   useEffect(() => {
     if (!open) {
       setTab('profile')
-      setMembers(null)
       setEditingProfile(false)
     }
   }, [open])
@@ -110,33 +110,7 @@ export default function ProfileModal({ open, onClose }) {
     return () => window.removeEventListener('keydown', onKey)
   }, [open, onClose])
 
-  useEffect(() => {
-    if (open && isAdmin && tab === 'admin' && members === null) {
-      fetch('/api/admin/users', { credentials: 'include' })
-        .then((r) => (r.ok ? r.json() : { users: [] }))
-        .then((d) => setMembers(d.users || []))
-        .catch(() => setMembers([]))
-    }
-  }, [open, isAdmin, tab, members])
-
   if (!open || !user) return null
-
-  async function changeRole(id, role) {
-    setBusy(id)
-    try {
-      const res = await fetch(`/api/admin/users/${encodeURIComponent(id)}/role`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ role }),
-      })
-      if (res.ok) {
-        setMembers((ms) => ms.map((m) => (m.id === id ? { ...m, role } : m)))
-      }
-    } finally {
-      setBusy('')
-    }
-  }
 
   return (
     <div className="modal" onClick={onClose} role="dialog" aria-modal="true">
@@ -213,6 +187,13 @@ export default function ProfileModal({ open, onClose }) {
               </div>
             )}
 
+            {user.badges?.length > 0 && (
+              <div className="pf__rolesblock">
+                <span className="pf__roleslabel">Achievements</span>
+                <Badges badges={user.badges} />
+              </div>
+            )}
+
             {editingProfile ? (
               <ProfileEditForm
                 user={user}
@@ -243,6 +224,11 @@ export default function ProfileModal({ open, onClose }) {
             )}
 
             <div className="pf__actions">
+              {user.key && (
+                <a className="btn btn--ghost btn--sm" {...linkProps(`/u/${user.key}`)} onClickCapture={onClose}>
+                  My public profile
+                </a>
+              )}
               {user.profileUrl && (
                 <a className="btn btn--ghost btn--sm" href={user.profileUrl} target="_blank" rel="noreferrer">
                   View Steam profile
@@ -261,50 +247,7 @@ export default function ProfileModal({ open, onClose }) {
           </div>
         )}
 
-        {tab === 'admin' && isAdmin && (
-          <div className="members">
-            <h3 className="pf__name" style={{ marginBottom: 4 }}>
-              Members
-            </h3>
-            <p className="modal__lead" style={{ margin: '0 0 16px' }}>
-              {members ? `${members.length} registered` : 'Loading…'}
-            </p>
-            <div className="members__list">
-              {(members || []).map((m) => (
-                <div key={m.id} className="member">
-                  <Avatar user={m} size={38} />
-                  <div className="member__info">
-                    <span className="member__name">
-                      {m.username}
-                      {m.id === user.id && <span className="member__you">you</span>}
-                    </span>
-                    <ProviderChip provider={m.provider} />
-                  </div>
-                  <span className={`badge ${m.role === 'admin' ? 'badge--admin' : 'badge--member'}`}>
-                    {m.role}
-                  </span>
-                  {m.role === 'admin' ? (
-                    <button
-                      className="member__btn"
-                      disabled={busy === m.id}
-                      onClick={() => changeRole(m.id, 'member')}
-                    >
-                      Demote
-                    </button>
-                  ) : (
-                    <button
-                      className="member__btn member__btn--up"
-                      disabled={busy === m.id}
-                      onClick={() => changeRole(m.id, 'admin')}
-                    >
-                      Make admin
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+        {tab === 'admin' && isAdmin && <AdminPanel currentUser={user} />}
       </div>
     </div>
   )

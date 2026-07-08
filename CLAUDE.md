@@ -13,8 +13,8 @@ Live at **https://execute-gaming.se** (self-hosted on Proxmox via PM2 + Caddy).
 
 - **Frontend:** React 18 + Vite 6 (plain JS/JSX, no TypeScript). One global
   stylesheet `src/index.css` using CSS variables — no CSS framework.
-- **Backend:** Express 4 + Passport (Discord OAuth2, Steam OpenID), sessions via
-  `express-session` + `session-file-store`.
+- **Backend:** Express 4 + Passport (Discord via the maintained `passport-oauth2`,
+  Steam OpenID), sessions via `express-session` + `session-file-store`.
 - **Storage:** SQLite via Node's built-in **`node:sqlite`** (file at
   `server/data/users.db`). No native modules.
 
@@ -45,9 +45,16 @@ the live domain while developing — the same `.env` works on your machine and t
 ### Frontend (`src/`)
 
 - `main.jsx` wraps `<App>` in `<AuthProvider>`.
-- `App.jsx` composes sections: Hero → Servers → Community → Members → Rules.
+- `App.jsx` composes sections and does tiny client-side routing: `/u/:key`
+  renders `<PublicProfile>`, everything else is the one-page site. It also fires
+  the privacy-friendly page-view beacon (`POST /api/hit`).
+- `lib/router.js` — dependency-free History-API router (`usePath`, `navigate`,
+  `linkProps`). Only route is the shareable public profile page.
 - `data/servers.js` — **single source of truth** for server cards + community
   links (Discord invite, name). Edit content here.
+- `data/achievements.js` — **single source of truth** for the badge catalog,
+  imported by BOTH the frontend and the backend (`server/achievements.js`).
+  Auto badges (`auto: true`) are computed; the rest are admin-granted.
 - `services/serverStatus.js` + `hooks/useServerStatus.js` — live status. V Rising
   uses BattleMetrics (`battlemetricsId`); anything without one falls back to mock.
 - `auth/AuthContext.jsx` — `useAuth()` exposes `{ user, loading, providers,
@@ -60,13 +67,24 @@ the live domain while developing — the same `.env` works on your machine and t
 - `index.js` — Express app, routes, session setup. In production also serves
   `dist/` with an SPA fallback.
 - `auth.js` — Passport strategies. **Only registered if their env creds exist**,
-  so the server boots even without them. Discord verify also syncs guild roles.
-- `discord.js` — fetches the user's roles in the guild (OAuth) and resolves role
-  names/colours (optional bot token).
-- `db.js` — the shared `node:sqlite` connection and **all table schema**.
-- `store.js` — user CRUD + role logic. Auto-migrates from a legacy `users.json`.
+  so the server boots even without them. Discord uses `passport-oauth2` with a
+  custom `userProfile` that fetches `/users/@me`; verify also syncs guild roles.
+- `discord.js` — fetches the user's roles in the guild (OAuth), resolves role
+  names/colours (optional bot token), and fetches the public **guild widget**
+  (`fetchWidget`, 60s cache) for the live "who's online" component.
+- `db.js` — the shared `node:sqlite` connection and **all table schema**
+  (users, news, events, suggestions, server_stats, settings, achievements,
+  audit_log, page_views) + idempotent column migrations.
+- `store.js` — user CRUD + role logic + ban/note (`setBan`, `setNote`,
+  `listUsersAdmin`). Auto-migrates from a legacy `users.json`. Public serialisers
+  never leak `note`/`banReason`; those come only from admin endpoints.
 - `content.js` — CRUD for news, events, suggestions (+ votes), plus the
   site-wide announcement banner (stored in a key/value `settings` table).
+- `achievements.js` — grant/revoke stored badges + compute auto ones; imports
+  the shared catalog from `src/data/achievements.js`.
+- `audit.js` — `logAudit()` / `listAudit()` for the admin action log.
+- `analytics.js` — privacy-friendly page-view counter (`recordHit`, `summary`);
+  no cookies/IPs/PII, aggregate counts only.
 - `stats.js` — background poller that snapshots each server's BattleMetrics
   player count (every `STATS_POLL_MINUTES`, default 5) into `server_stats`, plus
   `getHistory()`. Imports the shared `src/data/servers.js` for the server list.
@@ -75,20 +93,34 @@ the live domain while developing — the same `.env` works on your machine and t
 
 - `GET /auth/discord`, `/auth/steam` (+ `/callback`) — OAuth login
 - `POST /auth/logout`
-- `GET /api/me` — current user or null
+- `GET /api/me` — current user (+ `key`, `rank`, `badges`) or null
 - `PUT /api/me/profile` — update your own bio + favourite server (auth)
 - `GET /api/config` — which providers are enabled
 - `GET /api/announcement` (public), `PUT /api/announcement` (admin) — site banner
-- `GET /api/members` — **public** roster (hashed key, safe fields only)
+- `GET /api/members` — **public** roster (hashed key, safe fields, badges; banned hidden)
+- `GET /api/profile/:key` — **public** single profile for `/u/:key` pages
+- `GET /api/discord/widget` — **public** live guild widget (who's online)
+- `POST /api/hit` — **public** analytics beacon (no PII)
 - `GET /api/servers/:id/history?hours=` — **public** player-count history
   (rendered by `components/PlayerHistoryChart.jsx`, a dependency-free SVG chart)
-- `GET /api/admin/users`, `POST /api/admin/users/:id/role` — admin-only
 - `GET /api/news` (public), `POST/PUT/DELETE /api/news/:id` (admin)
 - `GET /api/events` (public), `POST/PUT/DELETE /api/events/:id` (admin)
 - `GET /api/suggestions` (public), `POST` (auth), `POST /:id/vote` (auth),
   `PATCH /:id/status` (admin), `DELETE /:id` (author or admin)
 
-Guards: `ensureAuth` (logged in), `ensureAdmin` (admin role).
+Admin-only (`ensureAdmin`):
+- `GET /api/admin/users` — full roster with notes/ban/badges/rank
+- `POST /api/admin/users/:id/role` — promote/demote
+- `POST /api/admin/users/:id/ban` — `{banned, reason}` (can't ban yourself)
+- `POST /api/admin/users/:id/note` — private admin note
+- `POST /api/admin/users/:id/achievements` — grant `{code}` (from `GRANTABLE`)
+- `DELETE /api/admin/users/:id/achievements/:code` — revoke a badge
+- `GET /api/admin/audit?limit=` — admin action log
+- `GET /api/admin/analytics?days=` — page-view summary
+
+Guards: `ensureAuth` (logged in), `ensureAdmin` (admin role). All admin
+mutations are recorded via `logAudit`. Mutating requests are rate-limited
+per-IP; see `SECURITY.md`.
 
 ## Roles & admin
 
@@ -147,7 +179,12 @@ PNG).
 - `server/data/` (DB + sessions) and `.env` are gitignored. Back up
   `server/data/` for user data.
 - Adding an OAuth scope means existing users must log in again to grant it.
-- `passport-discord` is unmaintained but works for `identify` + guild roles.
+- Discord login uses `passport-oauth2` (maintained) with a hand-written profile
+  fetch, not `passport-discord` (which is unmaintained and was removed).
+- Banned members are hidden from the roster and logged out on next login
+  (`/?login=banned`); they aren't force-killed from an existing session.
+- The Discord widget needs "Enable Server Widget" turned on in Discord; without
+  it the API returns 403 and the on-site widget simply hides itself.
 
 ## Conventions
 

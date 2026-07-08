@@ -83,6 +83,37 @@ db.exec(`
     key   TEXT PRIMARY KEY,
     value TEXT
   );
+
+  -- Admin-granted achievements (automatic ones are computed, not stored).
+  CREATE TABLE IF NOT EXISTS achievements (
+    userId    TEXT NOT NULL,
+    code      TEXT NOT NULL,
+    grantedAt TEXT NOT NULL,
+    grantedBy TEXT,
+    PRIMARY KEY (userId, code),
+    FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
+  );
+
+  -- Admin action log (role changes, bans, achievement grants, …).
+  CREATE TABLE IF NOT EXISTS audit_log (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    at         TEXT NOT NULL,
+    actorId    TEXT,
+    actorName  TEXT,
+    action     TEXT NOT NULL,
+    targetId   TEXT,
+    targetName TEXT,
+    detail     TEXT
+  );
+  CREATE INDEX IF NOT EXISTS idx_audit_at ON audit_log(at);
+
+  -- Privacy-friendly page views (no PII): a per-day, per-path counter.
+  CREATE TABLE IF NOT EXISTS page_views (
+    day   TEXT NOT NULL,
+    path  TEXT NOT NULL,
+    count INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (day, path)
+  );
 `)
 
 // --- Lightweight column migrations (for DBs created before a column existed) -
@@ -94,3 +125,6 @@ function ensureColumn(table, column, def) {
 }
 ensureColumn('users', 'bio', 'TEXT')
 ensureColumn('users', 'favoriteServer', 'TEXT')
+ensureColumn('users', 'banned', 'INTEGER NOT NULL DEFAULT 0')
+ensureColumn('users', 'banReason', 'TEXT')
+ensureColumn('users', 'note', 'TEXT')

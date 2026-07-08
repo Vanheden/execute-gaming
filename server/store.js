@@ -69,9 +69,18 @@ function rowToUser(row) {
     discordRoles: row.discordRoles ? JSON.parse(row.discordRoles) : [],
     bio: row.bio ?? null,
     favoriteServer: row.favoriteServer ?? null,
+    banned: !!row.banned,
     createdAt: row.createdAt,
     lastLogin: row.lastLogin,
   }
+}
+
+// Admin view — includes moderation fields (note, ban reason) that must never
+// leak through the public / self endpoints.
+function rowToAdminUser(row) {
+  const u = rowToUser(row)
+  if (!u) return null
+  return { ...u, note: row.note ?? null, banReason: row.banReason ?? null }
 }
 
 export function getUserById(id) {
@@ -139,6 +148,14 @@ export function listUsers() {
     .map(rowToUser)
 }
 
+// Same order as listUsers, but with moderation fields — admin-only.
+export function listUsersAdmin() {
+  return db
+    .prepare('SELECT * FROM users ORDER BY createdAt ASC')
+    .all()
+    .map(rowToAdminUser)
+}
+
 export function setRole(id, role) {
   const res = db.prepare('UPDATE users SET role = ? WHERE id = ?').run(role, id)
   if (res.changes === 0) return null
@@ -152,6 +169,27 @@ export function updateProfile(id, { bio, favoriteServer }) {
     .run(bio ?? null, favoriteServer ?? null, id)
   if (res.changes === 0) return null
   return getUserById(id)
+}
+
+// Ban / unban a member. Reason is kept for the audit trail + admin view.
+export function setBan(id, banned, reason) {
+  const res = db
+    .prepare('UPDATE users SET banned = ?, banReason = ? WHERE id = ?')
+    .run(banned ? 1 : 0, banned ? reason ?? null : null, id)
+  if (res.changes === 0) return null
+  return getUserById(id)
+}
+
+// A private admin note attached to a member.
+export function setNote(id, note) {
+  const res = db.prepare('UPDATE users SET note = ? WHERE id = ?').run(note ?? null, id)
+  if (res.changes === 0) return null
+  return getUserById(id)
+}
+
+export function isBanned(id) {
+  const row = db.prepare('SELECT banned FROM users WHERE id = ?').get(id)
+  return !!row?.banned
 }
 
 export function countUsers() {

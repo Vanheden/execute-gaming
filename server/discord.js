@@ -25,6 +25,46 @@ export async function fetchGuildMemberRoles(accessToken, guildId) {
   }
 }
 
+// --- Live widget -----------------------------------------------------------
+// The public guild widget (https://discord.com/api/guilds/:id/widget.json).
+// Requires "Enable Server Widget" in Discord → Server Settings → Widget.
+// No bot token needed. Cached for 60s to stay well under Discord's rate limits.
+let widgetCache = { at: 0, data: null, guildId: null }
+
+export async function fetchWidget(guildId) {
+  if (!guildId) return null
+  const fresh = Date.now() - widgetCache.at < 60 * 1000 && widgetCache.guildId === guildId
+  if (fresh) return widgetCache.data
+  try {
+    const res = await fetch(`${API}/guilds/${guildId}/widget.json`)
+    if (!res.ok) {
+      // 403 = widget disabled. Cache the null briefly so we don't hammer it.
+      widgetCache = { at: Date.now(), data: null, guildId }
+      return null
+    }
+    const raw = await res.json()
+    const members = (raw.members || [])
+      .map((m) => ({
+        id: m.id,
+        username: m.username,
+        avatar: m.avatar_url || null,
+        status: m.status || 'online',
+        game: m.game?.name || null,
+      }))
+      .slice(0, 30) // Discord caps this at 100; 30 is plenty for the UI.
+    const data = {
+      name: raw.name || null,
+      online: Number(raw.presence_count) || members.length,
+      invite: raw.instant_invite || null,
+      members,
+    }
+    widgetCache = { at: Date.now(), data, guildId }
+    return data
+  } catch {
+    return widgetCache.guildId === guildId ? widgetCache.data : null
+  }
+}
+
 // Cache the guild's role list (id -> {name,color}) for 5 minutes.
 let rolesCache = { at: 0, map: null }
 
