@@ -14,6 +14,22 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { configureAuth, enabledProviders } from './auth.js'
 import { listUsers, setRole } from './store.js'
+import {
+  listNews,
+  createNews,
+  updateNews,
+  deleteNews,
+  listEvents,
+  createEvent,
+  updateEvent,
+  deleteEvent,
+  listSuggestions,
+  getSuggestion,
+  createSuggestion,
+  toggleVote,
+  setSuggestionStatus,
+  deleteSuggestion,
+} from './content.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const app = express()
@@ -96,11 +112,117 @@ app.get('/api/members', (req, res) => {
   res.json({ members })
 })
 
-// --- Admin API (admin-only) ------------------------------------------------
+// --- Auth guards -----------------------------------------------------------
+function ensureAuth(req, res, next) {
+  if (req.user) return next()
+  return res.status(401).json({ error: 'unauthorized' })
+}
 function ensureAdmin(req, res, next) {
   if (req.user?.role === 'admin') return next()
   return res.status(403).json({ error: 'forbidden' })
 }
+
+// Trim + length-check a string field.
+function str(v, max) {
+  if (typeof v !== 'string') return null
+  const t = v.trim()
+  if (!t || t.length > max) return null
+  return t
+}
+
+// --- News (public read, admin write) ---------------------------------------
+app.get('/api/news', (req, res) => res.json({ news: listNews() }))
+
+app.post('/api/news', ensureAdmin, (req, res) => {
+  const title = str(req.body?.title, 140)
+  const body = str(req.body?.body, 8000)
+  if (!title || !body) return res.status(400).json({ error: 'title and body required' })
+  res.json({ post: createNews({ title, body, authorId: req.user.id, authorName: req.user.username }) })
+})
+
+app.put('/api/news/:id', ensureAdmin, (req, res) => {
+  const title = str(req.body?.title, 140)
+  const body = str(req.body?.body, 8000)
+  if (!title || !body) return res.status(400).json({ error: 'title and body required' })
+  const post = updateNews(Number(req.params.id), { title, body })
+  if (!post) return res.status(404).json({ error: 'not found' })
+  res.json({ post })
+})
+
+app.delete('/api/news/:id', ensureAdmin, (req, res) => {
+  if (!deleteNews(Number(req.params.id))) return res.status(404).json({ error: 'not found' })
+  res.json({ ok: true })
+})
+
+// --- Events (public read, admin write) -------------------------------------
+app.get('/api/events', (req, res) => res.json({ events: listEvents() }))
+
+app.post('/api/events', ensureAdmin, (req, res) => {
+  const title = str(req.body?.title, 140)
+  const startsAt = str(req.body?.startsAt, 40)
+  if (!title || !startsAt) return res.status(400).json({ error: 'title and startsAt required' })
+  const description = req.body?.description ? str(req.body.description, 4000) : null
+  const location = req.body?.location ? str(req.body.location, 140) : null
+  res.json({ event: createEvent({ title, description, startsAt, location }) })
+})
+
+app.put('/api/events/:id', ensureAdmin, (req, res) => {
+  const title = str(req.body?.title, 140)
+  const startsAt = str(req.body?.startsAt, 40)
+  if (!title || !startsAt) return res.status(400).json({ error: 'title and startsAt required' })
+  const description = req.body?.description ? str(req.body.description, 4000) : null
+  const location = req.body?.location ? str(req.body.location, 140) : null
+  const event = updateEvent(Number(req.params.id), { title, description, startsAt, location })
+  if (!event) return res.status(404).json({ error: 'not found' })
+  res.json({ event })
+})
+
+app.delete('/api/events/:id', ensureAdmin, (req, res) => {
+  if (!deleteEvent(Number(req.params.id))) return res.status(404).json({ error: 'not found' })
+  res.json({ ok: true })
+})
+
+// --- Suggestions (members post + vote, admins moderate) --------------------
+app.get('/api/suggestions', (req, res) => {
+  res.json({ suggestions: listSuggestions(req.user?.id || '') })
+})
+
+app.post('/api/suggestions', ensureAuth, (req, res) => {
+  const title = str(req.body?.title, 140)
+  if (!title) return res.status(400).json({ error: 'title required' })
+  const body = req.body?.body ? str(req.body.body, 2000) : null
+  res.json({
+    suggestion: createSuggestion({ title, body, authorId: req.user.id, authorName: req.user.username }),
+  })
+})
+
+app.post('/api/suggestions/:id/vote', ensureAuth, (req, res) => {
+  const id = Number(req.params.id)
+  if (!getSuggestion(id)) return res.status(404).json({ error: 'not found' })
+  res.json({ hasVoted: toggleVote(id, req.user.id) })
+})
+
+app.patch('/api/suggestions/:id/status', ensureAdmin, (req, res) => {
+  const { status } = req.body || {}
+  if (!['open', 'planned', 'done', 'declined'].includes(status)) {
+    return res.status(400).json({ error: 'invalid status' })
+  }
+  const suggestion = setSuggestionStatus(Number(req.params.id), status)
+  if (!suggestion) return res.status(404).json({ error: 'not found' })
+  res.json({ suggestion })
+})
+
+// Author or admin can delete a suggestion.
+app.delete('/api/suggestions/:id', ensureAuth, (req, res) => {
+  const id = Number(req.params.id)
+  const s = getSuggestion(id)
+  if (!s) return res.status(404).json({ error: 'not found' })
+  if (s.authorId !== req.user.id && req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'forbidden' })
+  }
+  deleteSuggestion(id)
+  res.json({ ok: true })
+})
 
 // List all registered members.
 app.get('/api/admin/users', ensureAdmin, (req, res) => {

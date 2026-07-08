@@ -38,7 +38,7 @@ export default function Members() {
   }, [])
 
   return (
-    <section className="section" id="members">
+    <section className="section section--alt" id="members">
       <div className="container">
         <div className="section__head">
           <p className="section__eyebrow">The crew</p>

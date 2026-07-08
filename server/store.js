@@ -7,34 +7,11 @@
 //
 // On first run it auto-migrates any accounts from the old users.json.
 // ---------------------------------------------------------------------------
-import { DatabaseSync } from 'node:sqlite'
-import { readFileSync, existsSync, mkdirSync } from 'node:fs'
-import { dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { readFileSync, existsSync } from 'node:fs'
+import { join } from 'node:path'
+import { db, DATA_DIR } from './db.js'
 
-const __dirname = dirname(fileURLToPath(import.meta.url))
-const DATA_DIR = join(__dirname, 'data')
-const DB_FILE = join(DATA_DIR, 'users.db')
 const LEGACY_JSON = join(DATA_DIR, 'users.json')
-
-if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true })
-
-const db = new DatabaseSync(DB_FILE)
-db.exec('PRAGMA journal_mode = WAL;') // better durability + concurrent reads
-db.exec(`
-  CREATE TABLE IF NOT EXISTS users (
-    id           TEXT PRIMARY KEY,
-    provider     TEXT NOT NULL,
-    providerId   TEXT NOT NULL,
-    username     TEXT NOT NULL,
-    avatar       TEXT,
-    profileUrl   TEXT,
-    role         TEXT NOT NULL DEFAULT 'member',
-    discordRoles TEXT,            -- JSON array of { id, name, color }
-    createdAt    TEXT NOT NULL,
-    lastLogin    TEXT NOT NULL
-  );
-`)
 
 // One-time migration from the old users.json (keeps existing accounts + roles).
 migrateFromJsonIfNeeded()

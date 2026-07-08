@@ -24,6 +24,18 @@ export const servers = [
     tags: ['Survival', 'PvE', 'Co-op'],
     // For live status via BattleMetrics: fill in the server id.
     battlemetricsId: '35400462',
+    details: {
+      wipe: 'No scheduled wipe — build to last',
+      rates: 'x3 Loot & Craft · full offline protection',
+      rules: [
+        'No griefing or claiming other players’ builds',
+        'PvP is off — this is a co-op server',
+        'Be respectful in chat and voice',
+        'No cheats, hacks, or exploits',
+      ],
+      mods: 'Vanilla+ quality-of-life tweaks. No pay-to-win.',
+      info: 'A relaxed server for building, exploring and beating the bosses together. Great for newcomers.',
+    },
   },
   {
     id: 'vrising-duo',
@@ -38,6 +50,18 @@ export const servers = [
     maxPlayers: 40,
     tags: ['Survival', 'PvP', 'Duo'],
     battlemetricsId: '38909658',
+    details: {
+      wipe: 'Monthly wipe — first Friday of the month',
+      rates: 'x3 Loot & Craft · max clan size 2',
+      rules: [
+        'Teams of max 2 players — no allying',
+        'Raiding is allowed; no stream-sniping or cheating',
+        'No blocking spawn or trader zones',
+        'No cheats, hacks, or exploits — instant ban',
+      ],
+      mods: 'Vanilla+ with raid-time restrictions. No pay-to-win.',
+      info: 'Hardcore duo PvP. Raid, defend and climb the ladder — fresh start every month.',
+    },
   },
 ]
 

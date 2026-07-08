@@ -1,8 +1,11 @@
 import Navbar from './components/Navbar.jsx'
 import Hero from './components/Hero.jsx'
 import Servers from './components/Servers.jsx'
+import News from './components/News.jsx'
+import Events from './components/Events.jsx'
 import Community from './components/Community.jsx'
 import Members from './components/Members.jsx'
+import Suggestions from './components/Suggestions.jsx'
 import Rules from './components/Rules.jsx'
 import Footer from './components/Footer.jsx'
 
@@ -13,8 +16,11 @@ export default function App() {
       <main>
         <Hero />
         <Servers />
-        <Community />
+        <News />
+        <Events />
         <Members />
+        <Suggestions />
+        <Community />
         <Rules />
       </main>
       <Footer />

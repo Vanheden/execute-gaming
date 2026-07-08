@@ -20,9 +20,10 @@ export default function Navbar() {
 
   const links = [
     ['Servers', '#servers'],
-    ['Community', '#community'],
+    ['News', '#news'],
+    ['Events', '#events'],
     ['Members', '#members'],
-    ['Rules', '#rules'],
+    ['Suggestions', '#suggestions'],
   ]
 
   return (

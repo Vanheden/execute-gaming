@@ -1,0 +1,154 @@
+import { useEffect, useState } from 'react'
+import { useAuth } from '../auth/AuthContext.jsx'
+import { apiGet, apiSend } from '../lib/api.js'
+
+const STATUSES = ['open', 'planned', 'done', 'declined']
+
+export default function Suggestions() {
+  const { user } = useAuth()
+  const isAdmin = user?.role === 'admin'
+  const [items, setItems] = useState(null)
+  const [title, setTitle] = useState('')
+  const [body, setBody] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  function load() {
+    apiGet('/api/suggestions').then((d) => setItems(d.suggestions)).catch(() => setItems([]))
+  }
+  useEffect(load, [user]) // reload when auth resolves so hasVoted is accurate
+
+  async function submit(e) {
+    e.preventDefault()
+    if (!title.trim()) return
+    setBusy(true)
+    try {
+      const { suggestion } = await apiSend('POST', '/api/suggestions', { title, body })
+      setItems((s) => [{ ...suggestion, votes: 0, hasVoted: false }, ...s])
+      setTitle('')
+      setBody('')
+    } catch {
+      /* ignore */
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function vote(id) {
+    if (!user) return
+    // optimistic
+    setItems((s) =>
+      s.map((it) =>
+        it.id === id ? { ...it, hasVoted: !it.hasVoted, votes: it.votes + (it.hasVoted ? -1 : 1) } : it,
+      ),
+    )
+    try {
+      await apiSend('POST', `/api/suggestions/${id}/vote`)
+    } catch {
+      load() // revert on failure
+    }
+  }
+
+  async function changeStatus(id, status) {
+    try {
+      await apiSend('PATCH', `/api/suggestions/${id}/status`, { status })
+      setItems((s) => s.map((it) => (it.id === id ? { ...it, status } : it)))
+    } catch {
+      /* ignore */
+    }
+  }
+
+  async function remove(id) {
+    if (!confirm('Delete this suggestion?')) return
+    try {
+      await apiSend('DELETE', `/api/suggestions/${id}`)
+      setItems((s) => s.filter((it) => it.id !== id))
+    } catch {
+      /* ignore */
+    }
+  }
+
+  return (
+    <section className="section" id="suggestions">
+      <div className="container">
+        <div className="section__head">
+          <p className="section__eyebrow">Your voice</p>
+          <h2 className="section__title">Suggestions</h2>
+          <p className="section__lead">Got an idea for the servers or community? Post it and vote on others.</p>
+        </div>
+
+        {user ? (
+          <form className="sugg__form" onSubmit={submit}>
+            <input
+              className="cform__input"
+              placeholder="Your idea in one line…"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              maxLength={140}
+              required
+            />
+            <textarea
+              className="cform__input cform__textarea"
+              placeholder="Details (optional)"
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+              rows={2}
+              maxLength={2000}
+            />
+            <div className="cform__actions">
+              <button className="btn btn--sm" disabled={busy}>{busy ? 'Posting…' : 'Post suggestion'}</button>
+            </div>
+          </form>
+        ) : (
+          <p className="empty">Log in to post a suggestion and vote.</p>
+        )}
+
+        <div className="sugg__list">
+          {(items || []).map((it) => {
+            const canDelete = isAdmin || it.authorId === user?.id
+            return (
+              <article className="sugg" key={it.id}>
+                <button
+                  className={`sugg__vote ${it.hasVoted ? 'sugg__vote--on' : ''}`}
+                  onClick={() => vote(it.id)}
+                  disabled={!user}
+                  title={user ? 'Vote' : 'Log in to vote'}
+                >
+                  <span className="sugg__arrow">▲</span>
+                  <span className="sugg__count">{it.votes}</span>
+                </button>
+                <div className="sugg__info">
+                  <h3 className="sugg__title">
+                    {it.title}
+                    <span className={`sbadge sbadge--${it.status}`}>{it.status}</span>
+                  </h3>
+                  {it.body && <p className="sugg__body">{it.body}</p>}
+                  <p className="sugg__meta">by {it.authorName || 'member'}</p>
+                  {(isAdmin || canDelete) && (
+                    <div className="news__admin">
+                      {isAdmin && (
+                        <select
+                          className="sugg__status"
+                          value={it.status}
+                          onChange={(e) => changeStatus(it.id, e.target.value)}
+                        >
+                          {STATUSES.map((s) => (
+                            <option key={s} value={s}>{s}</option>
+                          ))}
+                        </select>
+                      )}
+                      {canDelete && (
+                        <button className="linkbtn linkbtn--danger" onClick={() => remove(it.id)}>Delete</button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </article>
+            )
+          })}
+        </div>
+
+        {items && items.length === 0 && <p className="empty">No suggestions yet — be the first!</p>}
+      </div>
+    </section>
+  )
+}
