@@ -62,6 +62,8 @@ Ideas for growing the site, grouped by theme. Effort is a rough guide:
 
 - ~~SEO & social preview~~ ✅ — Open Graph/Twitter tags + generated card image.
 - ~~Automated DB backups~~ ✅ — `npm run backup` (VACUUM INTO); schedule via cron.
+- ~~One `.env` for dev & prod~~ ✅ — dev auto-uses localhost for OAuth; the
+  `PUBLIC_BASE_URL` in `.env` only applies when `NODE_ENV=production`.
 - **Security review** (S) — quick pass before wider launch / heavier traffic.
 - **Switch `passport-discord`** (S) — it's unmaintained; move to a maintained
   Discord strategy at some point.

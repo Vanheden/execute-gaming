@@ -34,6 +34,12 @@ npm run og-image   # regenerate the social-preview PNG (public/og-image.png)
 In dev, Vite (`:5173`) proxies `/auth` and `/api` to the backend (`:3001`) — see
 `vite.config.js`. This keeps everything same-origin so cookies work.
 
+**Dev vs prod base URL:** `PUBLIC_BASE_URL` is only used when `NODE_ENV=production`.
+In dev the backend always uses `http://localhost:5173` for OAuth callbacks and the
+post-login redirect, so a production `PUBLIC_BASE_URL` in `.env` won't bounce you to
+the live domain while developing — the same `.env` works on your machine and the VM.
+(Discord's app must whitelist **both** redirect URIs: the localhost and the prod one.)
+
 ## Architecture
 
 ### Frontend (`src/`)

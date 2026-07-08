@@ -38,8 +38,10 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 const app = express()
 const PORT = process.env.PORT || 3001
 const isProd = process.env.NODE_ENV === 'production'
-// Where to send the browser back to after login (the frontend).
-const FRONTEND = process.env.PUBLIC_BASE_URL || 'http://localhost:5173'
+// Where to send the browser back to after login (the frontend). In dev we always
+// use the local Vite server, so a production PUBLIC_BASE_URL in .env doesn't
+// bounce you to the live domain while developing.
+const FRONTEND = isProd ? process.env.PUBLIC_BASE_URL || 'http://localhost:5173' : 'http://localhost:5173'
 
 // Behind the host's HTTPS proxy in production; needed so secure cookies work.
 if (isProd) app.set('trust proxy', 1)

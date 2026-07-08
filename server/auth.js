@@ -13,8 +13,11 @@ import { fetchGuildMemberRoles, resolveRoles } from './discord.js'
 const DiscordStrategy = discordPkg.Strategy || discordPkg
 const SteamStrategy = steamPkg.Strategy || steamPkg
 
-// Public URL the browser uses (goes through the Vite proxy in dev).
-const BASE = process.env.PUBLIC_BASE_URL || 'http://localhost:5173'
+// Public URL the browser uses for OAuth callbacks. In dev we always use the
+// local Vite server (via its proxy) so a production PUBLIC_BASE_URL in .env
+// doesn't send the OAuth round-trip to the live domain while developing.
+const isProd = process.env.NODE_ENV === 'production'
+const BASE = isProd ? process.env.PUBLIC_BASE_URL || 'http://localhost:5173' : 'http://localhost:5173'
 
 export const enabledProviders = {
   discord: Boolean(process.env.DISCORD_CLIENT_ID && process.env.DISCORD_CLIENT_SECRET),
