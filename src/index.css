@@ -464,6 +464,9 @@ body.has-banner .nav {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(310px, 1fr));
   gap: 26px;
+  /* Don't stretch a collapsed card to match an expanded one — each card is only
+     as tall as its own content, so expanding details doesn't leave a big gap. */
+  align-items: start;
 }
 .card {
   position: relative;
