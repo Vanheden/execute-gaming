@@ -3,6 +3,7 @@ import { apiGet, apiSend } from '../lib/api.js'
 import { ACHIEVEMENTS, GRANTABLE } from '../data/achievements.js'
 import { linkProps } from '../lib/router.js'
 import Badges from './Badges.jsx'
+import { useConfirm } from './ConfirmProvider.jsx'
 
 function Avatar({ user, size = 38 }) {
   const style = { width: size, height: size }
@@ -29,6 +30,7 @@ function MemberRow({ m, currentUser, onPatch }) {
   const [busy, setBusy] = useState(false)
   const [note, setNote] = useState(m.note || '')
   const [grant, setGrant] = useState('')
+  const { confirm, prompt } = useConfirm()
   const isSelf = m.id === currentUser.id
 
   const granted = (m.badges || []).filter((b) => GRANTABLE.includes(b.code)).map((b) => b.code)
@@ -47,8 +49,16 @@ function MemberRow({ m, currentUser, onPatch }) {
     run(async () => {
       let reason = null
       if (!m.banned) {
-        reason = window.prompt('Ban reason (optional):') // eslint-disable-line no-alert
-        if (reason === null && !window.confirm('Ban without a reason?')) return // eslint-disable-line no-alert
+        reason = await prompt({
+          title: `Ban ${m.username}?`,
+          message: "They'll be hidden from the roster and logged out on their next login.",
+          placeholder: 'Reason (optional)',
+          confirmLabel: 'Ban',
+          danger: true,
+        })
+        if (reason === null) return // cancelled
+      } else if (!(await confirm({ title: `Unban ${m.username}?`, confirmLabel: 'Unban' }))) {
+        return
       }
       const { user } = await apiSend('POST', `/api/admin/users/${encodeURIComponent(m.id)}/ban`, {
         banned: !m.banned,

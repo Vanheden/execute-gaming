@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../auth/AuthContext.jsx'
 import { apiGet, apiSend } from '../lib/api.js'
+import { useConfirm } from './ConfirmProvider.jsx'
 
 function fmt(iso) {
   return new Date(iso).toLocaleString(undefined, {
@@ -93,6 +94,7 @@ function EventCard({ ev, past, isAdmin, onEdit, onDelete }) {
 
 export default function Events() {
   const { user } = useAuth()
+  const { confirm } = useConfirm()
   const isAdmin = user?.role === 'admin'
   const [events, setEvents] = useState(null)
   const [editing, setEditing] = useState(undefined)
@@ -109,7 +111,13 @@ export default function Events() {
   }
 
   async function remove(id) {
-    if (!confirm('Delete this event?')) return
+    const ok = await confirm({
+      title: 'Delete event?',
+      message: 'This permanently removes the event.',
+      confirmLabel: 'Delete',
+      danger: true,
+    })
+    if (!ok) return
     try {
       await apiSend('DELETE', `/api/events/${id}`)
       setEvents((es) => es.filter((e) => e.id !== id))

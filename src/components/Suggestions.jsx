@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../auth/AuthContext.jsx'
 import { apiGet, apiSend } from '../lib/api.js'
+import { useConfirm } from './ConfirmProvider.jsx'
 
 const STATUSES = ['open', 'planned', 'done', 'declined']
 
 export default function Suggestions() {
   const { user } = useAuth()
+  const { confirm } = useConfirm()
   const isAdmin = user?.role === 'admin'
   const [items, setItems] = useState(null)
   const [title, setTitle] = useState('')
@@ -58,7 +60,13 @@ export default function Suggestions() {
   }
 
   async function remove(id) {
-    if (!confirm('Delete this suggestion?')) return
+    const ok = await confirm({
+      title: 'Delete suggestion?',
+      message: 'This permanently removes the suggestion and its votes.',
+      confirmLabel: 'Delete',
+      danger: true,
+    })
+    if (!ok) return
     try {
       await apiSend('DELETE', `/api/suggestions/${id}`)
       setItems((s) => s.filter((it) => it.id !== id))

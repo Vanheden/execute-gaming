@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../auth/AuthContext.jsx'
 import { apiGet, apiSend } from '../lib/api.js'
+import { useConfirm } from './ConfirmProvider.jsx'
 
 function fmt(iso) {
   return new Date(iso).toLocaleDateString(undefined, {
@@ -56,6 +57,7 @@ function PostForm({ initial, onClose, onSaved }) {
 
 export default function News() {
   const { user } = useAuth()
+  const { confirm } = useConfirm()
   const isAdmin = user?.role === 'admin'
   const [posts, setPosts] = useState(null)
   const [editing, setEditing] = useState(undefined) // undefined = closed, null = new, obj = edit
@@ -69,7 +71,13 @@ export default function News() {
   }
 
   async function remove(id) {
-    if (!confirm('Delete this post?')) return
+    const ok = await confirm({
+      title: 'Delete post?',
+      message: 'This permanently removes the news post.',
+      confirmLabel: 'Delete',
+      danger: true,
+    })
+    if (!ok) return
     try {
       await apiSend('DELETE', `/api/news/${id}`)
       setPosts((ps) => ps.filter((p) => p.id !== id))
