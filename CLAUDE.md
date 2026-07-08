@@ -45,11 +45,15 @@ the live domain while developing — the same `.env` works on your machine and t
 ### Frontend (`src/`)
 
 - `main.jsx` wraps `<App>` in `<AuthProvider>`.
-- `App.jsx` composes sections and does tiny client-side routing: `/u/:key`
-  renders `<PublicProfile>`, everything else is the one-page site. It also fires
-  the privacy-friendly page-view beacon (`POST /api/hit`).
+- `App.jsx` composes the home page (Hero → Servers → News → Community → Rules)
+  and does tiny client-side routing via a `PAGES` map: `/events`, `/members`,
+  `/achievements`, `/suggestions` render that one section as a standalone page,
+  `/u/:key` renders `<PublicProfile>`, everything else is the home page. It also
+  fires the privacy-friendly page-view beacon (`POST /api/hit`).
 - `lib/router.js` — dependency-free History-API router (`usePath`, `navigate`,
-  `linkProps`). Only route is the shareable public profile page.
+  `linkProps`). `navigate` also handles `/#section` links (jump to a home
+  section) and scroll-to-top on plain page changes. The SPA fallback
+  (`app.get('*')` in prod, Vite in dev) serves these deep links.
 - `data/servers.js` — **single source of truth** for server cards + community
   links (Discord invite, name). Edit content here.
 - `data/achievements.js` — **single source of truth** for the badge catalog,

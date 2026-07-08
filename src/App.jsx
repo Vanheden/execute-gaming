@@ -15,6 +15,18 @@ import PublicProfile from './components/PublicProfile.jsx'
 import { usePath } from './lib/router.js'
 import { useAuth } from './auth/AuthContext.jsx'
 
+// Fire-and-forget, privacy-friendly page-view beacon (no cookies/PII).
+function useAnalytics(path) {
+  useEffect(() => {
+    fetch('/api/hit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path }),
+      keepalive: true,
+    }).catch(() => {})
+  }, [path])
+}
+
 function LoginToast() {
   const { notice, clearNotice } = useAuth()
   if (!notice) return null
@@ -28,21 +40,39 @@ function LoginToast() {
   )
 }
 
-// Fire-and-forget, privacy-friendly page-view beacon (no cookies/PII).
-function useAnalytics(path) {
-  useEffect(() => {
-    fetch('/api/hit', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ path }),
-      keepalive: true,
-    }).catch(() => {})
-  }, [path])
+// Shared chrome for every routed page. `standalone` pages (not the home page)
+// get top padding so the first section clears the fixed navbar.
+function Layout({ children, standalone }) {
+  return (
+    <>
+      <LoginToast />
+      <AnnouncementBanner />
+      <Navbar />
+      <main className={standalone ? 'main--page' : undefined}>{children}</main>
+      <Footer />
+    </>
+  )
+}
+
+// Standalone feature pages: path → the section component to show.
+const PAGES = {
+  '/events': Events,
+  '/members': Members,
+  '/achievements': Achievements,
+  '/suggestions': Suggestions,
 }
 
 export default function App() {
   const path = usePath()
   useAnalytics(path)
+
+  // Deep-link / reload onto a home #section (e.g. /#news).
+  useEffect(() => {
+    if (path === '/' && window.location.hash) {
+      const id = window.location.hash.slice(1)
+      setTimeout(() => document.getElementById(id)?.scrollIntoView(), 80)
+    }
+  }, [path])
 
   const profileMatch = path.match(/^\/u\/([^/]+)\/?$/)
   if (profileMatch)
@@ -53,23 +83,21 @@ export default function App() {
       </>
     )
 
+  const Page = PAGES[path.replace(/\/$/, '')]
+  if (Page)
+    return (
+      <Layout standalone>
+        <Page />
+      </Layout>
+    )
+
   return (
-    <>
-      <LoginToast />
-      <AnnouncementBanner />
-      <Navbar />
-      <main>
-        <Hero />
-        <Servers />
-        <News />
-        <Events />
-        <Members />
-        <Achievements />
-        <Suggestions />
-        <Community />
-        <Rules />
-      </main>
-      <Footer />
-    </>
+    <Layout>
+      <Hero />
+      <Servers />
+      <News />
+      <Community />
+      <Rules />
+    </Layout>
   )
 }

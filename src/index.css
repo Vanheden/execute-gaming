@@ -2509,3 +2509,25 @@ body.has-banner .nav {
   font-weight: 700;
   color: var(--text-faint);
 }
+
+/* --------------------------------------------------------------------------
+   Standalone feature pages (/events, /members, /achievements, /suggestions)
+   -------------------------------------------------------------------------- */
+.main--page {
+  padding-top: 72px; /* clear the fixed navbar */
+  min-height: 70vh;
+}
+.main--page > .section:first-child {
+  padding-top: 48px;
+}
+.nav__link--on {
+  color: #fff;
+}
+.nav__link--on::after {
+  content: '';
+  display: block;
+  height: 2px;
+  border-radius: 2px;
+  margin-top: 3px;
+  background: var(--grad-cta);
+}
