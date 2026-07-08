@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="pveSky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#081820"/>
+      <stop offset="0.55" stop-color="#0d2b33"/>
+      <stop offset="1" stop-color="#123f46"/>
+    </linearGradient>
+    <radialGradient id="pveMoon" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#ecffff"/>
+      <stop offset="0.55" stop-color="#bff0f6"/>
+      <stop offset="1" stop-color="#bff0f6" stop-opacity="0"/>
+    </radialGradient>
+    <g id="batPve">
+      <path d="M24 6 C21 1 15 3 14 8 C12 3 6 2 3 6 C8 5 8 11 5 13 C10 11 13 11 14 15 C16 10 19 10 24 12 C29 10 32 10 34 15 C35 11 38 11 43 13 C40 11 40 5 45 6 C42 2 36 3 34 8 C33 3 27 1 24 6 Z"/>
+    </g>
+  </defs>
+
+  <rect width="640" height="360" fill="url(#pveSky)"/>
+
+  <!-- moon -->
+  <circle cx="475" cy="118" r="130" fill="url(#pveMoon)" opacity="0.55"/>
+  <circle cx="475" cy="118" r="60" fill="#ecffff"/>
+  <circle cx="505" cy="100" r="11" fill="#c8e8ee" opacity="0.55"/>
+  <circle cx="455" cy="140" r="7" fill="#c8e8ee" opacity="0.5"/>
+  <circle cx="492" cy="150" r="5" fill="#c8e8ee" opacity="0.5"/>
+
+  <!-- stars -->
+  <g fill="#dcf7fc">
+    <circle cx="70" cy="55" r="1.7"/><circle cx="150" cy="100" r="1.2"/>
+    <circle cx="250" cy="45" r="1.6"/><circle cx="330" cy="85" r="1.1"/>
+    <circle cx="600" cy="60" r="1.4"/><circle cx="560" cy="150" r="1.1"/>
+  </g>
+
+  <!-- bats -->
+  <g fill="#04121a">
+    <use href="#batPve" transform="translate(150 70) scale(1.2)"/>
+    <use href="#batPve" transform="translate(250 120) scale(0.8)"/>
+    <use href="#batPve" transform="translate(95 150) scale(0.6)"/>
+  </g>
+
+  <!-- castle -->
+  <g fill="#05131b">
+    <rect x="0" y="300" width="150" height="60"/>
+    <rect x="10" y="292" width="14" height="10"/><rect x="40" y="292" width="14" height="10"/>
+    <rect x="70" y="292" width="14" height="10"/><rect x="100" y="292" width="14" height="10"/>
+    <rect x="96" y="230" width="46" height="130"/>
+    <path d="M92 230 L119 196 L146 230 Z"/>
+    <rect x="250" y="205" width="150" height="155"/>
+    <path d="M244 205 L325 150 L406 205 Z"/>
+    <rect x="470" y="250" width="42" height="110"/>
+    <path d="M466 250 L491 216 L516 250 Z"/>
+    <rect x="512" y="300" width="128" height="60"/>
+    <rect x="524" y="292" width="14" height="10"/><rect x="554" y="292" width="14" height="10"/>
+    <rect x="584" y="292" width="14" height="10"/><rect x="614" y="292" width="14" height="10"/>
+  </g>
+
+  <!-- lit windows -->
+  <g fill="#ffcf6b">
+    <rect x="112" y="255" width="8" height="14" rx="2"/>
+    <rect x="316" y="272" width="10" height="18" rx="2"/>
+    <rect x="352" y="276" width="8" height="15" rx="2"/>
+    <rect x="486" y="272" width="8" height="14" rx="2"/>
+  </g>
+
+  <!-- fog -->
+  <rect y="320" width="640" height="40" fill="#123f46" opacity="0.55"/>
+</svg>
