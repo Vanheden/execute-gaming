@@ -13,7 +13,7 @@ import { createHash } from 'node:crypto'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { configureAuth, enabledProviders } from './auth.js'
-import { listUsers, setRole } from './store.js'
+import { listUsers, setRole, updateProfile } from './store.js'
 import { startPolling, getHistory } from './stats.js'
 import {
   listNews,
@@ -30,6 +30,8 @@ import {
   toggleVote,
   setSuggestionStatus,
   deleteSuggestion,
+  getAnnouncement,
+  setAnnouncement,
 } from './content.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -97,6 +99,17 @@ app.get('/api/config', (req, res) => res.json({ providers: enabledProviders }))
 // The currently logged-in user (or null).
 app.get('/api/me', (req, res) => res.json({ user: req.user || null }))
 
+// --- Announcement banner (public read, admin write) ------------------------
+app.get('/api/announcement', (req, res) => res.json({ announcement: getAnnouncement() }))
+
+app.put('/api/announcement', ensureAdmin, (req, res) => {
+  const message = req.body?.message ? str(req.body.message, 280) : null
+  const level = ['info', 'warning', 'critical'].includes(req.body?.level)
+    ? req.body.level
+    : 'info'
+  res.json({ announcement: setAnnouncement({ message, level }) })
+})
+
 // Player-count history for a server (public). ?hours= (default 24, max 168).
 app.get('/api/servers/:id/history', (req, res) => {
   const hours = Math.min(Math.max(Number(req.query.hours) || 24, 1), 168)
@@ -114,9 +127,21 @@ app.get('/api/members', (req, res) => {
     provider: u.provider,
     role: u.role,
     discordRoles: u.discordRoles || [],
+    bio: u.bio || null,
+    favoriteServer: u.favoriteServer || null,
     createdAt: u.createdAt,
   }))
   res.json({ members })
+})
+
+// Update your own profile (bio + favourite server).
+app.put('/api/me/profile', (req, res) => {
+  if (!req.user) return res.status(401).json({ error: 'unauthorized' })
+  const bio = req.body?.bio ? str(req.body.bio, 500) : null
+  const favoriteServer = req.body?.favoriteServer ? str(req.body.favoriteServer, 60) : null
+  const user = updateProfile(req.user.id, { bio, favoriteServer })
+  if (!user) return res.status(404).json({ error: 'not found' })
+  res.json({ user })
 })
 
 // --- Auth guards -----------------------------------------------------------

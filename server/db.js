@@ -21,16 +21,18 @@ db.exec('PRAGMA foreign_keys = ON;')
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS users (
-    id           TEXT PRIMARY KEY,
-    provider     TEXT NOT NULL,
-    providerId   TEXT NOT NULL,
-    username     TEXT NOT NULL,
-    avatar       TEXT,
-    profileUrl   TEXT,
-    role         TEXT NOT NULL DEFAULT 'member',
-    discordRoles TEXT,
-    createdAt    TEXT NOT NULL,
-    lastLogin    TEXT NOT NULL
+    id             TEXT PRIMARY KEY,
+    provider       TEXT NOT NULL,
+    providerId     TEXT NOT NULL,
+    username       TEXT NOT NULL,
+    avatar         TEXT,
+    profileUrl     TEXT,
+    role           TEXT NOT NULL DEFAULT 'member',
+    discordRoles   TEXT,
+    bio            TEXT,
+    favoriteServer TEXT,
+    createdAt      TEXT NOT NULL,
+    lastLogin      TEXT NOT NULL
   );
 
   CREATE TABLE IF NOT EXISTS news (
@@ -76,4 +78,19 @@ db.exec(`
     at         TEXT NOT NULL
   );
   CREATE INDEX IF NOT EXISTS idx_stats_server_at ON server_stats(serverId, at);
+
+  CREATE TABLE IF NOT EXISTS settings (
+    key   TEXT PRIMARY KEY,
+    value TEXT
+  );
 `)
+
+// --- Lightweight column migrations (for DBs created before a column existed) -
+function ensureColumn(table, column, def) {
+  const cols = db.prepare(`PRAGMA table_info(${table})`).all()
+  if (!cols.some((c) => c.name === column)) {
+    db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${def}`)
+  }
+}
+ensureColumn('users', 'bio', 'TEXT')
+ensureColumn('users', 'favoriteServer', 'TEXT')

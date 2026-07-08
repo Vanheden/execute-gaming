@@ -1,3 +1,4 @@
+import AnnouncementBanner from './components/AnnouncementBanner.jsx'
 import Navbar from './components/Navbar.jsx'
 import Hero from './components/Hero.jsx'
 import Servers from './components/Servers.jsx'
@@ -12,6 +13,7 @@ import Footer from './components/Footer.jsx'
 export default function App() {
   return (
     <>
+      <AnnouncementBanner />
       <Navbar />
       <main>
         <Hero />

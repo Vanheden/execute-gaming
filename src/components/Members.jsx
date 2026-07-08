@@ -1,4 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { servers } from '../data/servers.js'
+
+function serverName(id) {
+  return servers.find((s) => s.id === id)?.name || id
+}
 
 function RoleTags({ roles }) {
   const named = (roles || []).filter((r) => r.name)
@@ -27,8 +32,16 @@ function Avatar({ m }) {
   )
 }
 
+const FILTERS = [
+  ['all', 'Everyone'],
+  ['admin', 'Admins'],
+  ['member', 'Members'],
+]
+
 export default function Members() {
   const [members, setMembers] = useState(null)
+  const [query, setQuery] = useState('')
+  const [filter, setFilter] = useState('all')
 
   useEffect(() => {
     fetch('/api/members')
@@ -36,6 +49,19 @@ export default function Members() {
       .then((d) => setMembers(d.members || []))
       .catch(() => setMembers([]))
   }, [])
+
+  const shown = useMemo(() => {
+    if (!members) return []
+    const q = query.trim().toLowerCase()
+    return members.filter((m) => {
+      if (filter === 'admin' && m.role !== 'admin') return false
+      if (filter === 'member' && m.role === 'admin') return false
+      if (q && !m.username?.toLowerCase().includes(q)) return false
+      return true
+    })
+  }, [members, query, filter])
+
+  const total = members?.length || 0
 
   return (
     <section className="section section--alt" id="members">
@@ -46,33 +72,65 @@ export default function Members() {
           <p className="section__lead">
             {members === null
               ? 'Loading the roster…'
-              : members.length === 0
+              : total === 0
                 ? 'No members yet — be the first to sign in!'
-                : `${members.length} legends have joined, in order of arrival.`}
+                : `${total} legends have joined, in order of arrival.`}
           </p>
         </div>
 
-        {members && members.length > 0 && (
-          <div className="mroster">
-            {members.map((m, i) => (
-              <article className="mroster__card" key={m.key}>
-                <span className={`mroster__rank ${i < 3 ? 'mroster__rank--top' : ''}`}>
-                  #{i + 1}
-                </span>
-                <Avatar m={m} />
-                <div className="mroster__info">
-                  <span className="mroster__name">
-                    {m.username}
-                    {m.role === 'admin' && <span className="badge badge--admin">Admin</span>}
-                  </span>
-                  <span className={`provider provider--${m.provider}`}>
-                    {m.provider === 'discord' ? 'Discord' : m.provider === 'steam' ? 'Steam' : m.provider}
-                  </span>
-                  <RoleTags roles={m.discordRoles} />
-                </div>
-              </article>
-            ))}
-          </div>
+        {members && total > 0 && (
+          <>
+            <div className="mfilter">
+              <input
+                className="mfilter__search"
+                type="search"
+                placeholder="Search members…"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                aria-label="Search members by name"
+              />
+              <div className="mfilter__tabs">
+                {FILTERS.map(([val, label]) => (
+                  <button
+                    key={val}
+                    className={`mfilter__tab ${filter === val ? 'mfilter__tab--on' : ''}`}
+                    onClick={() => setFilter(val)}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {shown.length === 0 ? (
+              <p className="empty">No members match your search.</p>
+            ) : (
+              <div className="mroster">
+                {shown.map((m, i) => (
+                  <article className="mroster__card" key={m.key}>
+                    <span className={`mroster__rank ${i < 3 && filter === 'all' && !query ? 'mroster__rank--top' : ''}`}>
+                      #{members.indexOf(m) + 1}
+                    </span>
+                    <Avatar m={m} />
+                    <div className="mroster__info">
+                      <span className="mroster__name">
+                        {m.username}
+                        {m.role === 'admin' && <span className="badge badge--admin">Admin</span>}
+                      </span>
+                      <span className={`provider provider--${m.provider}`}>
+                        {m.provider === 'discord' ? 'Discord' : m.provider === 'steam' ? 'Steam' : m.provider}
+                      </span>
+                      <RoleTags roles={m.discordRoles} />
+                      {m.favoriteServer && (
+                        <span className="mroster__fav">★ {serverName(m.favoriteServer)}</span>
+                      )}
+                      {m.bio && <p className="mroster__bio">{m.bio}</p>}
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+          </>
         )}
       </div>
     </section>

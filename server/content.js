@@ -122,3 +122,30 @@ export function setSuggestionStatus(id, status) {
 export function deleteSuggestion(id) {
   return db.prepare('DELETE FROM suggestions WHERE id = ?').run(id).changes > 0
 }
+
+// --- Settings / announcement -----------------------------------------------
+// A single site-wide banner, stored as JSON under the 'announcement' key.
+// Returns null when there's nothing to show.
+export function getAnnouncement() {
+  const row = db.prepare("SELECT value FROM settings WHERE key = 'announcement'").get()
+  if (!row?.value) return null
+  try {
+    return JSON.parse(row.value)
+  } catch {
+    return null
+  }
+}
+
+// Pass an empty message to clear the banner.
+export function setAnnouncement({ message, level }) {
+  if (!message) {
+    db.prepare("DELETE FROM settings WHERE key = 'announcement'").run()
+    return null
+  }
+  const value = { message, level: level || 'info', updatedAt: now() }
+  db.prepare(
+    `INSERT INTO settings (key, value) VALUES ('announcement', ?)
+     ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+  ).run(JSON.stringify(value))
+  return value
+}

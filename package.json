@@ -9,7 +9,9 @@
     "dev:all": "concurrently -n web,api -c cyan,magenta \"vite\" \"node server/index.js\"",
     "build": "vite build",
     "preview": "vite preview",
-    "start": "node server/index.js"
+    "start": "node server/index.js",
+    "backup": "node scripts/backup.mjs",
+    "og-image": "node scripts/make-og-image.mjs"
   },
   "dependencies": {
     "dotenv": "^16.4.7",

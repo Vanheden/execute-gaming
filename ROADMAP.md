@@ -18,6 +18,10 @@ Ideas for growing the site, grouped by theme. Effort is a rough guide:
 - **Server detail pages** — per-server rules, rates, wipe, mods, connect info
   (always-visible inline under each server card)
 - **Live player-count graph** — BattleMetrics history stored + charted (24h / 7d)
+- **Announcement banner** — admin-set, dismissible site-wide notice
+- **Richer profiles + member search** — bio/favourite server, roster search & filter
+- **SEO & social preview** — Open Graph/Twitter tags + generated card image
+- **Automated DB backups** — `npm run backup` (VACUUM INTO) + cron
 
 ---
 
@@ -38,16 +42,16 @@ Ideas for growing the site, grouped by theme. Effort is a rough guide:
 
 ## 👥 Community & members
 
-- **Richer profiles** (M ⭐) — bio, favourite server, playtime, badges.
-- **Member search & filters** (S ⭐) — search the roster by name/role as it grows.
+- ~~Richer profiles~~ ✅ — bio + favourite server, editable on your profile.
+- ~~Member search & filters~~ ✅ — search the roster by name + filter by role.
 - **Public profile pages** (M) — shareable `/u/username` pages.
 - **Achievements / badges** (M ⭐) — founding member, veteran, event winner, etc.
 
 ## 🛠️ Admin & operations
 
+- ~~Announcement banner~~ ✅ — dismissible site-wide notice (info/warning/critical).
 - **Extended admin panel** (M ⭐) — ban list, member notes, activity log.
 - **Audit log** (S ⭐) — record role changes and admin actions.
-- **Announcement banner** (S) — a dismissible site-wide notice for wipes/downtime.
 
 ## 💜 Support the community (optional)
 
@@ -56,9 +60,8 @@ Ideas for growing the site, grouped by theme. Effort is a rough guide:
 
 ## ✨ Polish & infra
 
-- **SEO & social preview** (S) — Open Graph image/tags so links look good in
-  Discord/Twitter.
-- **Automated DB backups** (S) — nightly copy of `server/data/` off the VM.
+- ~~SEO & social preview~~ ✅ — Open Graph/Twitter tags + generated card image.
+- ~~Automated DB backups~~ ✅ — `npm run backup` (VACUUM INTO); schedule via cron.
 - **Security review** (S) — quick pass before wider launch / heavier traffic.
 - **Switch `passport-discord`** (S) — it's unmaintained; move to a maintained
   Discord strategy at some point.

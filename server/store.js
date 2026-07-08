@@ -67,6 +67,8 @@ function rowToUser(row) {
     profileUrl: row.profileUrl ?? null,
     role: row.role,
     discordRoles: row.discordRoles ? JSON.parse(row.discordRoles) : [],
+    bio: row.bio ?? null,
+    favoriteServer: row.favoriteServer ?? null,
     createdAt: row.createdAt,
     lastLogin: row.lastLogin,
   }
@@ -139,6 +141,15 @@ export function listUsers() {
 
 export function setRole(id, role) {
   const res = db.prepare('UPDATE users SET role = ? WHERE id = ?').run(role, id)
+  if (res.changes === 0) return null
+  return getUserById(id)
+}
+
+// A member editing their own profile (bio + favourite server).
+export function updateProfile(id, { bio, favoriteServer }) {
+  const res = db
+    .prepare('UPDATE users SET bio = ?, favoriteServer = ? WHERE id = ?')
+    .run(bio ?? null, favoriteServer ?? null, id)
   if (res.changes === 0) return null
   return getUserById(id)
 }

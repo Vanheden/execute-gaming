@@ -1,5 +1,11 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../auth/AuthContext.jsx'
+import { servers } from '../data/servers.js'
+import { apiSend } from '../lib/api.js'
+
+function serverName(id) {
+  return servers.find((s) => s.id === id)?.name || id
+}
 
 function formatDate(iso) {
   if (!iso) return '—'
@@ -25,17 +31,75 @@ function ProviderChip({ provider }) {
   return <span className={`provider provider--${provider}`}>{label}</span>
 }
 
+function ProfileEditForm({ user, onCancel, onSaved }) {
+  const [bio, setBio] = useState(user.bio || '')
+  const [favoriteServer, setFavoriteServer] = useState(user.favoriteServer || '')
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+
+  async function submit(e) {
+    e.preventDefault()
+    setBusy(true)
+    setErr('')
+    try {
+      await apiSend('PUT', '/api/me/profile', { bio, favoriteServer })
+      await onSaved()
+    } catch {
+      setErr('Could not save — try again.')
+      setBusy(false)
+    }
+  }
+
+  return (
+    <form className="cform pf__editform" onSubmit={submit}>
+      <label className="cform__label">Bio</label>
+      <textarea
+        className="cform__input cform__textarea"
+        value={bio}
+        onChange={(e) => setBio(e.target.value)}
+        rows={3}
+        maxLength={500}
+        placeholder="A few words about you…"
+      />
+      <label className="cform__label">Favourite server</label>
+      <select
+        className="cform__input"
+        value={favoriteServer}
+        onChange={(e) => setFavoriteServer(e.target.value)}
+      >
+        <option value="">— none —</option>
+        {servers.map((s) => (
+          <option key={s.id} value={s.id}>
+            {s.name}
+          </option>
+        ))}
+      </select>
+      {err && <p className="cform__err">{err}</p>}
+      <div className="cform__actions">
+        <button type="button" className="btn btn--ghost btn--sm" onClick={onCancel} disabled={busy}>
+          Cancel
+        </button>
+        <button type="submit" className="btn btn--sm" disabled={busy}>
+          {busy ? 'Saving…' : 'Save profile'}
+        </button>
+      </div>
+    </form>
+  )
+}
+
 export default function ProfileModal({ open, onClose }) {
-  const { user, logout } = useAuth()
+  const { user, logout, refresh } = useAuth()
   const [tab, setTab] = useState('profile')
   const [members, setMembers] = useState(null)
   const [busy, setBusy] = useState('')
+  const [editingProfile, setEditingProfile] = useState(false)
   const isAdmin = user?.role === 'admin'
 
   useEffect(() => {
     if (!open) {
       setTab('profile')
       setMembers(null)
+      setEditingProfile(false)
     }
   }, [open])
 
@@ -146,6 +210,35 @@ export default function ProfileModal({ open, onClose }) {
                       </span>
                     ))}
                 </div>
+              </div>
+            )}
+
+            {editingProfile ? (
+              <ProfileEditForm
+                user={user}
+                onCancel={() => setEditingProfile(false)}
+                onSaved={async () => {
+                  await refresh()
+                  setEditingProfile(false)
+                }}
+              />
+            ) : (
+              <div className="pf__about">
+                <div className="pf__aboutrow">
+                  <span className="pf__roleslabel">About me</span>
+                  <button className="linkbtn" onClick={() => setEditingProfile(true)}>
+                    Edit profile
+                  </button>
+                </div>
+                <p className="pf__bio">
+                  {user.bio || <span className="pf__bio--empty">No bio yet — tell the crew about yourself.</span>}
+                </p>
+                {user.favoriteServer && (
+                  <p className="pf__fav">
+                    <span className="pf__roleslabel">Favourite server</span>
+                    {serverName(user.favoriteServer)}
+                  </p>
+                )}
               </div>
             )}
 
