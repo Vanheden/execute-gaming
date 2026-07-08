@@ -43,12 +43,6 @@ function MemberRow({ m, currentUser, onPatch }) {
     }
   }
 
-  const changeRole = (role) =>
-    run(async () => {
-      await apiSend('POST', `/api/admin/users/${encodeURIComponent(m.id)}/role`, { role })
-      onPatch(m.id, { role })
-    })
-
   const toggleBan = () =>
     run(async () => {
       let reason = null
@@ -170,15 +164,7 @@ function MemberRow({ m, currentUser, onPatch }) {
               View public profile ↗
             </a>
             <div className="amrow__actions-r">
-              {m.role === 'admin' ? (
-                <button className="btn btn--ghost btn--sm" disabled={busy} onClick={() => changeRole('member')}>
-                  Demote
-                </button>
-              ) : (
-                <button className="btn btn--sm" disabled={busy} onClick={() => changeRole('admin')}>
-                  Make admin
-                </button>
-              )}
+              {m.role === 'admin' && <span className="amrow__muted">Admin via .env</span>}
               {!isSelf && (
                 <button className={`btn btn--sm ${m.banned ? '' : 'btn--danger'}`} disabled={busy} onClick={toggleBan}>
                   {m.banned ? 'Unban' : 'Ban'}

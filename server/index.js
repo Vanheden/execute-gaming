@@ -17,14 +17,19 @@ import {
   listUsers,
   listUsersAdmin,
   getUserById,
-  setRole,
   setBan,
   setNote,
   updateProfile,
 } from './store.js'
 import { startPolling, getHistory } from './stats.js'
 import { fetchWidget } from './discord.js'
-import { badgesForUser, grantAchievement, revokeAchievement, GRANTABLE } from './achievements.js'
+import {
+  badgesForUser,
+  grantAchievement,
+  revokeAchievement,
+  catalogWithCounts,
+  GRANTABLE,
+} from './achievements.js'
 import { logAudit, listAudit } from './audit.js'
 import { recordHit, summary as analyticsSummary } from './analytics.js'
 import {
@@ -240,6 +245,12 @@ app.get('/api/profile/:key', (req, res) => {
   res.json({ member: publicMember(all[i], i + 1) })
 })
 
+// Full achievement catalog with holder counts (public).
+app.get('/api/achievements', (req, res) => {
+  const members = listUsers().filter((u) => !u.banned)
+  res.json({ achievements: catalogWithCounts(members) })
+})
+
 // --- Live Discord widget (public) ------------------------------------------
 app.get('/api/discord/widget', async (req, res) => {
   const widget = await fetchWidget(process.env.DISCORD_GUILD_ID)
@@ -378,17 +389,8 @@ app.get('/api/admin/users', ensureAdmin, (req, res) => {
   res.json({ users })
 })
 
-// Promote / demote a member.
-app.post('/api/admin/users/:id/role', ensureAdmin, (req, res) => {
-  const { role } = req.body || {}
-  if (!['admin', 'member'].includes(role)) {
-    return res.status(400).json({ error: 'invalid role' })
-  }
-  const user = setRole(req.params.id, role)
-  if (!user) return res.status(404).json({ error: 'not found' })
-  logAudit({ actor: req.user, action: 'role.set', targetId: user.id, targetName: user.username, detail: role })
-  res.json({ user })
-})
+// Note: admin role is env-driven (DISCORD_ADMIN_USER_IDS / DISCORD_ADMIN_ROLE_IDS)
+// and recomputed on every login, so there's no manual promote/demote endpoint.
 
 // Ban / unban a member. They're logged out on their next login attempt.
 app.post('/api/admin/users/:id/ban', ensureAdmin, (req, res) => {

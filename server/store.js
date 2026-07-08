@@ -47,10 +47,11 @@ function migrateFromJsonIfNeeded() {
   }
 }
 
-// Admins can be pinned via the ADMIN_IDS env var (comma-separated "provider:id",
-// e.g. "discord:123,steam:765..."). These always win over a stored role.
-function pinnedAdminIds() {
-  return (process.env.ADMIN_IDS || '')
+// Admins can be pinned by raw Discord user id via DISCORD_ADMIN_USER_IDS
+// (comma-separated, e.g. "213993034075996162,987654321098765432"). This is
+// the lockout-proof way to grant admin — it doesn't depend on role sync.
+function adminUserIds() {
+  return (process.env.DISCORD_ADMIN_USER_IDS || '')
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean)
@@ -101,14 +102,12 @@ export function upsertUser({
   const now = new Date().toISOString()
   const existing = getUserById(id)
 
-  // Role resolution: pinned admins / synced Discord admin role > existing role
-  // > bootstrap > member. Bootstrap: if nobody is an admin yet, the next person
-  // to log in becomes one, so the community can never end up with zero admins.
-  const noAdminsYet = db.prepare("SELECT COUNT(*) AS n FROM users WHERE role = 'admin'").get().n === 0
-  const role =
-    pinnedAdminIds().includes(id) || adminByProvider
-      ? 'admin'
-      : existing?.role || (noAdminsYet ? 'admin' : 'member')
+  // Role is fully env-driven and recomputed on every login (no bootstrap, no
+  // stored-role fallback): you're an admin iff your Discord user id is pinned in
+  // DISCORD_ADMIN_USER_IDS, or you hold a role listed in DISCORD_ADMIN_ROLE_IDS.
+  // Removing someone from both therefore demotes them on their next login.
+  const pinnedByUserId = provider === 'discord' && adminUserIds().includes(providerId)
+  const role = pinnedByUserId || adminByProvider ? 'admin' : 'member'
 
   // Keep prior roles if this login didn't fetch them (e.g. a Steam login).
   const roles = discordRoles !== undefined ? discordRoles : existing?.discordRoles || []
@@ -154,12 +153,6 @@ export function listUsersAdmin() {
     .prepare('SELECT * FROM users ORDER BY createdAt ASC')
     .all()
     .map(rowToAdminUser)
-}
-
-export function setRole(id, role) {
-  const res = db.prepare('UPDATE users SET role = ? WHERE id = ?').run(role, id)
-  if (res.changes === 0) return null
-  return getUserById(id)
 }
 
 // A member editing their own profile (bio + favourite server).

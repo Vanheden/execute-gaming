@@ -7,6 +7,7 @@ import News from './components/News.jsx'
 import Events from './components/Events.jsx'
 import Community from './components/Community.jsx'
 import Members from './components/Members.jsx'
+import Achievements from './components/Achievements.jsx'
 import Suggestions from './components/Suggestions.jsx'
 import Rules from './components/Rules.jsx'
 import Footer from './components/Footer.jsx'
@@ -63,6 +64,7 @@ export default function App() {
         <News />
         <Events />
         <Members />
+        <Achievements />
         <Suggestions />
         <Community />
         <Rules />

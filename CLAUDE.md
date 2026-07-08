@@ -124,20 +124,22 @@ per-IP; see `SECURITY.md`.
 
 ## Roles & admin
 
-- Roles: `member` | `admin`. Resolution order in `store.js#upsertUser`:
-  pinned (`ADMIN_IDS`) **or** synced Discord admin role (`DISCORD_ADMIN_ROLE_IDS`)
-  → existing role → **bootstrap** (if no admin exists yet, next login becomes
-  admin — prevents lock-out) → member.
-- Losing a Discord admin role does **not** auto-demote; demote via the admin
-  Members panel.
+- Roles: `member` | `admin`. Admin is **entirely env-driven and recomputed on
+  every login** (`store.js#upsertUser`): you're an admin iff your Discord user id
+  is in `DISCORD_ADMIN_USER_IDS` **or** you hold a role in `DISCORD_ADMIN_ROLE_IDS`.
+- There is **no bootstrap** (first login is a normal member) and **no in-app
+  promote/demote** — roles come only from `.env`. Removing someone from both env
+  vars demotes them on their next login.
+- `DISCORD_ADMIN_USER_IDS` is the lockout-proof path (doesn't depend on Discord
+  role sync being available), so pin at least your own id there.
 
 ## Environment (`.env`)
 
 Copy `.env.example` → `.env`. Contains **real secrets — never commit it**
 (gitignored). Keys: `SESSION_SECRET`, `PUBLIC_BASE_URL`, `DISCORD_CLIENT_ID/
-SECRET`, `DISCORD_GUILD_ID`, `DISCORD_ADMIN_ROLE_IDS`, `DISCORD_BOT_TOKEN`
-(optional, for role names/colours), `STEAM_API_KEY`, `ADMIN_IDS` (optional),
-`STATS_POLL_MINUTES` (optional, default 5).
+SECRET`, `DISCORD_GUILD_ID`, `DISCORD_ADMIN_ROLE_IDS`, `DISCORD_ADMIN_USER_IDS`
+(pin admins by raw Discord user id), `DISCORD_BOT_TOKEN` (optional, for role
+names/colours), `STEAM_API_KEY`, `STATS_POLL_MINUTES` (optional, default 5).
 In production also set `NODE_ENV=production` and `PUBLIC_BASE_URL=https://execute-gaming.se`.
 
 ## Deployment

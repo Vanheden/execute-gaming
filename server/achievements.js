@@ -55,4 +55,32 @@ export function badgesForUser(user, rank) {
   return [...auto, ...granted].filter(Boolean)
 }
 
+// How many members hold each granted (stored) badge → { code: count }.
+function grantedCounts() {
+  return db
+    .prepare('SELECT code, COUNT(*) AS n FROM achievements GROUP BY code')
+    .all()
+    .reduce((map, r) => {
+      map[r.code] = Number(r.n)
+      return map
+    }, {})
+}
+
+// Full catalog + a holder count for each badge. `members` is the (non-banned)
+// user list; auto badges are counted from it, granted ones from the table.
+export function catalogWithCounts(members) {
+  const granted = grantedCounts()
+  return Object.entries(ACHIEVEMENTS).map(([code, def]) => {
+    let holders
+    if (code === 'founder') holders = Math.min(FOUNDER_COUNT, members.length)
+    else if (code === 'veteran')
+      holders = members.filter(
+        (m) => (Date.now() - new Date(m.createdAt).getTime()) / 86_400_000 >= VETERAN_DAYS,
+      ).length
+    else if (code === 'staff') holders = members.filter((m) => m.role === 'admin').length
+    else holders = granted[code] || 0
+    return { code, name: def.name, icon: def.icon, desc: def.desc, auto: !!def.auto, holders }
+  })
+}
+
 export { ACHIEVEMENTS, GRANTABLE }

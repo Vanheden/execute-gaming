@@ -23,6 +23,7 @@ export default function Navbar() {
     ['News', '#news'],
     ['Events', '#events'],
     ['Members', '#members'],
+    ['Achievements', '#achievements'],
     ['Suggestions', '#suggestions'],
   ]
 
