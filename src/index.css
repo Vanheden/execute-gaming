@@ -345,6 +345,71 @@ body.has-banner .nav {
   mask-image: radial-gradient(700px 400px at 60% 0%, #000 0%, transparent 70%);
   opacity: 0.35;
 }
+
+/* Gothic V Rising scene: blood moon + castle silhouette anchored at the bottom. */
+.hero__scene {
+  position: absolute;
+  inset: 0;
+  background: url('/hero-bg.svg') no-repeat bottom center;
+  background-size: 100% auto;
+  opacity: 0.92;
+  pointer-events: none;
+  /* Dissolve the top of the scene into the hero gradient so there's no hard edge. */
+  -webkit-mask-image: linear-gradient(to top, #000 45%, rgba(0, 0, 0, 0.55) 72%, transparent 100%);
+  mask-image: linear-gradient(to top, #000 45%, rgba(0, 0, 0, 0.55) 72%, transparent 100%);
+}
+/* Drifting embers */
+.hero__embers,
+.hero__embers::before,
+.hero__embers::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-repeat: no-repeat;
+}
+.hero__embers {
+  background-image: radial-gradient(3px 3px at 12% 72%, rgba(255, 159, 69, 0.9), transparent 60%),
+    radial-gradient(2px 2px at 26% 86%, rgba(255, 93, 177, 0.9), transparent 60%),
+    radial-gradient(2px 2px at 62% 76%, rgba(255, 159, 69, 0.8), transparent 60%),
+    radial-gradient(3px 3px at 80% 88%, rgba(255, 93, 177, 0.8), transparent 60%),
+    radial-gradient(2px 2px at 45% 93%, rgba(255, 214, 77, 0.85), transparent 60%);
+  animation: emberRise 7s ease-in-out infinite;
+}
+.hero__embers::before {
+  background-image: radial-gradient(2px 2px at 18% 80%, rgba(255, 93, 177, 0.8), transparent 60%),
+    radial-gradient(3px 3px at 52% 82%, rgba(255, 159, 69, 0.85), transparent 60%),
+    radial-gradient(2px 2px at 72% 70%, rgba(255, 214, 77, 0.8), transparent 60%),
+    radial-gradient(2px 2px at 90% 84%, rgba(255, 159, 69, 0.8), transparent 60%);
+  animation: emberRise 9.5s ease-in-out infinite 1.5s;
+}
+.hero__embers::after {
+  background-image: radial-gradient(2px 2px at 34% 78%, rgba(255, 159, 69, 0.8), transparent 60%),
+    radial-gradient(3px 3px at 68% 90%, rgba(255, 93, 177, 0.8), transparent 60%),
+    radial-gradient(2px 2px at 8% 88%, rgba(255, 214, 77, 0.75), transparent 60%);
+  animation: emberRise 12s ease-in-out infinite 3s;
+}
+@keyframes emberRise {
+  0% {
+    transform: translateY(24px);
+    opacity: 0;
+  }
+  25%,
+  75% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-70px);
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero__embers,
+  .hero__embers::before,
+  .hero__embers::after {
+    animation: none;
+  }
+}
 .hero__inner {
   position: relative;
   max-width: 760px;

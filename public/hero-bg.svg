@@ -1,0 +1,92 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -220 1440 780" preserveAspectRatio="xMidYMax slice" fill="none">
+  <defs>
+    <radialGradient id="moon" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ffe3ee"/>
+      <stop offset="34%" stop-color="#ff9ec7"/>
+      <stop offset="68%" stop-color="#ff5db1" stop-opacity="0.28"/>
+      <stop offset="100%" stop-color="#ff5db1" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="ridge" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#2a1d4d"/>
+      <stop offset="100%" stop-color="#160f2b"/>
+    </linearGradient>
+    <linearGradient id="keep" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0e0a1e"/>
+      <stop offset="100%" stop-color="#05040c"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Blood moon (glow fully contained within the viewBox so it never clips) -->
+  <circle cx="1075" cy="90" r="300" fill="url(#moon)"/>
+  <circle cx="1075" cy="90" r="82" fill="#ffe9f2"/>
+  <circle cx="1075" cy="90" r="82" fill="#ff9ec7" opacity="0.35"/>
+
+  <!-- Distant ridge / faint spires -->
+  <g fill="url(#ridge)" opacity="0.65">
+    <path d="M0,560 L0,470 L70,470 L110,360 L150,470 L360,470 L410,300 L460,470 L720,470 L760,470 L800,340 L840,470 L1180,470 L1230,380 L1280,470 L1440,470 L1440,560 Z"/>
+    <polygon points="410,300 402,270 418,270"/>
+    <polygon points="800,340 792,315 808,315"/>
+  </g>
+
+  <!-- Foreground castle silhouette -->
+  <g fill="url(#keep)">
+    <!-- ground band keeps the base solid -->
+    <rect x="0" y="500" width="1440" height="60"/>
+
+    <!-- left wall + merlons -->
+    <rect x="0" y="430" width="300" height="130"/>
+    <rect x="24" y="418" width="26" height="14"/>
+    <rect x="80" y="418" width="26" height="14"/>
+    <rect x="136" y="418" width="26" height="14"/>
+    <rect x="192" y="418" width="26" height="14"/>
+    <rect x="248" y="418" width="26" height="14"/>
+
+    <!-- left tower -->
+    <rect x="96" y="330" width="72" height="200"/>
+    <polygon points="90,330 132,250 174,330"/>
+    <rect x="106" y="316" width="16" height="16"/>
+    <rect x="142" y="316" width="16" height="16"/>
+
+    <!-- lower connecting wall -->
+    <rect x="300" y="452" width="270" height="108"/>
+    <rect x="320" y="440" width="24" height="12"/>
+    <rect x="372" y="440" width="24" height="12"/>
+    <rect x="424" y="440" width="24" height="12"/>
+    <rect x="476" y="440" width="24" height="12"/>
+    <rect x="528" y="440" width="24" height="12"/>
+
+    <!-- central cathedral -->
+    <rect x="560" y="360" width="320" height="200"/>
+    <!-- left steeple -->
+    <rect x="566" y="300" width="64" height="260"/>
+    <polygon points="560,300 598,214 636,300"/>
+    <!-- right steeple -->
+    <rect x="810" y="300" width="64" height="260"/>
+    <polygon points="804,300 842,214 880,300"/>
+    <!-- grand central spire -->
+    <rect x="690" y="280" width="60" height="280"/>
+    <polygon points="682,280 720,150 758,280"/>
+    <!-- rose window notch -->
+
+    <!-- right tower -->
+    <rect x="980" y="340" width="82" height="220"/>
+    <polygon points="972,340 1021,258 1070,340"/>
+    <rect x="992" y="326" width="16" height="16"/>
+    <rect x="1034" y="326" width="16" height="16"/>
+
+    <!-- right wall + merlons -->
+    <rect x="1140" y="440" width="300" height="120"/>
+    <rect x="1160" y="428" width="26" height="14"/>
+    <rect x="1216" y="428" width="26" height="14"/>
+    <rect x="1272" y="428" width="26" height="14"/>
+    <rect x="1328" y="428" width="26" height="14"/>
+    <rect x="1384" y="428" width="26" height="14"/>
+  </g>
+
+  <!-- Bats -->
+  <g fill="#0b0817">
+    <path d="M700,120 q10,-8 20,0 q10,-8 20,0 q-10,6 -20,4 q-10,2 -20,-4 Z"/>
+    <path d="M770,90 q7,-6 14,0 q7,-6 14,0 q-7,4 -14,3 q-7,1 -14,-3 Z"/>
+    <path d="M900,180 q8,-6 16,0 q8,-6 16,0 q-8,5 -16,3 q-8,2 -16,-3 Z"/>
+  </g>
+</svg>

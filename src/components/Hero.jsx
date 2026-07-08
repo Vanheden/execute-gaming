@@ -7,6 +7,8 @@ export default function Hero() {
   return (
     <section className="hero" id="top">
       <div className="hero__glow" aria-hidden="true" />
+      <div className="hero__scene" aria-hidden="true" />
+      <div className="hero__embers" aria-hidden="true" />
       <div className="container hero__inner">
         <img className="hero__logo" src="/logo.svg" alt={`${community.name} logo`} />
         <p className="hero__eyebrow">
