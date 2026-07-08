@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useServerStatus } from '../hooks/useServerStatus.js'
+import PlayerHistoryChart from './PlayerHistoryChart.jsx'
 
 function StatusPill({ state }) {
   const map = {
@@ -16,30 +17,27 @@ function StatusPill({ state }) {
   )
 }
 
-function DetailsModal({ server, onClose }) {
+function ServerDetails({ server }) {
   const d = server.details
   return (
-    <div className="modal" onClick={onClose} role="dialog" aria-modal="true">
-      <div className="modal__card modal__card--wide" onClick={(e) => e.stopPropagation()} style={{ '--accent': server.accent }}>
-        <button className="modal__close" onClick={onClose} aria-label="Close">×</button>
-        <span className="card__mode" style={{ alignSelf: 'flex-start' }}>{server.mode}</span>
-        <h3 className="modal__title" style={{ marginTop: 10 }}>{server.name}</h3>
-        {d.info && <p className="modal__lead">{d.info}</p>}
+    <div className="sd">
+      {d.info && <p className="sd__info">{d.info}</p>}
 
-        <dl className="sd__meta">
-          <div><dt>Rates</dt><dd>{d.rates}</dd></div>
-          <div><dt>Wipe</dt><dd>{d.wipe}</dd></div>
-          <div><dt>Mods</dt><dd>{d.mods}</dd></div>
-          <div><dt>Connect</dt><dd><code>{server.ip}</code></dd></div>
-        </dl>
+      <dl className="sd__meta">
+        <div><dt>Rates</dt><dd>{d.rates}</dd></div>
+        <div><dt>Wipe</dt><dd>{d.wipe}</dd></div>
+        <div><dt>Mods</dt><dd>{d.mods}</dd></div>
+        <div><dt>Connect</dt><dd><code>{server.ip}</code></dd></div>
+      </dl>
 
-        <h4 className="sd__rulesh">Rules</h4>
-        <ul className="sd__rules">
-          {d.rules.map((r, i) => (
-            <li key={i}>{r}</li>
-          ))}
-        </ul>
-      </div>
+      {server.battlemetricsId && <PlayerHistoryChart server={server} />}
+
+      <h4 className="sd__rulesh">Rules</h4>
+      <ul className="sd__rules">
+        {d.rules.map((r, i) => (
+          <li key={i}>{r}</li>
+        ))}
+      </ul>
     </div>
   )
 }
@@ -47,7 +45,7 @@ function DetailsModal({ server, onClose }) {
 export default function ServerCard({ server }) {
   const status = useServerStatus(server)
   const [copied, setCopied] = useState(false)
-  const [showDetails, setShowDetails] = useState(false)
+  const [open, setOpen] = useState(true) // details shown by default
 
   const copyIp = async () => {
     try {
@@ -108,17 +106,21 @@ export default function ServerCard({ server }) {
             {copied ? 'Copied!' : `Copy IP`}
           </button>
         </div>
-        {server.details && (
-          <button className="card__details" onClick={() => setShowDetails(true)}>
-            View rules &amp; details →
-          </button>
-        )}
         <code className="card__ip">{server.ip}</code>
-      </div>
 
-      {showDetails && server.details && (
-        <DetailsModal server={server} onClose={() => setShowDetails(false)} />
-      )}
+        {server.details && (
+          <>
+            <button
+              className="card__details"
+              onClick={() => setOpen((o) => !o)}
+              aria-expanded={open}
+            >
+              {open ? 'Hide details ▲' : 'Rules & details ▼'}
+            </button>
+            {open && <ServerDetails server={server} />}
+          </>
+        )}
+      </div>
     </article>
   )
 }

@@ -68,4 +68,12 @@ db.exec(`
     PRIMARY KEY (suggestionId, userId),
     FOREIGN KEY (suggestionId) REFERENCES suggestions(id) ON DELETE CASCADE
   );
+
+  CREATE TABLE IF NOT EXISTS server_stats (
+    serverId   TEXT NOT NULL,
+    players    INTEGER NOT NULL,
+    maxPlayers INTEGER NOT NULL,
+    at         TEXT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_stats_server_at ON server_stats(serverId, at);
 `)

@@ -58,6 +58,9 @@ In dev, Vite (`:5173`) proxies `/auth` and `/api` to the backend (`:3001`) — s
 - `db.js` — the shared `node:sqlite` connection and **all table schema**.
 - `store.js` — user CRUD + role logic. Auto-migrates from a legacy `users.json`.
 - `content.js` — CRUD for news, events, and suggestions (+ votes).
+- `stats.js` — background poller that snapshots each server's BattleMetrics
+  player count (every `STATS_POLL_MINUTES`, default 5) into `server_stats`, plus
+  `getHistory()`. Imports the shared `src/data/servers.js` for the server list.
 
 ### Key routes
 
@@ -66,6 +69,8 @@ In dev, Vite (`:5173`) proxies `/auth` and `/api` to the backend (`:3001`) — s
 - `GET /api/me` — current user or null
 - `GET /api/config` — which providers are enabled
 - `GET /api/members` — **public** roster (hashed key, safe fields only)
+- `GET /api/servers/:id/history?hours=` — **public** player-count history
+  (rendered by `components/PlayerHistoryChart.jsx`, a dependency-free SVG chart)
 - `GET /api/admin/users`, `POST /api/admin/users/:id/role` — admin-only
 - `GET /api/news` (public), `POST/PUT/DELETE /api/news/:id` (admin)
 - `GET /api/events` (public), `POST/PUT/DELETE /api/events/:id` (admin)
@@ -88,7 +93,8 @@ Guards: `ensureAuth` (logged in), `ensureAdmin` (admin role).
 Copy `.env.example` → `.env`. Contains **real secrets — never commit it**
 (gitignored). Keys: `SESSION_SECRET`, `PUBLIC_BASE_URL`, `DISCORD_CLIENT_ID/
 SECRET`, `DISCORD_GUILD_ID`, `DISCORD_ADMIN_ROLE_IDS`, `DISCORD_BOT_TOKEN`
-(optional, for role names/colours), `STEAM_API_KEY`, `ADMIN_IDS` (optional).
+(optional, for role names/colours), `STEAM_API_KEY`, `ADMIN_IDS` (optional),
+`STATS_POLL_MINUTES` (optional, default 5).
 In production also set `NODE_ENV=production` and `PUBLIC_BASE_URL=https://execute-gaming.se`.
 
 ## Deployment

@@ -14,6 +14,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { configureAuth, enabledProviders } from './auth.js'
 import { listUsers, setRole } from './store.js'
+import { startPolling, getHistory } from './stats.js'
 import {
   listNews,
   createNews,
@@ -95,6 +96,12 @@ app.get('/api/config', (req, res) => res.json({ providers: enabledProviders }))
 
 // The currently logged-in user (or null).
 app.get('/api/me', (req, res) => res.json({ user: req.user || null }))
+
+// Player-count history for a server (public). ?hours= (default 24, max 168).
+app.get('/api/servers/:id/history', (req, res) => {
+  const hours = Math.min(Math.max(Number(req.query.hours) || 24, 1), 168)
+  res.json({ points: getHistory(req.params.id, hours) })
+})
 
 // --- Public members roster -------------------------------------------------
 // Anyone can view the community roster. Only safe, non-identifying fields are
@@ -258,6 +265,9 @@ if (isProd) {
   // SPA fallback: send index.html for any non-API route.
   app.get('*', (req, res) => res.sendFile(join(DIST, 'index.html')))
 }
+
+// Start collecting player-count history in the background.
+startPolling()
 
 app.listen(PORT, () => {
   console.log(`Server listening on http://localhost:${PORT} (${isProd ? 'production' : 'dev'})`)

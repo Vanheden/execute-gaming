@@ -16,6 +16,8 @@ Ideas for growing the site, grouped by theme. Effort is a rough guide:
 - **Events calendar** — upcoming + past events, admin-managed
 - **Suggestion box** — members post ideas, upvote, admins set status
 - **Server detail pages** — per-server rules, rates, wipe, mods, connect info
+  (always-visible inline under each server card)
+- **Live player-count graph** — BattleMetrics history stored + charted (24h / 7d)
 
 ---
 
@@ -24,13 +26,11 @@ Ideas for growing the site, grouped by theme. Effort is a rough guide:
 - ~~News / patch notes~~ ✅ — admins post/edit/delete; public reads.
 - ~~Events calendar~~ ✅ — upcoming/past split; admin add/edit/delete.
 - ~~Suggestion box / voting~~ ✅ — members post + upvote; admins moderate status.
-- ~~Server detail pages~~ ✅ — rules/rates/wipe/mods in a modal per server.
-- **Live player graph** (M ⭐) — still open: store BattleMetrics history and chart it.
+- ~~Server detail pages~~ ✅ — rules/rates/wipe/mods inline under each server card.
+- ~~Live player graph~~ ✅ — BattleMetrics history stored + charted (24h / 7d).
 
 ## 🎮 Servers & game data
 
-- **Player count graph** (M) — store BattleMetrics snapshots over time and chart
-  the last 24h / 7d per server. ⭐ (needs the DB to store history)
 - **Playtime / points leaderboard** (L ⭐) — a *real* leaderboard ranked by time
   played or points, instead of join order. Biggest payoff from having SQLite.
 - **Live Discord widget** (S) — show who's online in Discord right now.
