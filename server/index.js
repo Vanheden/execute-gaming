@@ -557,6 +557,52 @@ app.get('/api/discord/widget', async (req, res) => {
   res.json({ widget })
 })
 
+// --- Online players per server (public) -------------------------------------
+// Fetches the player list from BattleMetrics server-side (avoids client-side
+// CORS/VPN issues). Returns { players: [{ name, steamId, time }] } for one server.
+const onlineCache = new Map()
+const CACHE_TTL = 30_000 // 30s
+
+app.get('/api/servers/:id/online', async (req, res) => {
+  const srv = servers.find((s) => s.id === req.params.id)
+  if (!srv?.battlemetricsId) return res.json({ players: [] })
+
+  const cached = onlineCache.get(srv.id)
+  if (cached && Date.now() - cached.at < CACHE_TTL) return res.json(cached.data)
+
+  try {
+    const bmRes = await fetch(
+      `https://api.battlemetrics.com/servers/${srv.battlemetricsId}?include=players`,
+      { headers: { Accept: 'application/json' } },
+    )
+    if (!bmRes.ok) return res.json({ players: [] })
+    const body = await bmRes.json()
+    const included = body.included || []
+    const players = included
+      .filter((e) => e.type === 'player')
+      .map((e) => {
+        const a = e.attributes || {}
+        const newPlayer = {
+          name: a.name || 'Unknown',
+          steamId: a.userId ? String(a.userId) : null,
+          time: a.time || null,
+        }
+        if (newPlayer.steamId) {
+          const member = getUserByProvider('steam', newPlayer.steamId)
+          const linked = member && !member.banned ? member : null
+          if (linked) newPlayer.member = { key: keyOf(linked.id), username: linked.username }
+        }
+        return newPlayer
+      })
+      .sort((a, b) => (b.time || 0) - (a.time || 0))
+    const data = { players }
+    onlineCache.set(srv.id, { at: Date.now(), data })
+    res.json(data)
+  } catch {
+    res.json({ players: [] })
+  }
+})
+
 // Update your own profile (bio + favourite server).
 app.put('/api/me/profile', (req, res) => {
   if (!req.user) return res.status(401).json({ error: 'unauthorized' })

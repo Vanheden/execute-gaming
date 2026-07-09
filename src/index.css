@@ -2044,6 +2044,70 @@ body.has-banner .nav {
   color: var(--text-faint);
 }
 
+/* Online players widget */
+.onlineplayers {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+.onlineplayers__title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 8px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-faint);
+}
+.onlineplayers__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--c-green, #3ee089);
+  box-shadow: 0 0 6px var(--c-green, #3ee089);
+  animation: kfpulse 2s ease-in-out infinite;
+}
+.onlineplayers__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.onlineplayers__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  font-size: 0.78rem;
+}
+.onlineplayers__name {
+  font-weight: 600;
+  color: var(--text);
+  text-decoration: none;
+}
+.onlineplayers__name:hover {
+  color: var(--c-cyan);
+}
+.onlineplayers__time {
+  font-size: 0.68rem;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+.onlineplayers__more {
+  font-size: 0.75rem;
+  color: var(--text-faint);
+  padding: 3px 4px;
+}
+
 /* ===========================================================================
    Responsive
    =========================================================================== */

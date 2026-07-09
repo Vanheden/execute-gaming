@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { displayState } from '../hooks/useServerStatus.js'
 import PlayerHistoryChart from './PlayerHistoryChart.jsx'
+import OnlinePlayers from './OnlinePlayers.jsx'
 
 function StatusPill({ state }) {
   const map = {
@@ -32,6 +33,8 @@ function ServerDetails({ server }) {
       </dl>
 
       {server.battlemetricsId && <PlayerHistoryChart server={server} />}
+
+      {server.battlemetricsId && <OnlinePlayers serverId={server.id} />}
 
       <h4 className="sd__rulesh">Rules</h4>
       <ul className="sd__rules">
