@@ -15,8 +15,28 @@ function formatDuration(seconds) {
 const METRICS = [
   { id: 'points', label: 'Points', value: (e) => e.points, render: (e) => `${e.points.toLocaleString()} pts` },
   { id: 'playtime', label: 'Playtime', value: (e) => e.seconds, render: (e) => formatDuration(e.seconds) },
-  { id: 'vblood', label: 'V Blood', value: (e) => e.vblood, render: (e) => `${e.vblood} V Blood${e.vblood === 1 ? '' : 's'}` },
-  { id: 'pvp', label: 'PvP kills', value: (e) => e.pvp, render: (e) => `${e.pvp} kill${e.pvp === 1 ? '' : 's'}` },
+  {
+    id: 'vblood',
+    label: 'V Blood',
+    value: (e) => e.vblood,
+    render: (e) => (
+      <>
+        <span className="lb__num">{e.vblood}</span>{' '}
+        <span className="lb__vb">V Blood{e.vblood === 1 ? '' : 's'}</span>
+      </>
+    ),
+  },
+  {
+    id: 'pvp',
+    label: 'PvP kills',
+    value: (e) => e.pvp,
+    render: (e) => (
+      <>
+        <span className="lb__num">{e.pvp}</span>{' '}
+        <span className="lb__pvp">kill{e.pvp === 1 ? '' : 's'}</span>
+      </>
+    ),
+  },
 ]
 
 const PERIODS = [
@@ -70,7 +90,15 @@ function Meta({ e, metric }) {
   if (metric === 'points')
     return (
       <span className="lb__meta">
-        {formatDuration(e.seconds)} · {e.vblood} V Blood · {e.pvp} PvP
+        {formatDuration(e.seconds)}
+        {' · '}
+        <span className="lb__vb">
+          <span className="lb__num">{e.vblood}</span> V Blood
+        </span>
+        {' · '}
+        <span className="lb__pvp">
+          <span className="lb__num">{e.pvp}</span> PvP
+        </span>
       </span>
     )
   if (metric === 'playtime')
