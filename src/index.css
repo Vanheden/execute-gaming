@@ -1252,6 +1252,30 @@ body.has-banner .nav {
 .pf__rolesblock {
   margin: 0 0 22px;
 }
+.pf__accounts {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.pf__account {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.pf__account-state {
+  color: var(--text-dim);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+.pf__account-primary {
+  color: var(--text-faint);
+  font-weight: 500;
+}
+.pf__accounts-hint {
+  margin: 10px 0 0;
+  color: var(--text-faint);
+  font-size: 0.8rem;
+}
 .pf__about {
   margin: 0 0 22px;
   padding: 16px;

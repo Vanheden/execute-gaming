@@ -7,7 +7,7 @@
 // ---------------------------------------------------------------------------
 import OAuth2Strategy from 'passport-oauth2'
 import steamPkg from 'passport-steam'
-import { upsertUser } from './store.js'
+import { loginWithProvider } from './store.js'
 import { fetchGuildMemberRoles, resolveRoles } from './discord.js'
 
 const SteamStrategy = steamPkg.Strategy || steamPkg
@@ -83,7 +83,7 @@ export function configureAuth(passport) {
             const discordRoles = await resolveRoles(roleIds, guildId, process.env.DISCORD_BOT_TOKEN)
             const adminByProvider = roleIds.some((id) => adminRoleIds.includes(id))
 
-            const user = upsertUser({
+            const user = loginWithProvider({
               provider: 'discord',
               providerId: profile.id,
               username: profile.global_name || profile.username,
@@ -111,7 +111,7 @@ export function configureAuth(passport) {
           apiKey: process.env.STEAM_API_KEY,
         },
         (identifier, profile, done) => {
-          const user = upsertUser({
+          const user = loginWithProvider({
             provider: 'steam',
             providerId: profile.id,
             username: profile.displayName,

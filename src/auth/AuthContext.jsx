@@ -19,15 +19,27 @@ export function AuthProvider({ children }) {
   }
 
   useEffect(() => {
-    // Clean the ?login=success|failed|banned param the backend adds after a
-    // redirect, surfacing a message for the failure cases.
+    // Clean the ?login / ?linked / ?linkerror params the backend adds after a
+    // redirect, surfacing a message for the failure (and link) cases.
     const params = new URLSearchParams(window.location.search)
+    let dirty = false
     if (params.has('login')) {
       const status = params.get('login')
       if (status === 'banned') setNotice("You're banned from this community.")
       else if (status === 'failed') setNotice('Login failed — please try again.')
-      window.history.replaceState({}, '', window.location.pathname)
+      else if (status === 'required') setNotice('Please sign in first.')
+      dirty = true
     }
+    if (params.has('linked')) {
+      const p = params.get('linked')
+      setNotice(`Linked your ${p === 'steam' ? 'Steam' : p === 'discord' ? 'Discord' : p} account.`)
+      dirty = true
+    }
+    if (params.has('linkerror')) {
+      setNotice(`Couldn't link account: ${params.get('linkerror') || 'please try again.'}`)
+      dirty = true
+    }
+    if (dirty) window.history.replaceState({}, '', window.location.pathname)
 
     Promise.all([
       refresh(),

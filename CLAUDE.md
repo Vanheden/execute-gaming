@@ -87,6 +87,15 @@ the live domain while developing — the same `.env` works on your machine and t
 - `store.js` — user CRUD + role logic + ban/note (`setBan`, `setNote`,
   `listUsersAdmin`). Auto-migrates from a legacy `users.json`. Public serialisers
   never leak `note`/`banReason`; those come only from admin endpoints.
+  **Account linking:** the `user_identities` table maps each `(provider,
+  providerId)` to an owning account, so one account can own both a Discord and a
+  Steam identity. `loginWithProvider()` (used by the strategies) signs in as the
+  owning account when the identity is linked; `getUserByProvider()` resolves
+  through it (so a linked SteamID attributes to the member on the leaderboard);
+  `linkProviderToUser()` merges any standalone account for that identity into the
+  primary (`mergeAccounts()` moves achievements/votes, transactional) then points
+  the identity at the primary; `unlinkProvider()` drops a link (never the sign-in
+  provider). Every account keeps its own self-identity (backfilled in `db.js`).
 - `content.js` — CRUD for news, events, suggestions (+ votes), plus the
   site-wide announcement banner (stored in a key/value `settings` table).
 - `achievements.js` — grant/revoke stored badges + compute auto ones; imports
@@ -111,8 +120,13 @@ the live domain while developing — the same `.env` works on your machine and t
 ### Key routes
 
 - `GET /auth/discord`, `/auth/steam` (+ `/callback`) — OAuth login
+- `GET /auth/discord/link`, `/auth/steam/link` — **link** that provider to the
+  signed-in account (same callback, branched via a `session.linking` flag; uses
+  `passport.authenticate(..., { assignProperty: 'account' })` so the session user
+  isn't replaced). Redirects back with `?linked=` / `?linkerror=`.
 - `POST /auth/logout`
-- `GET /api/me` — current user (+ `key`, `rank`, `badges`) or null
+- `GET /api/me` — current user (+ `key`, `rank`, `badges`, `identities`) or null
+- `POST /api/me/unlink` — unlink a connected provider (not your sign-in one)
 - `PUT /api/me/profile` — update your own bio + favourite server (auth)
 - `GET /api/config` — which providers are enabled
 - `GET /api/announcement` (public), `PUT /api/announcement` (admin) — site banner
@@ -226,6 +240,12 @@ V Rising game server, not from this repo. It lives in `../mod/` (sibling of
   fetch, not `passport-discord` (which is unmaintained and was removed).
 - Banned members are hidden from the roster and logged out on next login
   (`/?login=banned`); they aren't force-killed from an existing session.
+- **Account linking** keeps each account's original `id` (`provider:providerId`)
+  as the primary; linking Steam to a Discord-primary means role/admin still derive
+  from the Discord login (the primary), and the Steam login now resolves to that
+  same account. Linking **merges and deletes** any standalone account the second
+  identity had, so its old separate profile/URL disappears (its achievements move
+  over; play-time/kills re-attribute automatically via `getUserByProvider`).
 - The Discord widget needs "Enable Server Widget" turned on in Discord; without
   it the API returns 403 and the on-site widget simply hides itself.
 - The leaderboard stays empty until `INGEST_SECRET` is set **and** the game mod is

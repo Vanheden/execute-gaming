@@ -35,6 +35,9 @@ Ideas for growing the site, grouped by theme. Effort is a rough guide:
 - **Atmospheric hero** — self-drawn V Rising scene (blood moon, castle, embers)
 - **Playtime + points leaderboard** — playtime, V Blood & PvP kills and a combined
   points ranking, fed by our in-game BepInEx mod (`mod/`). Deployed live.
+- **Link Steam + Discord** — one account can own both identities (link from the
+  profile); logins resolve to the primary and the leaderboard attributes a linked
+  SteamID to the member. Any pre-existing duplicate account is merged in.
 
 ---
 

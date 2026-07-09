@@ -29,9 +29,69 @@ function Avatar({ user, size }) {
   )
 }
 
+const PROVIDER_LABEL = { discord: 'Discord', steam: 'Steam' }
+const providerLabel = (p) => PROVIDER_LABEL[p] || p
+
 function ProviderChip({ provider }) {
-  const label = provider === 'discord' ? 'Discord' : provider === 'steam' ? 'Steam' : provider
-  return <span className={`provider provider--${provider}`}>{label}</span>
+  return <span className={`provider provider--${provider}`}>{providerLabel(provider)}</span>
+}
+
+// Link / unlink Discord + Steam to this one account. Linking is a full-page OAuth
+// round-trip (so the session cookie travels); unlinking is a same-origin POST.
+function ConnectedAccounts({ user, providers, onChange }) {
+  const [busy, setBusy] = useState('')
+  const [err, setErr] = useState('')
+  const linked = new Set((user.identities || []).map((i) => i.provider))
+  // Show any provider that's either enabled on the site or already linked.
+  const rows = ['discord', 'steam'].filter((p) => providers?.[p] || linked.has(p))
+
+  async function unlink(provider) {
+    setBusy(provider)
+    setErr('')
+    try {
+      await apiSend('POST', '/api/me/unlink', { provider })
+      await onChange()
+    } catch (e) {
+      setErr(e.message || 'Could not unlink — try again.')
+    } finally {
+      setBusy('')
+    }
+  }
+
+  return (
+    <div className="pf__rolesblock">
+      <span className="pf__roleslabel">Connected accounts</span>
+      <div className="pf__accounts">
+        {rows.map((p) => {
+          const isLinked = linked.has(p)
+          const isPrimary = user.provider === p
+          return (
+            <div className="pf__account" key={p}>
+              <ProviderChip provider={p} />
+              {isLinked ? (
+                <span className="pf__account-state">
+                  Connected{isPrimary && <span className="pf__account-primary"> · primary</span>}
+                </span>
+              ) : (
+                <a className="btn btn--sm" href={`/auth/${p}/link`}>
+                  Link {providerLabel(p)}
+                </a>
+              )}
+              {isLinked && !isPrimary && (
+                <button className="linkbtn linkbtn--danger" onClick={() => unlink(p)} disabled={busy === p}>
+                  {busy === p ? 'Unlinking…' : 'Unlink'}
+                </button>
+              )}
+            </div>
+          )
+        })}
+      </div>
+      {err && <p className="cform__err">{err}</p>}
+      <p className="pf__accounts-hint">
+        Link both so your Steam playtime shows up on your profile and one login gets you everything.
+      </p>
+    </div>
+  )
 }
 
 function ProfileEditForm({ user, onCancel, onSaved }) {
@@ -91,7 +151,7 @@ function ProfileEditForm({ user, onCancel, onSaved }) {
 }
 
 export default function ProfileModal({ open, onClose }) {
-  const { user, logout, refresh } = useAuth()
+  const { user, providers, logout, refresh } = useAuth()
   const [tab, setTab] = useState('profile')
   const [editingProfile, setEditingProfile] = useState(false)
   const isAdmin = user?.role === 'admin'
@@ -193,6 +253,8 @@ export default function ProfileModal({ open, onClose }) {
                 <Badges badges={user.badges} />
               </div>
             )}
+
+            <ConnectedAccounts user={user} providers={providers} onChange={refresh} />
 
             {editingProfile ? (
               <ProfileEditForm

@@ -88,10 +88,119 @@ export function getUserById(id) {
   return rowToUser(db.prepare('SELECT * FROM users WHERE id = ?').get(id))
 }
 
-// Look up an account by provider + that provider's id (ids are `provider:providerId`).
-// Used to link play sessions (which carry a raw SteamID) back to a member.
+// Look up an account by provider + that provider's id. Resolves through the
+// identity table first (so a *linked* Steam id lands on its primary account),
+// then falls back to the legacy `provider:providerId` id. Used to link play
+// sessions / kills (which carry a raw SteamID) back to a member.
 export function getUserByProvider(provider, providerId) {
+  const idn = getIdentity(provider, providerId)
+  if (idn) return getUserById(idn.userId)
   return getUserById(`${provider}:${providerId}`)
+}
+
+// --- Linked identities -----------------------------------------------------
+export function getIdentity(provider, providerId) {
+  return (
+    db
+      .prepare('SELECT provider, providerId, userId FROM user_identities WHERE provider = ? AND providerId = ?')
+      .get(provider, providerId) || null
+  )
+}
+
+// All identities owned by an account (its own provider + any linked ones).
+export function getUserIdentities(userId) {
+  return db
+    .prepare('SELECT provider, providerId, linkedAt FROM user_identities WHERE userId = ? ORDER BY linkedAt ASC')
+    .all(userId)
+}
+
+// Make sure an account's own identity row exists (idempotent).
+function ensureSelfIdentity(user) {
+  if (!user) return
+  db.prepare(
+    'INSERT OR IGNORE INTO user_identities (provider, providerId, userId, linkedAt) VALUES (?, ?, ?, ?)',
+  ).run(user.provider, user.providerId, user.id, user.createdAt || new Date().toISOString())
+}
+
+// Resolve a provider login to an account, honoring account links. If this
+// identity is linked to a *different* primary account, sign in as that primary;
+// otherwise create/update the standalone account as before. Used by the auth
+// strategies in place of a bare upsertUser.
+export function loginWithProvider(profile) {
+  const selfId = `${profile.provider}:${profile.providerId}`
+  const idn = getIdentity(profile.provider, profile.providerId)
+  if (idn && idn.userId !== selfId) {
+    db.prepare('UPDATE users SET lastLogin = ? WHERE id = ?').run(new Date().toISOString(), idn.userId)
+    return getUserById(idn.userId)
+  }
+  const user = upsertUser(profile)
+  ensureSelfIdentity(user)
+  return user
+}
+
+// Fold one account's data into another, then delete it. Keyed-by-userId data
+// (achievements, suggestion authorship/votes, owned identities) moves to `toId`;
+// play_sessions/kills are keyed by SteamID and re-resolve via the identity table,
+// so they need no move. Runs in a transaction.
+export function mergeAccounts(fromId, toId) {
+  if (!fromId || !toId || fromId === toId) return
+  db.exec('BEGIN')
+  try {
+    db.prepare(
+      'INSERT OR IGNORE INTO achievements (userId, code, grantedAt, grantedBy) SELECT ?, code, grantedAt, grantedBy FROM achievements WHERE userId = ?',
+    ).run(toId, fromId)
+    db.prepare('DELETE FROM achievements WHERE userId = ?').run(fromId)
+    db.prepare('UPDATE suggestions SET authorId = ? WHERE authorId = ?').run(toId, fromId)
+    db.prepare(
+      'INSERT OR IGNORE INTO suggestion_votes (suggestionId, userId) SELECT suggestionId, ? FROM suggestion_votes WHERE userId = ?',
+    ).run(toId, fromId)
+    db.prepare('DELETE FROM suggestion_votes WHERE userId = ?').run(fromId)
+    db.prepare('UPDATE user_identities SET userId = ? WHERE userId = ?').run(toId, fromId)
+    db.prepare('DELETE FROM users WHERE id = ?').run(fromId)
+    db.exec('COMMIT')
+  } catch (err) {
+    db.exec('ROLLBACK')
+    throw err
+  }
+}
+
+// Link a provider identity to a signed-in primary account. Merges any pre-existing
+// standalone account for that identity into the primary. Returns { ok } or { error }.
+export function linkProviderToUser(primaryUserId, provider, providerId) {
+  const selfId = `${provider}:${providerId}`
+  const primary = getUserById(primaryUserId)
+  if (!primary) return { error: 'Not signed in.' }
+  if (selfId === primaryUserId) return { error: 'That is already your primary account.' }
+
+  const existing = getIdentity(provider, providerId)
+  if (existing && existing.userId !== primaryUserId && existing.userId !== selfId)
+    return { error: 'That account is already linked to another member.' }
+  if (getUserIdentities(primaryUserId).some((i) => i.provider === provider))
+    return { error: `You already have a ${provider} account linked.` }
+
+  const standalone = getUserById(selfId)
+  if (standalone) mergeAccounts(selfId, primaryUserId)
+
+  db.prepare(
+    `INSERT INTO user_identities (provider, providerId, userId, linkedAt) VALUES (?, ?, ?, ?)
+     ON CONFLICT(provider, providerId) DO UPDATE SET userId = excluded.userId, linkedAt = excluded.linkedAt`,
+  ).run(provider, providerId, primaryUserId, new Date().toISOString())
+  return { ok: true }
+}
+
+// Remove a linked identity. You can't unlink the provider you sign in with.
+export function unlinkProvider(primaryUserId, provider) {
+  const primary = getUserById(primaryUserId)
+  if (!primary) return { error: 'Not signed in.' }
+  if (primary.provider === provider) return { error: "You can't unlink the account you sign in with." }
+  const target = getUserIdentities(primaryUserId).find((i) => i.provider === provider)
+  if (!target) return { error: `No linked ${provider} account.` }
+  db.prepare('DELETE FROM user_identities WHERE provider = ? AND providerId = ? AND userId = ?').run(
+    provider,
+    target.providerId,
+    primaryUserId,
+  )
+  return { ok: true }
 }
 
 // Creates the account on first login, updates it on subsequent logins.

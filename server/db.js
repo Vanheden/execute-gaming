@@ -149,6 +149,27 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_kills_steam ON kill_events(steamId);
   CREATE INDEX IF NOT EXISTS idx_kills_server_occurred ON kill_events(serverId, occurredAt);
   CREATE INDEX IF NOT EXISTS idx_kills_kind ON kill_events(kind);
+
+  -- Linked provider identities. One account (users.id) can own several — e.g. a
+  -- Discord-primary member who also linked their Steam. Every account has at least
+  -- its own (its provider+providerId → its id). Login and getUserByProvider resolve
+  -- through this, so a linked Steam login lands on the primary account and the
+  -- leaderboard attributes that SteamID to it.
+  CREATE TABLE IF NOT EXISTS user_identities (
+    provider   TEXT NOT NULL,
+    providerId TEXT NOT NULL,
+    userId     TEXT NOT NULL,
+    linkedAt   TEXT NOT NULL,
+    PRIMARY KEY (provider, providerId),
+    FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
+  );
+  CREATE INDEX IF NOT EXISTS idx_identities_user ON user_identities(userId);
+`)
+
+// Backfill each existing account's own identity (idempotent — PK is provider+providerId).
+db.exec(`
+  INSERT OR IGNORE INTO user_identities (provider, providerId, userId, linkedAt)
+  SELECT provider, providerId, id, createdAt FROM users
 `)
 
 // --- Lightweight column migrations (for DBs created before a column existed) -

@@ -85,6 +85,16 @@ its credentials are present — until then its button is disabled.
 
 Restart the backend after editing `.env`.
 
+### Linking Steam + Discord
+
+A member can sign in with **either** provider and then link the other from their
+**profile → Connected accounts**. Linking is a normal OAuth round-trip that attaches
+the second identity to the account you're already signed in as, so afterwards **one
+login gets you everything** and your Steam playtime/kills show up on your profile and
+member page. If the second identity already had its own separate account, it's
+**merged** into your primary (achievements carried over) and the duplicate removed.
+You can unlink any provider except the one you sign in with.
+
 ### Profiles & admin roles
 
 - Click your name in the navbar to open your **profile** (avatar, provider,

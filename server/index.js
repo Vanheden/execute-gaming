@@ -18,6 +18,9 @@ import {
   listUsersAdmin,
   getUserById,
   getUserByProvider,
+  getUserIdentities,
+  linkProviderToUser,
+  unlinkProvider,
   setBan,
   setNote,
   updateProfile,
@@ -147,35 +150,92 @@ function finishLogin(req, res) {
   res.redirect(`${FRONTEND}/?login=success`)
 }
 
+// Post-OAuth handler for the *link* flow. The primary account is still in the
+// session (we authenticated with assignProperty so it wasn't replaced); the
+// freshly-authenticated identity is on req.account. Link it, then redirect.
+function finishLink(provider) {
+  return (req, res) => {
+    const linking = req.session?.linking
+    if (req.session) delete req.session.linking
+    const acct = req.account
+    if (!linking || linking.userId !== req.user?.id || !acct) {
+      return res.redirect(`${FRONTEND}/?linkerror=${encodeURIComponent('Linking session expired — try again.')}`)
+    }
+    const result = linkProviderToUser(req.user.id, provider, acct.providerId)
+    if (result.error) return res.redirect(`${FRONTEND}/?linkerror=${encodeURIComponent(result.error)}`)
+    logAudit({ actor: req.user, action: 'account.link', detail: { provider, providerId: acct.providerId } })
+    res.redirect(`${FRONTEND}/?linked=${provider}`)
+  }
+}
+
+// One callback per provider that branches: if the session is mid-link (and it's
+// this provider), attach the identity to the current account without replacing
+// the session user; otherwise it's a normal login.
+function providerCallback(provider) {
+  return (req, res, next) => {
+    if (req.session?.linking?.provider === provider && req.user) {
+      return passport.authenticate(provider, {
+        assignProperty: 'account',
+        failureRedirect: `${FRONTEND}/?linkerror=${encodeURIComponent('Could not verify that account.')}`,
+      })(req, res, () => finishLink(provider)(req, res))
+    }
+    return passport.authenticate(provider, { failureRedirect: `${FRONTEND}/?login=failed` })(
+      req,
+      res,
+      () => finishLogin(req, res),
+    )
+  }
+}
+
+// Start a link: must be signed in. Stash intent in the session, then OAuth.
+function startLink(provider) {
+  return (req, res, next) => {
+    if (!req.user) return res.redirect(`${FRONTEND}/?login=required`)
+    req.session.linking = { provider, userId: req.user.id }
+    passport.authenticate(provider)(req, res, next)
+  }
+}
+
 // --- Discord ---------------------------------------------------------------
 if (enabledProviders.discord) {
   app.get('/auth/discord', passport.authenticate('discord'))
-  app.get(
-    '/auth/discord/callback',
-    passport.authenticate('discord', { failureRedirect: `${FRONTEND}/?login=failed` }),
-    finishLogin,
-  )
+  app.get('/auth/discord/link', startLink('discord'))
+  app.get('/auth/discord/callback', providerCallback('discord'))
 }
 
 // --- Steam -----------------------------------------------------------------
 if (enabledProviders.steam) {
   app.get('/auth/steam', passport.authenticate('steam'))
-  app.get(
-    '/auth/steam/callback',
-    passport.authenticate('steam', { failureRedirect: `${FRONTEND}/?login=failed` }),
-    finishLogin,
-  )
+  app.get('/auth/steam/link', startLink('steam'))
+  app.get('/auth/steam/callback', providerCallback('steam'))
 }
 
 // --- API -------------------------------------------------------------------
 // Which providers are configured (so the UI can enable/disable buttons).
 app.get('/api/config', (req, res) => res.json({ providers: enabledProviders }))
 
-// The currently logged-in user (or null), decorated with earned badges.
+// The currently logged-in user (or null), decorated with earned badges and the
+// list of linked provider identities (so the profile can show link status).
 app.get('/api/me', (req, res) => {
   if (!req.user) return res.json({ user: null })
   const rank = memberRank(req.user.id)
-  res.json({ user: { ...req.user, key: keyOf(req.user.id), rank, badges: badgesForUser(req.user, rank) } })
+  const identities = getUserIdentities(req.user.id).map((i) => ({
+    provider: i.provider,
+    providerId: i.providerId,
+  }))
+  res.json({
+    user: { ...req.user, key: keyOf(req.user.id), rank, identities, badges: badgesForUser(req.user, rank) },
+  })
+})
+
+// Unlink a connected account (can't unlink the provider you sign in with).
+app.post('/api/me/unlink', ensureAuth, (req, res) => {
+  const provider = req.body?.provider
+  if (provider !== 'discord' && provider !== 'steam') return res.status(400).json({ error: 'invalid provider' })
+  const result = unlinkProvider(req.user.id, provider)
+  if (result.error) return res.status(400).json({ error: result.error })
+  logAudit({ actor: req.user, action: 'account.unlink', detail: { provider } })
+  res.json({ ok: true })
 })
 
 // --- Announcement banner (public read, admin write) ------------------------
