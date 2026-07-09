@@ -231,6 +231,17 @@ V Rising game server, not from this repo. It lives in `../mod/` (sibling of
 - The leaderboard stays empty until `INGEST_SECRET` is set **and** the game mod is
   running and reporting. With no secret, `/api/ingest/session` returns 503 (a safe
   "off"), and `/api/leaderboard` just returns an empty list — neither is an error.
+  **Debugging an empty live leaderboard** — probe the ingest endpoint: `503` = no
+  secret set on the site; `401` = a secret *is* set (so the site is fine — the mod's
+  `.cfg` has the wrong/old secret or is pointing at localhost); `400` on a bad body
+  but correct secret = auth passes and the site is healthy, so the gap is upstream
+  (mod not running / wrong `Url` / can't reach the host). The usual cause is the
+  game-server mod `.cfg`, not the site.
+- **Live server status is fetched client-side** (`src/services/serverStatus.js`
+  calls BattleMetrics directly from the browser). A visitor whose VPN/adblock/
+  firewall blocks `api.battlemetrics.com` makes `fetch` throw → the card shows
+  **"Unknown"** (an HTTP error like 404 shows "offline" instead). It's their
+  network, not the site. Roadmap has a server-side proxy to remove this dependency.
 
 ## Conventions
 

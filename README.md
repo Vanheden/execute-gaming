@@ -1,8 +1,10 @@
-# Game Community Website
+# Execute-Gaming Website
 
-A single-page site for our gaming community, built with **React + Vite**. It shows
-our servers (CS 1.6, V Rising PvE, V Rising Duo PvP) with live-style player counts
-and links to join.
+The community site for **Execute-Gaming**, built with **React + Vite** and a small
+**Express + SQLite** backend. It shows our two V Rising servers (Easy PvE and Duo
+PvP) with live player counts, Discord/Steam login, member profiles, news, events,
+and a **playtime + kills leaderboard** fed by our in-game mod. Self-hosted on
+Proxmox via PM2 + Caddy at [execute-gaming.se](https://execute-gaming.se).
 
 ## Getting started
 
@@ -27,18 +29,25 @@ Swap the banner images in **`public/servers/`** for your own screenshots
 
 ## Live server status
 
-Right now the player counts are **mock data** so the UI works immediately. To show
-real numbers, edit **`src/services/serverStatus.js`** — it has a single function,
-`fetchServerStatus(server)`, and inline examples for:
+Player counts are **live via BattleMetrics** — each server's `battlemetricsId` is
+set in `src/data/servers.js`, and `src/services/serverStatus.js` fetches the count.
+A server with no `battlemetricsId` falls back to mock numbers so the UI still works.
 
-1. **BattleMetrics** (easiest for V Rising) — just fill in each server's
-   `battlemetricsId` and uncomment the example call.
-2. **A tiny backend** for CS 1.6 — browsers can't send the UDP query a Source
-   server needs, so run something like the [`gamedig`](https://github.com/gamedig/node-gamedig)
-   package on a small Node server and fetch its JSON here.
+> **Note:** the BattleMetrics call currently runs **in the browser**, so a visitor
+> whose VPN / adblock / firewall blocks `api.battlemetrics.com` will see the card as
+> **"Unknown"** — that's their network, not the site. Moving the call server-side
+> (a cached `GET /api/servers/:id/status`) is on the roadmap and removes this.
 
-Nothing else needs to change: every component reads the same status shape
-(`{ state, players, maxPlayers, map }`).
+Every component reads the same status shape (`{ state, players, maxPlayers, map }`),
+so the source can change without touching the UI.
+
+## Playtime & kills leaderboard
+
+The `/leaderboard` page ranks players by **Points / Playtime / V Blood kills / PvP
+kills**. Data comes from a companion **BepInEx server mod** (in `../mod/`) that POSTs
+sessions and kills to secret-guarded ingest endpoints; the site aggregates them.
+See `server/playtime.js` and the mod's own README. The site side works without the
+game — set `INGEST_SECRET`, `curl` a session in, and read `GET /api/leaderboard`.
 
 ## Login & registration (Discord + Steam)
 

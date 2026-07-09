@@ -33,6 +33,8 @@ Ideas for growing the site, grouped by theme. Effort is a rough guide:
   own route (`/events`, `/members`, …) instead of one long scrolling home page
 - **Styled dialogs** — custom confirm/prompt modals replace native browser popups
 - **Atmospheric hero** — self-drawn V Rising scene (blood moon, castle, embers)
+- **Playtime + points leaderboard** — playtime, V Blood & PvP kills and a combined
+  points ranking, fed by our in-game BepInEx mod (`mod/`). Deployed live.
 
 ---
 
@@ -91,6 +93,11 @@ Ideas for growing the site, grouped by theme. Effort is a rough guide:
   (custom Discord profile fetch); behaviour unchanged.
 - ~~Analytics~~ ✅ — self-hosted, privacy-friendly page-view counts (no cookies,
   no PII, no third parties) in the admin panel.
+- **Proxy live server status through the backend** (S) — today `serverStatus.js`
+  calls BattleMetrics **from the browser**, so a visitor's VPN/adblock/firewall
+  blocking `api.battlemetrics.com` makes the card show "Unknown". Move the call
+  server-side (fetch + short cache, expose `GET /api/servers/:id/status`) so every
+  visitor sees the count regardless of their network, and CORS stops mattering.
 
 ---
 
@@ -101,5 +108,7 @@ Most of the roadmap is now built. What's left:
 1. ~~**Playtime + points leaderboard**~~ (L) ✅ — site + mod done (playtime, V Blood
    & PvP kills, combined points). Remaining: live-verify the mod's kill hooks on the
    game server after a restart (the DLL is deployed to `BepInEx/plugins/`).
-2. **"Server full / online" badges** higher on the page (S) — quick polish.
-3. **Donations / VIP** (M) — optional; the `supporter` badge is already there.
+2. **Proxy BattleMetrics status server-side** (S) — kills the client-side
+   VPN/CORS "Unknown" (see Polish & infra).
+3. **"Server full / online" badges** higher on the page (S) — quick polish.
+4. **Donations / VIP** (M) — optional; the `supporter` badge is already there.
