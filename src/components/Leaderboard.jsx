@@ -210,10 +210,14 @@ export default function Leaderboard() {
           </p>
         </div>
 
-        <div className="lbfilter">
-          <WeeklyHighlights />
-          <SeasonChampions />
-          <KillFeed serverId={serverId} />
+        <div className="lb-layout">
+          <aside className="lb-sidebar">
+            <WeeklyHighlights />
+          </aside>
+          <div className="lb-main">
+            <div className="lbfilter">
+              <SeasonChampions />
+              <KillFeed serverId={serverId} />
           <div className="mfilter__tabs lbfilter__metrics">
             {METRICS.map((m) => (
               <button
@@ -277,6 +281,8 @@ export default function Leaderboard() {
             ))}
           </ol>
         )}
+          </div>
+        </div>
       </div>
     </section>
   )

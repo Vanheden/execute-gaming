@@ -3179,43 +3179,55 @@ body.has-banner .nav {
   color: var(--text-faint);
 }
 .weeklyhl__grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 .weeklyhl__card {
   display: flex;
-  flex-direction: column;
-  gap: 3px;
-  padding: 10px 12px;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
   border-radius: var(--radius-sm);
   background: var(--surface-2);
   border: 1px solid var(--border);
 }
 .weeklyhl__icon {
-  font-size: 1.2rem;
+  font-size: 1.1rem;
   line-height: 1;
+  flex-shrink: 0;
 }
 .weeklyhl__label {
+  flex: 1;
+  min-width: 0;
   font-size: 0.68rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--text-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .weeklyhl__name {
   font-weight: 700;
   color: var(--text);
   text-decoration: none;
-  font-size: 0.9rem;
+  font-size: 0.82rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex-shrink: 1;
+  min-width: 0;
 }
 .weeklyhl__name:hover {
   color: var(--c-cyan);
 }
 .weeklyhl__value {
+  flex-shrink: 0;
   font-weight: 800;
   color: var(--c-yellow);
-  font-size: 0.84rem;
+  font-size: 0.78rem;
   font-variant-numeric: tabular-nums;
 }
 
@@ -3407,6 +3419,31 @@ body.has-banner .nav {
   font-size: 0.68rem;
   color: var(--text-faint);
   font-variant-numeric: tabular-nums;
+}
+
+.lb-layout {
+  display: flex;
+  gap: 18px;
+  align-items: flex-start;
+}
+.lb-sidebar {
+  flex-shrink: 0;
+  width: 280px;
+  position: sticky;
+  top: 90px;
+}
+.lb-main {
+  flex: 1;
+  min-width: 0;
+}
+@media (max-width: 960px) {
+  .lb-layout {
+    flex-direction: column;
+  }
+  .lb-sidebar {
+    width: 100%;
+    position: static;
+  }
 }
 
 .lbfilter {

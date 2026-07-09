@@ -43,7 +43,7 @@ export default function WeeklyHighlights() {
             <div className="weeklyhl__card" key={cat.key}>
               <span className="weeklyhl__icon">{cat.icon}</span>
               <span className="weeklyhl__label">{cat.label}</span>
-              <a className="weeklyhl__name" {...linkProps(href)}>
+              <a className="weeklyhl__name" {...linkProps(href)} title={name}>
                 {name}
               </a>
               <span className="weeklyhl__value">{cat.fmt(entry.value)}</span>
