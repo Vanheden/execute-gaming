@@ -137,25 +137,36 @@ const METRICS = {
 }
 
 // --- Per-server leaderboard resets ("season wipe") --------------------------
-// A reset stores a cutoff timestamp per server (JSON { serverId: iso } under the
-// `leaderboard_resets` settings key). The leaderboard and ranks then only count a
-// server's activity at/after its cutoff. This is non-destructive (raw sessions/kills
-// are kept, so backups/audit are intact) and reversible — clearing the cutoff
-// restores the full history. Fits the PvP server's monthly wipe.
-export function getLeaderboardResets() {
+// A reset stores a cutoff timestamp per server (JSON { serverId: { cutoff, previous } }
+// under the `leaderboard_resets` settings key). The leaderboard and ranks then only
+// count a server's activity at/after its cutoff. This is non-destructive (raw
+// sessions/kills are kept) and reversible — clearing the cutoff restores the full
+// history. Re-resetting saves the old cutoff as `previous` so you can restore to it
+// (a rolling one-step backup). Fits the PvP server's monthly wipe.
+
+// Internal: read the raw stored map (with { cutoff, previous } per server).
+function readResetMap() {
   const row = db.prepare("SELECT value FROM settings WHERE key = 'leaderboard_resets'").get()
   if (!row?.value) return {}
   try {
     const map = JSON.parse(row.value)
-    // Only surface cutoffs for servers we still know about.
-    return Object.fromEntries(Object.entries(map).filter(([id, iso]) => SERVER_IDS.has(id) && iso))
+    const out = {}
+    for (const [id, val] of Object.entries(map)) {
+      if (!SERVER_IDS.has(id)) continue
+      // Backwards compat: old format was a bare ISO string.
+      if (typeof val === 'string') out[id] = { cutoff: val, previous: null }
+      else if (val?.cutoff) out[id] = { cutoff: val.cutoff, previous: val.previous || null }
+    }
+    return out
   } catch {
     return {}
   }
 }
 
-function saveResets(map) {
-  const clean = Object.fromEntries(Object.entries(map).filter(([id, iso]) => SERVER_IDS.has(id) && iso))
+function saveResetMap(map) {
+  const clean = Object.fromEntries(
+    Object.entries(map).filter(([id, v]) => SERVER_IDS.has(id) && v?.cutoff),
+  )
   if (!Object.keys(clean).length) {
     db.prepare("DELETE FROM settings WHERE key = 'leaderboard_resets'").run()
     return {}
@@ -167,14 +178,44 @@ function saveResets(map) {
   return clean
 }
 
+// Flattened { serverId: cutoffIso } for SQL floor logic.
+export function getLeaderboardResets() {
+  const map = readResetMap()
+  return Object.fromEntries(
+    Object.entries(map).map(([id, v]) => [id, v.cutoff]),
+  )
+}
+
+// Full structure { serverId: { cutoff, previous } } for the admin UI.
+export function getLeaderboardResetsAdmin() {
+  return readResetMap()
+}
+
 // Set a server's reset cutoff to `at` (default now), or clear it when at === null.
-// Returns { resets } (the full updated map) or { error } for an unknown serverId.
+// Re-resetting (cutoff already set) moves the old cutoff to `previous` — a rolling
+// one-step backup so you can restore to the prior season. Returns { resets } or
+// { error } for an unknown serverId.
 export function setLeaderboardReset(serverId, at = new Date().toISOString()) {
   if (!SERVER_IDS.has(serverId)) return { error: 'unknown serverId' }
-  const map = getLeaderboardResets()
-  if (at === null) delete map[serverId]
-  else map[serverId] = at
-  return { resets: saveResets(map) }
+  const map = readResetMap()
+  if (at === null) {
+    delete map[serverId]
+  } else {
+    const existing = map[serverId]
+    map[serverId] = { cutoff: at, previous: existing?.cutoff || null }
+  }
+  return { resets: saveResetMap(map) }
+}
+
+// Restore a server's cutoff to its `previous` value (undo a re-reset). Clears
+// previous afterwards. Returns { resets } or { error }.
+export function restoreLeaderboardReset(serverId) {
+  if (!SERVER_IDS.has(serverId)) return { error: 'unknown serverId' }
+  const map = readResetMap()
+  const entry = map[serverId]
+  if (!entry?.previous) return { error: 'no previous cutoff' }
+  map[serverId] = { cutoff: entry.previous, previous: null }
+  return { resets: saveResetMap(map) }
 }
 
 // Build an SQL fragment enforcing each reset cutoff on a time column `col`, using

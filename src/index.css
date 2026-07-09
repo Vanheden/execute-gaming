@@ -2750,6 +2750,16 @@ body.has-banner .nav {
   font-size: 0.85rem;
   color: var(--text-dim);
 }
+.srrow__prev {
+  color: var(--text-faint);
+  font-size: 0.8rem;
+}
+.srrow__actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
 .srrow__muted {
   color: var(--text-faint);
   font-size: 0.85rem;

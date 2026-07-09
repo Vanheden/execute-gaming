@@ -247,6 +247,7 @@ const ACTION_LABEL = {
   'announcement.clear': 'cleared the announcement',
   'leaderboard.reset': 'reset the leaderboard season for',
   'leaderboard.reset.clear': 'cleared the leaderboard season reset for',
+  'leaderboard.reset.restore': 'restored the leaderboard season for',
 }
 
 function AuditTab() {
@@ -298,7 +299,7 @@ function SeasonResetTab() {
     const ok = await confirm({
       title: `Reset ${server.name}?`,
       message:
-        'This sets a cutoff at now — only playtime and kills after this moment count towards the leaderboard and ranks. Old data is kept (non-destructive); clearing the cutoff restores it.',
+        'This sets a cutoff at now — only playtime and kills after this moment count. The previous cutoff (if any) is saved so you can restore to it.',
       confirmLabel: 'Reset season',
       danger: true,
     })
@@ -331,6 +332,22 @@ function SeasonResetTab() {
     }
   }
 
+  async function doRestore(server) {
+    const ok = await confirm({
+      title: `Restore ${server.name} to previous?`,
+      message: 'Restores the cutoff to the previous season — activity before it stops counting again.',
+      confirmLabel: 'Restore',
+    })
+    if (!ok) return
+    setBusy(true)
+    try {
+      const { resets } = await apiSend('POST', '/api/admin/leaderboard/restore', { serverId: server.id })
+      setData((d) => ({ ...d, resets }))
+    } finally {
+      setBusy(false)
+    }
+  }
+
   if (data === null) return <p className="empty">Loading season resets…</p>
 
   const { resets, servers } = data
@@ -339,11 +356,14 @@ function SeasonResetTab() {
     <div className="amtab">
       <p className="amtab__count">
         Per-server season wipe — sets a cutoff so only activity after it counts. Non-destructive: raw
-        data is kept and clearing the cutoff restores the full history.
+        data is kept and clearing the cutoff restores the full history. Re-resetting saves the old
+        cutoff as a rolling backup you can restore to.
       </p>
       <div className="srlist">
         {servers.map((s) => {
-          const cutoff = resets[s.id]
+          const entry = resets[s.id]
+          const cutoff = entry?.cutoff
+          const previous = entry?.previous
           return (
             <div key={s.id} className="srrow">
               <div className="srrow__info">
@@ -352,6 +372,11 @@ function SeasonResetTab() {
                   <span className="srrow__cutoff">
                     <span className="badge badge--reset">Reset</span>{' '}
                     <span title={new Date(cutoff).toLocaleString()}>since {timeAgo(cutoff)}</span>
+                    {previous && (
+                      <span className="srrow__prev" title={new Date(previous).toLocaleString()}>
+                        {' '}· previous: {timeAgo(previous)}
+                      </span>
+                    )}
                   </span>
                 ) : (
                   <span className="srrow__muted">All-time — no reset active</span>
@@ -359,9 +384,19 @@ function SeasonResetTab() {
               </div>
               <div className="srrow__actions">
                 {cutoff ? (
-                  <button className="btn btn--sm" disabled={busy} onClick={() => doClear(s)}>
-                    Clear reset
-                  </button>
+                  <>
+                    {previous && (
+                      <button className="btn btn--sm btn--ghost" disabled={busy} onClick={() => doRestore(s)}>
+                        Restore previous
+                      </button>
+                    )}
+                    <button className="btn btn--sm btn--danger" disabled={busy} onClick={() => doReset(s)}>
+                      Reset season
+                    </button>
+                    <button className="btn btn--sm" disabled={busy} onClick={() => doClear(s)}>
+                      Clear reset
+                    </button>
+                  </>
                 ) : (
                   <button className="btn btn--sm btn--danger" disabled={busy} onClick={() => doReset(s)}>
                     Reset season
