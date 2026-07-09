@@ -9,7 +9,7 @@ Ideas for growing the site, grouped by theme. Effort is a rough guide:
 - React + Vite site, colourful theme, custom logo, vampire server banners
 - Live V Rising server status (BattleMetrics) — PvE + Duo PvP
 - Discord & Steam login (accounts created on first login)
-- Roles & admin panel (promote/demote members)
+- Env-driven admin roles + admin panel (no in-app promote/demote)
 - Public members roster with synced Discord roles (names + colours)
 - SQLite backend, deployed on Proxmox via PM2 + Caddy at execute-gaming.se
 - **News / patch notes** — admin-authored posts
@@ -29,6 +29,10 @@ Ideas for growing the site, grouped by theme. Effort is a rough guide:
 - **Audit log** — every admin action recorded and browsable
 - **Self-hosted analytics** — privacy-friendly page-view counts, no third parties
 - **Security hardening** — headers, write rate-limiting, banned-login block
+- **Dedicated pages** — Events, Members, Achievements & Suggestions each on their
+  own route (`/events`, `/members`, …) instead of one long scrolling home page
+- **Styled dialogs** — custom confirm/prompt modals replace native browser popups
+- **Atmospheric hero** — self-drawn V Rising scene (blood moon, castle, embers)
 
 ---
 
@@ -42,8 +46,13 @@ Ideas for growing the site, grouped by theme. Effort is a rough guide:
 
 ## 🎮 Servers & game data
 
-- **Playtime / points leaderboard** (L ⭐) — a *real* leaderboard ranked by time
-  played or points, instead of join order. Biggest payoff from having SQLite.
+- **Playtime leaderboard** (L ⭐) — 🚧 *in progress.* Site side is built: a
+  `play_sessions` table, a secret-guarded ingest endpoint
+  (`POST /api/ingest/session`), a public `GET /api/leaderboard` (ranked by total
+  time, per-server + time-window filters, linked to member profiles), and a
+  `/leaderboard` page. **Remaining:** the in-game BepInEx mod that reports
+  sessions (see `mod/`), plus a future *points* layer (boss/PvP kills) on top of
+  the same sessions.
 - ~~Live Discord widget~~ ✅ — shows who's online in Discord (needs the guild
   widget enabled in Discord → Server Settings → Widget).
 - **"Server is full / online" badges** surfaced higher on the page (S).
@@ -88,7 +97,7 @@ Ideas for growing the site, grouped by theme. Effort is a rough guide:
 
 Most of the roadmap is now built. What's left:
 
-1. **Playtime / points leaderboard** (L) — the big remaining feature; a real
-   ranked ladder from tracked play data. Best payoff for member retention.
+1. **Playtime leaderboard** (L) — 🚧 site side done; finish the in-game BepInEx
+   mod (`mod/`) that reports sessions, then optionally add a points layer.
 2. **"Server full / online" badges** higher on the page (S) — quick polish.
 3. **Donations / VIP** (M) — optional; the `supporter` badge is already there.

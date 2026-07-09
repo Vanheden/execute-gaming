@@ -7,6 +7,7 @@ import News from './components/News.jsx'
 import Events from './components/Events.jsx'
 import Community from './components/Community.jsx'
 import Members from './components/Members.jsx'
+import Leaderboard from './components/Leaderboard.jsx'
 import Achievements from './components/Achievements.jsx'
 import Suggestions from './components/Suggestions.jsx'
 import Rules from './components/Rules.jsx'
@@ -58,6 +59,7 @@ function Layout({ children, standalone }) {
 const PAGES = {
   '/events': Events,
   '/members': Members,
+  '/leaderboard': Leaderboard,
   '/achievements': Achievements,
   '/suggestions': Suggestions,
 }

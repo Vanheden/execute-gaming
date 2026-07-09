@@ -10,6 +10,7 @@ const LINKS = [
   { label: 'News', to: '/#news' },
   { label: 'Events', to: '/events', page: true },
   { label: 'Members', to: '/members', page: true },
+  { label: 'Leaderboard', to: '/leaderboard', page: true },
   { label: 'Achievements', to: '/achievements', page: true },
   { label: 'Suggestions', to: '/suggestions', page: true },
 ]

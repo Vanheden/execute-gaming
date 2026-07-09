@@ -45,11 +45,16 @@ the live domain while developing — the same `.env` works on your machine and t
 ### Frontend (`src/`)
 
 - `main.jsx` wraps `<App>` in `<AuthProvider>`.
+- `main.jsx` also wraps `<App>` in `<ConfirmProvider>` — `useConfirm()` exposes
+  promise-based `confirm()`/`prompt()` rendered as styled modals (no native popups).
 - `App.jsx` composes the home page (Hero → Servers → News → Community → Rules)
   and does tiny client-side routing via a `PAGES` map: `/events`, `/members`,
   `/achievements`, `/suggestions` render that one section as a standalone page,
   `/u/:key` renders `<PublicProfile>`, everything else is the home page. It also
   fires the privacy-friendly page-view beacon (`POST /api/hit`).
+- `components/Hero.jsx` layers a self-drawn SVG scene (`public/hero-bg.svg`:
+  blood moon, castle silhouette, bats) + CSS embers behind the hero copy. All
+  art is original; animations respect `prefers-reduced-motion`.
 - `lib/router.js` — dependency-free History-API router (`usePath`, `navigate`,
   `linkProps`). `navigate` also handles `/#section` links (jump to a home
   section) and scroll-to-top on plain page changes. The SPA fallback
@@ -92,6 +97,11 @@ the live domain while developing — the same `.env` works on your machine and t
 - `stats.js` — background poller that snapshots each server's BattleMetrics
   player count (every `STATS_POLL_MINUTES`, default 5) into `server_stats`, plus
   `getHistory()`. Imports the shared `src/data/servers.js` for the server list.
+- `playtime.js` — the playtime **leaderboard**. `recordSession()` validates and
+  UPSERTs a play session (keyed by a mod-issued `sessionId`, so heartbeats and
+  the final disconnect are idempotent — no double counting); `getLeaderboard()`
+  aggregates total seconds per SteamID with per-server + time-window filters.
+  Data comes from the in-game BepInEx mod (`mod/`) via `POST /api/ingest/session`.
 
 ### Key routes
 
@@ -107,6 +117,12 @@ the live domain while developing — the same `.env` works on your machine and t
 - `POST /api/hit` — **public** analytics beacon (no PII)
 - `GET /api/servers/:id/history?hours=` — **public** player-count history
   (rendered by `components/PlayerHistoryChart.jsx`, a dependency-free SVG chart)
+- `GET /api/leaderboard?serverId=&period=all|30d|7d&limit=` — **public** playtime
+  leaderboard (ranked by total time; rows link to member profiles where the
+  SteamID matches a Steam login). Rendered by `components/Leaderboard.jsx`.
+- `POST /api/ingest/session` — session ingest from the in-game mod. **Not**
+  user-auth; guarded by a shared secret (`INGEST_SECRET`, header
+  `X-Ingest-Secret`) and **fails closed** (503) if the secret isn't set.
 - `GET /api/news` (public), `POST/PUT/DELETE /api/news/:id` (admin)
 - `GET /api/events` (public), `POST/PUT/DELETE /api/events/:id` (admin)
 - `GET /api/suggestions` (public), `POST` (auth), `POST /:id/vote` (auth),
@@ -114,7 +130,6 @@ the live domain while developing — the same `.env` works on your machine and t
 
 Admin-only (`ensureAdmin`):
 - `GET /api/admin/users` — full roster with notes/ban/badges/rank
-- `POST /api/admin/users/:id/role` — promote/demote
 - `POST /api/admin/users/:id/ban` — `{banned, reason}` (can't ban yourself)
 - `POST /api/admin/users/:id/note` — private admin note
 - `POST /api/admin/users/:id/achievements` — grant `{code}` (from `GRANTABLE`)
@@ -143,7 +158,9 @@ Copy `.env.example` → `.env`. Contains **real secrets — never commit it**
 (gitignored). Keys: `SESSION_SECRET`, `PUBLIC_BASE_URL`, `DISCORD_CLIENT_ID/
 SECRET`, `DISCORD_GUILD_ID`, `DISCORD_ADMIN_ROLE_IDS`, `DISCORD_ADMIN_USER_IDS`
 (pin admins by raw Discord user id), `DISCORD_BOT_TOKEN` (optional, for role
-names/colours), `STEAM_API_KEY`, `STATS_POLL_MINUTES` (optional, default 5).
+names/colours), `STEAM_API_KEY`, `STATS_POLL_MINUTES` (optional, default 5),
+`INGEST_SECRET` (shared secret for the leaderboard mod's session ingest; leave
+blank to disable ingest — the endpoint then returns 503).
 In production also set `NODE_ENV=production` and `PUBLIC_BASE_URL=https://execute-gaming.se`.
 
 ## Deployment
@@ -175,6 +192,19 @@ Open Graph / Twitter tags live in `index.html`; the card image is
 edit `scripts/make-og-image.mjs` to change wording, then re-run and commit the
 PNG).
 
+## Companion: playtime leaderboard mod
+
+The leaderboard's data comes from a **separate C# BepInEx mod** that runs on the
+V Rising game server, not from this repo. It lives in `../mod/` (sibling of
+`Website/`) — see `mod/ExecuteGaming.PlaytimeTracker/` and its own `CLAUDE.md`.
+
+- The mod POSTs play sessions to `POST /api/ingest/session` (this repo), guarded
+  by the shared `INGEST_SECRET`. Contract + validation live in `server/playtime.js`.
+- The site side is self-contained and testable **without** the game: set
+  `INGEST_SECRET`, `curl` a session in, and read `GET /api/leaderboard`.
+- To change the ingest contract, update **both** `server/playtime.js` (validation)
+  and the mod's `IngestClient` so they stay in sync.
+
 ## Gotchas
 
 - **Node 22.5+ required** (24 recommended) for `node:sqlite`. Older Node crashes
@@ -191,6 +221,9 @@ PNG).
   (`/?login=banned`); they aren't force-killed from an existing session.
 - The Discord widget needs "Enable Server Widget" turned on in Discord; without
   it the API returns 403 and the on-site widget simply hides itself.
+- The leaderboard stays empty until `INGEST_SECRET` is set **and** the game mod is
+  running and reporting. With no secret, `/api/ingest/session` returns 503 (a safe
+  "off"), and `/api/leaderboard` just returns an empty list — neither is an error.
 
 ## Conventions
 

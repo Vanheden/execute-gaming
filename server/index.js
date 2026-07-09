@@ -9,7 +9,7 @@ import express from 'express'
 import session from 'express-session'
 import sessionFileStore from 'session-file-store'
 import passport from 'passport'
-import { createHash } from 'node:crypto'
+import { createHash, timingSafeEqual } from 'node:crypto'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { configureAuth, enabledProviders } from './auth.js'
@@ -17,11 +17,13 @@ import {
   listUsers,
   listUsersAdmin,
   getUserById,
+  getUserByProvider,
   setBan,
   setNote,
   updateProfile,
 } from './store.js'
 import { startPolling, getHistory } from './stats.js'
+import { recordSession, getLeaderboard, LEADERBOARD_PERIODS } from './playtime.js'
 import { fetchWidget } from './discord.js'
 import {
   badgesForUser,
@@ -197,6 +199,54 @@ app.post('/api/hit', (req, res) => {
 app.get('/api/servers/:id/history', (req, res) => {
   const hours = Math.min(Math.max(Number(req.query.hours) || 24, 1), 168)
   res.json({ points: getHistory(req.params.id, hours) })
+})
+
+// --- Playtime leaderboard --------------------------------------------------
+// Ingest: the in-game BepInEx mod POSTs a play session (see server/playtime.js).
+// Not user-authenticated — guarded by a shared secret in INGEST_SECRET. Fails
+// closed: if the secret isn't configured, ingest is disabled entirely.
+function ensureIngestSecret(req, res, next) {
+  const expected = process.env.INGEST_SECRET
+  if (!expected) return res.status(503).json({ error: 'ingest disabled' })
+  const got = req.get('x-ingest-secret') || ''
+  const a = Buffer.from(got)
+  const b = Buffer.from(expected)
+  if (a.length !== b.length || !timingSafeEqual(a, b)) {
+    return res.status(401).json({ error: 'unauthorized' })
+  }
+  next()
+}
+
+app.post('/api/ingest/session', ensureIngestSecret, (req, res) => {
+  const result = recordSession(req.body)
+  if (result.error) return res.status(400).json({ error: result.error })
+  res.status(204).end()
+})
+
+// Public leaderboard ranked by total playtime. ?serverId= (default all),
+// ?period=all|30d|7d, ?limit= (default 100). Rows are linked to member accounts
+// where the SteamID matches a Steam login, so entries can deep-link to profiles.
+app.get('/api/leaderboard', (req, res) => {
+  const serverId = req.query.serverId ? String(req.query.serverId) : null
+  const period = LEADERBOARD_PERIODS.includes(req.query.period) ? req.query.period : 'all'
+  const rows = getLeaderboard({ serverId, period, limit: req.query.limit })
+  const entries = rows.map((r) => {
+    const member = getUserByProvider('steam', r.steamId)
+    const linked = member && !member.banned ? member : null
+    return {
+      steamId: r.steamId,
+      name: linked?.username || r.charName || 'Unknown vampire',
+      charName: r.charName || null,
+      seconds: r.seconds,
+      sessions: r.sessions,
+      lastSeen: r.lastSeen,
+      // Only expose account info (never the raw id) when it's a real, unbanned member.
+      member: linked
+        ? { key: keyOf(linked.id), avatar: linked.avatar, role: linked.role }
+        : null,
+    }
+  })
+  res.json({ entries, period, serverId })
 })
 
 // A stable, non-identifying public key for a user (never expose the raw id).

@@ -114,6 +114,23 @@ db.exec(`
     count INTEGER NOT NULL DEFAULT 0,
     PRIMARY KEY (day, path)
   );
+
+  -- Play sessions ingested from the in-game BepInEx mod, keyed by a mod-issued
+  -- sessionId (one per connect). Heartbeats and the final disconnect UPSERT the
+  -- same row, so ingest is idempotent and crash-safe (last write wins). Powers
+  -- the playtime leaderboard. endedAt is NULL while the player is still online.
+  CREATE TABLE IF NOT EXISTS play_sessions (
+    sessionId TEXT PRIMARY KEY,
+    serverId  TEXT NOT NULL,
+    steamId   TEXT NOT NULL,
+    charName  TEXT,
+    startedAt TEXT NOT NULL,
+    endedAt   TEXT,
+    seconds   INTEGER NOT NULL DEFAULT 0,
+    updatedAt TEXT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_sessions_steam ON play_sessions(steamId);
+  CREATE INDEX IF NOT EXISTS idx_sessions_server_started ON play_sessions(serverId, startedAt);
 `)
 
 // --- Lightweight column migrations (for DBs created before a column existed) -

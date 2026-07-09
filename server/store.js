@@ -88,6 +88,12 @@ export function getUserById(id) {
   return rowToUser(db.prepare('SELECT * FROM users WHERE id = ?').get(id))
 }
 
+// Look up an account by provider + that provider's id (ids are `provider:providerId`).
+// Used to link play sessions (which carry a raw SteamID) back to a member.
+export function getUserByProvider(provider, providerId) {
+  return getUserById(`${provider}:${providerId}`)
+}
+
 // Creates the account on first login, updates it on subsequent logins.
 export function upsertUser({
   provider,
