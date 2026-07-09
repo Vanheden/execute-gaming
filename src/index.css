@@ -2781,6 +2781,10 @@ body.has-banner .nav {
   color: #fff;
   font-weight: 700;
 }
+.lb__unit {
+  color: var(--accent);
+  font-weight: 600;
+}
 .lb__time {
   flex-shrink: 0;
   display: flex;

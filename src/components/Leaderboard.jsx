@@ -10,6 +10,24 @@ function formatDuration(seconds) {
   return `${h}h ${m}m`
 }
 
+// Same duration, but with white numbers and theme-accent unit letters (h/m).
+function PlaytimeParts({ seconds }) {
+  const h = Math.floor(seconds / 3600)
+  const m = Math.floor((seconds % 3600) / 60)
+  return (
+    <span className="lb__pt">
+      {h > 0 && (
+        <>
+          <span className="lb__num">{h}</span>
+          <span className="lb__unit">h</span>{' '}
+        </>
+      )}
+      <span className="lb__num">{m}</span>
+      <span className="lb__unit">m</span>
+    </span>
+  )
+}
+
 // The rankable metrics. `value` pulls the ranked number off a row; `render` turns
 // it into the big label shown on the right of each row.
 const METRICS = [
@@ -90,7 +108,7 @@ function Meta({ e, metric }) {
   if (metric === 'points')
     return (
       <span className="lb__meta">
-        {formatDuration(e.seconds)}
+        <PlaytimeParts seconds={e.seconds} />
         {' · '}
         <span className="lb__vb">
           <span className="lb__num">{e.vblood}</span> V Blood
@@ -108,7 +126,11 @@ function Meta({ e, metric }) {
       </span>
     )
   // vblood / pvp tabs: show total playtime as context.
-  return <span className="lb__meta">{formatDuration(e.seconds)} played</span>
+  return (
+    <span className="lb__meta">
+      <PlaytimeParts seconds={e.seconds} /> played
+    </span>
+  )
 }
 
 export default function Leaderboard() {
