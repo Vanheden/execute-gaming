@@ -248,6 +248,7 @@ const ACTION_LABEL = {
   'leaderboard.reset': 'reset the leaderboard season for',
   'leaderboard.reset.clear': 'cleared the leaderboard season reset for',
   'leaderboard.reset.restore': 'restored the leaderboard season for',
+  'killfeed.toggle': 'toggled the kill feed',
 }
 
 function AuditTab() {
@@ -464,10 +465,54 @@ function AnalyticsTab() {
   )
 }
 
+// --- Settings sub-tab -------------------------------------------------------
+function SettingsTab() {
+  const [kfEnabled, setKfEnabled] = useState(null)
+  const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    apiGet('/api/killfeed/enabled')
+      .then((d) => setKfEnabled(d.enabled))
+      .catch(() => setKfEnabled(false))
+  }, [])
+
+  async function toggleKillFeed() {
+    if (kfEnabled === null) return
+    setBusy(true)
+    try {
+      const { enabled } = await apiSend('PUT', '/api/killfeed/enabled', { enabled: !kfEnabled })
+      setKfEnabled(enabled)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  if (kfEnabled === null) return <p className="empty">Loading settings…</p>
+
+  return (
+    <div className="amtab">
+      <div className="srrow">
+        <div className="srrow__info">
+          <span className="srrow__name">Live Kill Feed</span>
+          <span className="srrow__muted">
+            {kfEnabled ? 'Visible on the leaderboard' : 'Hidden — disabled by admin'}
+          </span>
+        </div>
+        <div className="srrow__actions">
+          <button className={`btn btn--sm ${kfEnabled ? 'btn--danger' : ''}`} disabled={busy} onClick={toggleKillFeed}>
+            {kfEnabled ? 'Disable' : 'Enable'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // --- Panel shell (standalone /admin page) -----------------------------------
 const TABS = [
   ['members', 'Members'],
   ['season', 'Season reset'],
+  ['settings', 'Settings'],
   ['audit', 'Audit log'],
   ['analytics', 'Analytics'],
 ]
@@ -520,6 +565,7 @@ export default function AdminPanel() {
           </div>
           {sub === 'members' && <MembersTab currentUser={user} />}
           {sub === 'season' && <SeasonResetTab />}
+          {sub === 'settings' && <SettingsTab />}
           {sub === 'audit' && <AuditTab />}
           {sub === 'analytics' && <AnalyticsTab />}
         </div>

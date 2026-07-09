@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { linkProps } from '../lib/router.js'
+import { apiGet } from '../lib/api.js'
 
 function timeAgo(iso) {
   const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000)
@@ -15,9 +16,13 @@ function timeAgo(iso) {
 export default function KillFeed({ serverId }) {
   const [kills, setKills] = useState(null)
   const [error, setError] = useState(false)
+  const [enabled, setEnabled] = useState(true)
 
   useEffect(() => {
     let live = true
+    apiGet('/api/killfeed/enabled')
+      .then((d) => live && setEnabled(d.enabled))
+      .catch(() => live && setEnabled(false))
     const poll = () => {
       const params = new URLSearchParams({ limit: '15' })
       if (serverId) params.set('serverId', serverId)
@@ -42,7 +47,7 @@ export default function KillFeed({ serverId }) {
     }
   }, [])
 
-  if (error || !kills?.length) return null
+  if (!enabled || error || !kills?.length) return null
 
   return (
     <div className="killfeed">

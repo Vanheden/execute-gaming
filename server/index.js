@@ -76,6 +76,8 @@ import {
   deleteSuggestion,
   getAnnouncement,
   setAnnouncement,
+  isKillFeedEnabled,
+  setKillFeedEnabled,
 } from './content.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -272,6 +274,16 @@ app.put('/api/announcement', ensureAdmin, (req, res) => {
     detail: message ? { level, message } : null,
   })
   res.json({ announcement })
+})
+
+// --- Kill feed toggle (public read, admin write) ---------------------------
+app.get('/api/killfeed/enabled', (req, res) => res.json({ enabled: isKillFeedEnabled() }))
+
+app.put('/api/killfeed/enabled', ensureAdmin, (req, res) => {
+  const enabled = !!req.body?.enabled
+  setKillFeedEnabled(enabled)
+  logAudit({ actor: req.user, action: 'killfeed.toggle', detail: { enabled } })
+  res.json({ enabled })
 })
 
 // --- Analytics beacon (public, no PII) -------------------------------------

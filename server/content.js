@@ -149,3 +149,23 @@ export function setAnnouncement({ message, level }) {
   ).run(JSON.stringify(value))
   return value
 }
+
+// --- Settings / kill feed toggle -------------------------------------------
+export function isKillFeedEnabled() {
+  const row = db.prepare("SELECT value FROM settings WHERE key = 'killfeed'").get()
+  if (!row?.value) return false
+  try {
+    return JSON.parse(row.value).enabled === true
+  } catch {
+    return false
+  }
+}
+
+export function setKillFeedEnabled(enabled) {
+  const value = { enabled: !!enabled, updatedAt: now() }
+  db.prepare(
+    `INSERT INTO settings (key, value) VALUES ('killfeed', ?)
+     ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+  ).run(JSON.stringify(value))
+  return value
+}
