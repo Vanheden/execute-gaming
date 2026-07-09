@@ -1,11 +1,12 @@
 import { useState } from 'react'
-import { useServerStatus } from '../hooks/useServerStatus.js'
+import { displayState } from '../hooks/useServerStatus.js'
 import PlayerHistoryChart from './PlayerHistoryChart.jsx'
 
 function StatusPill({ state }) {
   const map = {
     loading: ['Checking…', 'pill--loading'],
     online: ['Online', 'pill--online'],
+    full: ['Full', 'pill--full'],
     offline: ['Offline', 'pill--offline'],
     unknown: ['Unknown', 'pill--unknown'],
   }
@@ -42,8 +43,7 @@ function ServerDetails({ server }) {
   )
 }
 
-export default function ServerCard({ server }) {
-  const status = useServerStatus(server)
+export default function ServerCard({ server, status = { state: 'loading', players: 0, maxPlayers: server.maxPlayers } }) {
   const [copied, setCopied] = useState(false)
   const [open, setOpen] = useState(true) // details shown by default
 
@@ -61,12 +61,12 @@ export default function ServerCard({ server }) {
     status.maxPlayers > 0 ? Math.min(100, (status.players / status.maxPlayers) * 100) : 0
 
   return (
-    <article className="card" style={{ '--accent': server.accent }}>
+    <article id={`server-${server.id}`} className="card" style={{ '--accent': server.accent }}>
       <div className="card__media">
         <img src={server.image} alt={server.name} loading="lazy" />
         <div className="card__media-overlay" />
         <span className="card__game">{server.game}</span>
-        <StatusPill state={status.state} />
+        <StatusPill state={displayState(status)} />
       </div>
 
       <div className="card__body">

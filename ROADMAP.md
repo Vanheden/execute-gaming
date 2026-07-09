@@ -66,7 +66,10 @@ Ideas for growing the site, grouped by theme. Effort is a rough guide:
   (death-based detection, mod v0.2.2 — see mod CLAUDE.md).
 - ~~Live Discord widget~~ ✅ — shows who's online in Discord (needs the guild
   widget enabled in Discord → Server Settings → Widget).
-- **"Server is full / online" badges** surfaced higher on the page (S).
+- ~~**"Server is full / online" badges**~~ ✅ — a live status strip at the top of the
+  Servers section shows each server's Online/Full/Offline state + player count at a
+  glance (no scrolling to each card); chips deep-link to the card. Cards also show a
+  "Full" pill when at capacity.
 
 ## 👥 Community & members
 
@@ -115,11 +118,12 @@ Most of the roadmap is now built. What's left:
 
 1. **Proxy BattleMetrics status server-side** (S) — kills the client-side
    VPN/CORS "Unknown" (see Polish & infra).
-2. **"Server full / online" badges** higher on the page (S) — quick polish.
-3. **Donations / VIP** (M) — optional; the `supporter` badge is already there.
+2. **Donations / VIP** (M) — optional; the `supporter` badge is already there.
 
 Recently shipped: the leaderboard mod's V Blood + PvP kill hooks are now
 **verified live** (death-based detection, mod v0.2.2); Steam + Discord account
-linking; leaderboard metric colours / bat avatar polish; and the "Latest Kill"
+linking; leaderboard metric colours / bat avatar polish; the "Latest Kill"
 line showing each player's most recent V Blood boss (all 64 bosses named via
-`src/data/vbloods.js`, from the official wiki's V Blood Unit IDs table).
+`src/data/vbloods.js`, from the official wiki's V Blood Unit IDs table); and a
+live server status strip (Online / Full / Offline at a glance) atop the Servers
+section.

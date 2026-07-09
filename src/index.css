@@ -702,6 +702,9 @@ body.has-banner .nav {
 .pill--online {
   color: var(--online);
 }
+.pill--full {
+  color: #f5b642;
+}
 .pill--offline {
   color: var(--offline);
 }
@@ -716,6 +719,73 @@ body.has-banner .nav {
   50% {
     opacity: 0.35;
   }
+}
+
+/* Live server status strip — at-a-glance online/full badges at the top of the
+   Servers section, so availability is visible without scrolling to each card. */
+.sstrip {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin: 0 0 26px;
+}
+.sstrip__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text);
+  text-decoration: none;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border);
+  transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
+}
+.sstrip__chip:hover {
+  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.06);
+  border-color: color-mix(in srgb, currentColor 40%, var(--border));
+}
+.sstrip__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 8px currentColor;
+  flex-shrink: 0;
+}
+.sstrip__name {
+  color: var(--text);
+  font-weight: 700;
+}
+.sstrip__state {
+  color: var(--text-faint);
+  font-weight: 600;
+}
+/* The chip's dot + state text take the status colour; the name stays neutral. */
+.sstrip__chip--online {
+  color: var(--online);
+}
+.sstrip__chip--full {
+  color: #f5b642;
+}
+.sstrip__chip--offline {
+  color: var(--offline);
+}
+.sstrip__chip--loading,
+.sstrip__chip--unknown {
+  color: var(--text-faint);
+}
+.sstrip__chip--online .sstrip__state,
+.sstrip__chip--full .sstrip__state,
+.sstrip__chip--offline .sstrip__state {
+  color: currentColor;
+}
+.sstrip__chip--loading .sstrip__dot {
+  animation: pulse 1.1s ease-in-out infinite;
 }
 
 /* ===========================================================================
