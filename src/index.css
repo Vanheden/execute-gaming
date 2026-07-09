@@ -2332,6 +2332,60 @@ body.has-banner .nav {
   font-weight: 700;
   color: var(--text);
 }
+/* Rank badge on the public profile: icon + tier name + progress to next tier. */
+.rankbox {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--rank) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--rank) 35%, transparent);
+}
+.rankbox__icon {
+  font-size: 1.9rem;
+  line-height: 1;
+  flex-shrink: 0;
+  filter: drop-shadow(0 0 8px color-mix(in srgb, var(--rank) 55%, transparent));
+}
+.rankbox__body {
+  flex: 1;
+  min-width: 0;
+}
+.rankbox__top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+.rankbox__name {
+  font-weight: 800;
+  font-size: 1.05rem;
+  color: var(--rank);
+  letter-spacing: 0.01em;
+}
+.rankbox__pts {
+  font-weight: 700;
+  color: var(--text);
+  font-size: 0.9rem;
+}
+.rankbox__bar {
+  margin: 8px 0 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--rank) 18%, transparent);
+  overflow: hidden;
+}
+.rankbox__bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--rank);
+}
+.rankbox__next {
+  font-size: 0.76rem;
+  color: var(--text-faint);
+}
 .pubcard__section {
   padding-top: 18px;
   border-top: 1px solid var(--border);
@@ -2833,6 +2887,37 @@ body.has-banner .nav {
 }
 .lb__name--link:hover {
   color: var(--c-cyan);
+}
+/* Name + rank pill share one line; the name truncates, the pill never shrinks. */
+.lb__nameline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.lb__nameline .lb__name {
+  min-width: 0;
+}
+.lb__rankpill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  padding: 1px 8px 1px 6px;
+  border-radius: 999px;
+  font-size: 0.64rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  line-height: 1.6;
+  white-space: nowrap;
+  color: var(--rank);
+  background: color-mix(in srgb, var(--rank) 15%, transparent);
+  border: 1px solid color-mix(in srgb, var(--rank) 42%, transparent);
+}
+.lb__rankicon {
+  font-size: 0.82rem;
+  line-height: 1;
 }
 .lb__meta {
   font-size: 0.78rem;

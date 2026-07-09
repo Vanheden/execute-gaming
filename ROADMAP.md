@@ -43,6 +43,14 @@ Ideas for growing the site, grouped by theme. Effort is a rough guide:
 - **Link Steam + Discord** — one account can own both identities (link from the
   profile); logins resolve to the primary and the leaderboard attributes a linked
   SteamID to the member. Any pre-existing duplicate account is merged in.
+- **Player ranks** — an 8-tier "Vampire Ascension" ladder (Fledgling → Rogue →
+  Nightborne → Bloodletter → Dread Knight → Elder → Nightlord → Dracula) derived
+  from each player's **all-time points**. Shows as a coloured rank pill on every
+  leaderboard row and as a progress badge (with "N pts to next rank") on public
+  `/u/:key` profiles. Thresholds/names/colours live in one file (`src/data/ranks.js`).
+  V Blood scoring now rewards **variety**: the first kill of a boss is worth 50 pts,
+  each repeat of the same boss 25 — so farming one easy boss no longer out-scores
+  clearing new content.
 
 ---
 
@@ -120,7 +128,10 @@ Most of the roadmap is now built. What's left:
    VPN/CORS "Unknown" (see Polish & infra).
 2. **Donations / VIP** (M) — optional; the `supporter` badge is already there.
 
-Recently shipped: the leaderboard mod's V Blood + PvP kill hooks are now
+Recently shipped: **player ranks** — an all-time points "Vampire Ascension"
+ladder shown as a rank pill on the leaderboard and a progress badge on profiles
+(`src/data/ranks.js`), plus variety-rewarding V Blood scoring (first kill of a
+boss 50 pts, repeats 25); the leaderboard mod's V Blood + PvP kill hooks are
 **verified live** (death-based detection, mod v0.2.2); Steam + Discord account
 linking; leaderboard metric colours / bat avatar polish; the "Latest Kill"
 line showing each player's most recent V Blood boss (all 64 bosses named via

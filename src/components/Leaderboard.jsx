@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { servers } from '../data/servers.js'
+import { rankForPoints } from '../data/ranks.js'
 import { linkProps } from '../lib/router.js'
 
 // Human-readable playtime, e.g. 5400s → "1h 30m".
@@ -86,6 +87,21 @@ function Avatar({ e }) {
   return (
     <span className="lb__avatar lb__avatar--ph" title={e.name} aria-label={e.name}>
       <Bat />
+    </span>
+  )
+}
+
+// Coloured rank pill derived from the player's all-time points (persistent across
+// the period/server filters). See src/data/ranks.js for the ladder.
+function Rank({ e }) {
+  const points = e.allTimePoints ?? e.points ?? 0
+  const { tier } = rankForPoints(points)
+  return (
+    <span className="lb__rankpill" style={{ '--rank': tier.color }} title={`${tier.name} · ${points.toLocaleString()} pts`}>
+      <span className="lb__rankicon" aria-hidden="true">
+        {tier.icon}
+      </span>
+      {tier.name}
     </span>
   )
 }
@@ -233,7 +249,10 @@ export default function Leaderboard() {
                 <span className={`lb__rank lb__rank--${i + 1}`}>#{i + 1}</span>
                 <Avatar e={e} />
                 <div className="lb__info">
-                  <Name e={e} />
+                  <div className="lb__nameline">
+                    <Name e={e} />
+                    <Rank e={e} />
+                  </div>
                   <Meta e={e} metric={metric} />
                   <LatestKill e={e} />
                 </div>

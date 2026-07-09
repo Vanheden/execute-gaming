@@ -111,9 +111,16 @@ export function recordKill(body) {
 // Points weighting for the combined "Points" ranking. The leaderboard recomputes
 // from raw sessions/events on every request, so tweaking these reweights the whole
 // history immediately — no backfill needed.
+//
+// V Blood kills reward *variety*: the FIRST time a player fells a given boss it's
+// worth `perVBloodFirst`; every repeat kill of that same boss is worth the smaller
+// `perVBloodRepeat`. So a player's V Blood points = distinctBosses·first +
+// (totalVBloodKills − distinctBosses)·repeat. This is computed in SQL from a
+// COUNT(DISTINCT victim), so no per-kill flag is stored — reweighting stays instant.
 export const POINTS = {
   perHour: 10, // 10 pts per hour played
-  perVBlood: 50, // 50 pts per V Blood boss kill
+  perVBloodFirst: 50, // 50 pts the first time you kill a given V Blood boss
+  perVBloodRepeat: 25, // 25 pts for each repeat kill of a boss you've already felled
   perPvpKill: 15, // 15 pts per PvP kill
 }
 
@@ -149,10 +156,13 @@ export function getLeaderboard({ serverId = null, period = 'all', metric = 'poin
              COALESCE(k.vblood, 0)   AS vblood,
              COALESCE(k.pvp, 0)      AS pvp,
              MAX(COALESCE(p.lastSeen, '0'), COALESCE(k.lastKill, '0')) AS lastSeen,
+             -- V Blood points: distinct bosses at the first-kill rate, the rest
+             -- (repeat kills of an already-felled boss) at the lower repeat rate.
              CAST(
                COALESCE(p.seconds, 0) / 3600.0 * ?3
-               + COALESCE(k.vblood, 0) * ?4
-               + COALESCE(k.pvp, 0) * ?5
+               + COALESCE(k.vbloodDistinct, 0) * ?4
+               + (COALESCE(k.vblood, 0) - COALESCE(k.vbloodDistinct, 0)) * ?5
+               + COALESCE(k.pvp, 0) * ?6
              AS INTEGER) AS points,
              (SELECT charName FROM (
                 SELECT charName, startedAt AS t FROM play_sessions
@@ -187,6 +197,8 @@ export function getLeaderboard({ serverId = null, period = 'all', metric = 'poin
         LEFT JOIN (
           SELECT steamId,
                  SUM(CASE WHEN kind = 'vblood' THEN 1 ELSE 0 END) AS vblood,
+                 COUNT(DISTINCT CASE WHEN kind = 'vblood' AND victim IS NOT NULL
+                                     THEN victim END)              AS vbloodDistinct,
                  SUM(CASE WHEN kind = 'pvp' THEN 1 ELSE 0 END)    AS pvp,
                  MAX(occurredAt) AS lastKill
             FROM kill_events
@@ -196,11 +208,55 @@ export function getLeaderboard({ serverId = null, period = 'all', metric = 'poin
     )
     WHERE ${col} > 0
     ORDER BY ${col} DESC, lastSeen DESC
-    LIMIT ?6`
+    LIMIT ?7`
 
   return db
     .prepare(sql)
-    .all(serverId, since, POINTS.perHour, POINTS.perVBlood, POINTS.perPvpKill, cap)
+    .all(
+      serverId,
+      since,
+      POINTS.perHour,
+      POINTS.perVBloodFirst,
+      POINTS.perVBloodRepeat,
+      POINTS.perPvpKill,
+      cap,
+    )
+}
+
+// All-time points per SteamID, independent of any period/server filter — the rank
+// badge always reflects lifetime progress (see src/data/ranks.js). Uses the same
+// first-vs-repeat V Blood weighting as the leaderboard. Returns a plain object map
+// { steamId: points }. Unknown/empty ids yield {}.
+export function allTimePoints(steamIds) {
+  const ids = [...new Set((steamIds || []).filter(Boolean))]
+  if (!ids.length) return {}
+  const values = ids.map(() => '(?)').join(',')
+  const sql = `
+    WITH ids(steamId) AS (VALUES ${values})
+    SELECT ids.steamId AS steamId,
+           CAST(
+             COALESCE(p.seconds, 0) / 3600.0 * ?
+             + COALESCE(k.vbloodDistinct, 0) * ?
+             + (COALESCE(k.vblood, 0) - COALESCE(k.vbloodDistinct, 0)) * ?
+             + COALESCE(k.pvp, 0) * ?
+           AS INTEGER) AS points
+      FROM ids
+      LEFT JOIN (
+        SELECT steamId, SUM(seconds) AS seconds FROM play_sessions GROUP BY steamId
+      ) p ON p.steamId = ids.steamId
+      LEFT JOIN (
+        SELECT steamId,
+               SUM(CASE WHEN kind = 'vblood' THEN 1 ELSE 0 END) AS vblood,
+               COUNT(DISTINCT CASE WHEN kind = 'vblood' AND victim IS NOT NULL
+                                   THEN victim END)              AS vbloodDistinct,
+               SUM(CASE WHEN kind = 'pvp' THEN 1 ELSE 0 END)    AS pvp
+          FROM kill_events GROUP BY steamId
+      ) k ON k.steamId = ids.steamId`
+
+  const rows = db
+    .prepare(sql)
+    .all(...ids, POINTS.perHour, POINTS.perVBloodFirst, POINTS.perVBloodRepeat, POINTS.perPvpKill)
+  return Object.fromEntries(rows.map((r) => [r.steamId, r.points]))
 }
 
 export const LEADERBOARD_PERIODS = Object.keys(PERIODS)

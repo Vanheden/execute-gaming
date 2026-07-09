@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { servers, community } from '../data/servers.js'
+import { rankForPoints } from '../data/ranks.js'
 import { linkProps } from '../lib/router.js'
 import Badges from './Badges.jsx'
 
@@ -10,6 +11,34 @@ function serverName(id) {
 function formatDate(iso) {
   if (!iso) return '—'
   return new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+}
+
+// Rank badge + progress toward the next tier, from the member's all-time points.
+// Only shown when the member has a Steam link (points is a number).
+function RankBadge({ points }) {
+  const { tier, next, progressPct, toNext, isMax } = rankForPoints(points)
+  return (
+    <section className="pubcard__section">
+      <h2 className="pubcard__label">Rank</h2>
+      <div className="rankbox" style={{ '--rank': tier.color }}>
+        <span className="rankbox__icon" aria-hidden="true">
+          {tier.icon}
+        </span>
+        <div className="rankbox__body">
+          <div className="rankbox__top">
+            <span className="rankbox__name">{tier.name}</span>
+            <span className="rankbox__pts">{points.toLocaleString()} pts</span>
+          </div>
+          <div className="rankbox__bar">
+            <span style={{ width: `${progressPct}%` }} />
+          </div>
+          <span className="rankbox__next">
+            {isMax ? 'Max rank — apex predator of the night' : `${toNext.toLocaleString()} pts to ${next.name}`}
+          </span>
+        </div>
+      </div>
+    </section>
+  )
 }
 
 export default function PublicProfile({ profileKey }) {
@@ -87,6 +116,8 @@ export default function PublicProfile({ profileKey }) {
                 </div>
               </div>
             </div>
+
+            {typeof m.points === 'number' && <RankBadge points={m.points} />}
 
             {m.badges?.length > 0 && (
               <section className="pubcard__section">

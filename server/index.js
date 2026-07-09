@@ -30,6 +30,7 @@ import {
   recordSession,
   recordKill,
   getLeaderboard,
+  allTimePoints,
   LEADERBOARD_PERIODS,
   LEADERBOARD_METRICS,
 } from './playtime.js'
@@ -307,6 +308,9 @@ app.get('/api/leaderboard', (req, res) => {
   const period = LEADERBOARD_PERIODS.includes(req.query.period) ? req.query.period : 'all'
   const metric = LEADERBOARD_METRICS.includes(req.query.metric) ? req.query.metric : 'points'
   const rows = getLeaderboard({ serverId, period, metric, limit: req.query.limit })
+  // Rank is always all-time (independent of the period/server filter), so resolve
+  // each row's lifetime points in one batch and attach it for the rank badge.
+  const lifetime = allTimePoints(rows.map((r) => r.steamId))
   const entries = rows.map((r) => {
     const member = getUserByProvider('steam', r.steamId)
     const linked = member && !member.banned ? member : null
@@ -324,6 +328,7 @@ app.get('/api/leaderboard', (req, res) => {
       vblood: r.vblood,
       pvp: r.pvp,
       points: r.points,
+      allTimePoints: lifetime[r.steamId] ?? r.points,
       latestVBlood,
       lastSeen: r.lastSeen,
       // Only expose account info (never the raw id) when it's a real, unbanned member.
@@ -373,12 +378,25 @@ app.get('/api/members', (req, res) => {
   res.json({ members })
 })
 
+// All-time leaderboard points for an account, summed across its Steam identities
+// (an account can link more than one). Used for the rank badge on profiles.
+function pointsForUser(userId) {
+  const steamIds = getUserIdentities(userId)
+    .filter((idn) => idn.provider === 'steam')
+    .map((idn) => idn.providerId)
+  if (!steamIds.length) return null
+  const map = allTimePoints(steamIds)
+  return steamIds.reduce((sum, id) => sum + (map[id] || 0), 0)
+}
+
 // A single public profile by its hashed key (for shareable /u/:key pages).
 app.get('/api/profile/:key', (req, res) => {
   const all = listUsers()
   const i = all.findIndex((u) => keyOf(u.id) === req.params.key)
   if (i === -1 || all[i].banned) return res.status(404).json({ error: 'not found' })
-  res.json({ member: publicMember(all[i], i + 1) })
+  const member = publicMember(all[i], i + 1)
+  member.points = pointsForUser(all[i].id) // null if the member has no Steam link
+  res.json({ member })
 })
 
 // Full achievement catalog with holder counts (public).
