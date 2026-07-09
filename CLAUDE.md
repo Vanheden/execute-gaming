@@ -230,9 +230,9 @@ V Rising game server, not from this repo. It lives in `../mod/` (sibling of
 - **"Latest Kill":** each leaderboard row shows the player's most recent V Blood boss
   ("🩸 Latest Kill: Alpha Wolf"). `getLeaderboard` returns the latest in-window `kill_event`
   per SteamID (`lastVBlood` guid + `lastVBloodAt`); the route resolves the guid via
-  `src/data/vbloods.js` (`vbloodName()`). Only `-1905691330` = Alpha Wolf is confirmed
-  — add more only from real kills (server log), never a guess; unknown ids render a
-  neutral "V Blood boss" label client-side.
+  `src/data/vbloods.js` (`vbloodName()`), which maps all 64 V Blood bosses' PrefabGUIDs
+  → names from the official wiki's "V Blood Unit IDs" table. Any unmapped id (e.g. a
+  new boss after a game update) renders a neutral "V Blood boss" label client-side.
 
 ## Gotchas
 
