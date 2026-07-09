@@ -61,7 +61,7 @@ export default function KillFeed() {
                 <a className="killfeed__name" {...linkProps(href)}>
                   {k.charName}
                 </a>{' '}
-                <span className="killfeed__verb">{isVBlood ? 'felled' : 'defeated'}</span>{' '}
+                <span className="killfeed__verb">killed</span>{' '}
                 <span className={`killfeed__victim ${isVBlood ? 'killfeed__victim--vb' : 'killfeed__victim--pvp'}`}>
                   {k.victim || (isVBlood ? 'V Blood boss' : 'a rival')}
                 </span>
