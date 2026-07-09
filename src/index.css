@@ -2901,23 +2901,26 @@ body.has-banner .nav {
 .lb__rankpill {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
   flex-shrink: 0;
-  padding: 1px 8px 1px 6px;
+  padding: 3px 11px 3px 8px;
   border-radius: 999px;
-  font-size: 0.64rem;
+  font-size: 0.74rem;
   font-weight: 800;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
-  line-height: 1.6;
+  line-height: 1.5;
   white-space: nowrap;
   color: var(--rank);
-  background: color-mix(in srgb, var(--rank) 15%, transparent);
-  border: 1px solid color-mix(in srgb, var(--rank) 42%, transparent);
+  background: color-mix(in srgb, var(--rank) 22%, transparent);
+  border: 1px solid color-mix(in srgb, var(--rank) 60%, transparent);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--rank) 30%, transparent);
+  text-shadow: 0 0 6px color-mix(in srgb, var(--rank) 45%, transparent);
 }
 .lb__rankicon {
-  font-size: 0.82rem;
+  font-size: 1rem;
   line-height: 1;
+  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--rank) 55%, transparent));
 }
 .lb__meta {
   font-size: 0.78rem;
