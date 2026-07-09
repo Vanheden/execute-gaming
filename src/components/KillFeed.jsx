@@ -12,14 +12,16 @@ function timeAgo(iso) {
   return `${d}d ago`
 }
 
-export default function KillFeed() {
+export default function KillFeed({ serverId }) {
   const [kills, setKills] = useState(null)
   const [error, setError] = useState(false)
 
   useEffect(() => {
     let live = true
     const poll = () => {
-      fetch('/api/kills/recent?limit=15')
+      const params = new URLSearchParams({ limit: '15' })
+      if (serverId) params.set('serverId', serverId)
+      fetch(`/api/kills/recent?${params}`)
         .then((r) => (r.ok ? r.json() : Promise.reject()))
         .then((d) => {
           if (!live) return

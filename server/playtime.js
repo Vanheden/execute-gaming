@@ -218,6 +218,95 @@ export function restoreLeaderboardReset(serverId) {
   return { resets: saveResetMap(map) }
 }
 
+// Get the top-1 player for a server within a time range (for season champions).
+// `from` and `to` are ISO strings; `from` null = beginning of time. Returns
+// { steamId, charName, points } or null.
+function getSeasonChampion(serverId, from, to) {
+  const fromIso = from || '0'
+  const resetEntries = Object.entries(getLeaderboardResets())
+  const floorS = resetFloorAnon('startedAt', resetEntries)
+  const floorK = resetFloorAnon('occurredAt', resetEntries)
+
+  // Temporarily ignore this server's own reset floor for champion queries,
+  // since we're querying within a specific pre-reset window.
+  // We still apply OTHER servers' floors (irrelevant since we filter by serverId).
+  const sql = `
+    SELECT ids.steamId AS steamId,
+           COALESCE(p.seconds, 0) AS seconds,
+           COALESCE(k.vblood, 0)  AS vblood,
+           COALESCE(k.pvp, 0)     AS pvp,
+           CAST(
+             COALESCE(p.seconds, 0) / 3600.0 * ?
+             + COALESCE(k.vbloodDistinct, 0) * ?
+             + (COALESCE(k.vblood, 0) - COALESCE(k.vbloodDistinct, 0)) * ?
+             + COALESCE(k.pvp, 0) * ?
+           AS INTEGER) AS points,
+           (SELECT charName FROM (
+              SELECT charName, startedAt AS t FROM play_sessions
+                WHERE steamId = ids.steamId AND charName IS NOT NULL
+              UNION ALL
+              SELECT charName, occurredAt AS t FROM kill_events
+                WHERE steamId = ids.steamId AND charName IS NOT NULL
+            ) ORDER BY t DESC LIMIT 1) AS charName
+    FROM (
+      SELECT steamId FROM play_sessions
+        WHERE serverId = ? AND startedAt >= ? AND startedAt < ?
+      UNION
+      SELECT steamId FROM kill_events
+        WHERE serverId = ? AND occurredAt >= ? AND occurredAt < ?
+    ) ids
+    LEFT JOIN (
+      SELECT steamId, SUM(seconds) AS seconds FROM play_sessions
+        WHERE serverId = ? AND startedAt >= ? AND startedAt < ?
+      GROUP BY steamId
+    ) p ON p.steamId = ids.steamId
+    LEFT JOIN (
+      SELECT steamId,
+             SUM(CASE WHEN kind = 'vblood' THEN 1 ELSE 0 END) AS vblood,
+             COUNT(DISTINCT CASE WHEN kind = 'vblood' AND victim IS NOT NULL
+                                 THEN victim END)              AS vbloodDistinct,
+             SUM(CASE WHEN kind = 'pvp' THEN 1 ELSE 0 END)    AS pvp
+        FROM kill_events
+       WHERE serverId = ? AND occurredAt >= ? AND occurredAt < ?
+      GROUP BY steamId
+    ) k ON k.steamId = ids.steamId
+    ORDER BY points DESC, seconds DESC
+    LIMIT 1`
+
+  const row = db.prepare(sql).get(
+    POINTS.perHour, POINTS.perVBloodFirst, POINTS.perVBloodRepeat, POINTS.perPvpKill,
+    serverId, fromIso, to,
+    serverId, fromIso, to,
+    serverId, fromIso, to,
+    serverId, fromIso, to,
+  )
+
+  if (!row || row.points === 0) return null
+  return { steamId: row.steamId, charName: row.charName, points: row.points }
+}
+
+// Get all season champions for a server — the top-1 player for each completed
+// season (between consecutive resets). Returns an array of
+// { seasonStart, seasonEnd, steamId, charName, points } newest first.
+export function getSeasonChampions(serverId) {
+  if (!SERVER_IDS.has(serverId)) return []
+  const map = readResetMap()
+  const entry = map[serverId]
+  if (!entry) return []
+
+  const seasons = []
+  // The current cutoff is the END of the last completed season.
+  // If there's a `previous`, we have two seasons: [previous, cutoff] and [null, previous].
+  if (entry.previous) {
+    const champ1 = getSeasonChampion(serverId, entry.previous, entry.cutoff)
+    if (champ1) seasons.push({ seasonStart: entry.previous, seasonEnd: entry.cutoff, ...champ1 })
+  }
+  const champ0 = getSeasonChampion(serverId, null, entry.cutoff)
+  if (champ0) seasons.push({ seasonStart: null, seasonEnd: entry.cutoff, ...champ0 })
+
+  return seasons
+}
+
 // Build an SQL fragment enforcing each reset cutoff on a time column `col`, using
 // numbered params starting at `base` (so the same cutoffs can be referenced in
 // several places). serverIds come from our own config (safe to inline); the cutoffs

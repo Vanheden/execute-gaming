@@ -122,6 +122,12 @@ the live domain while developing — the same `.env` works on your machine and t
   filter) for the rank badge; pass a `serverId` to scope the total to one server
   (per-server rank), or `null` to sum across all servers (global rank). Data comes
   from the in-game BepInEx mod (`mod/`) via `POST /api/ingest/session` + `/api/ingest/kill`.
+  Also exports: `getPlayerStats(steamId)` (per-server breakdown for `/p/:steamId` guest
+  profiles), `getPlayerTotals`/`getPlayerTotalsBatch` (lightweight aggregate for
+  auto-achievement checks), `getRecentKills(serverId, limit)` (live kill feed),
+  `getVBloodHuntProgress(serverId)` (boss kill matrix for `/hunt`), `getPlayerActivity(
+  steamId, days)` (daily playtime for activity heatmap), `getSeasonChampions(serverId)`
+  (top-1 per completed season for the hall-of-fame panel).
 - `src/data/ranks.js` — **single source of truth** for the **rank ladder** ("Vampire
   Ascension": Fledgling → … → Dracula, 8 point-threshold tiers). `rankForPoints(points)`
   resolves a lifetime-points total to its tier + progress to the next. Rendered as a
@@ -147,7 +153,19 @@ the live domain while developing — the same `.env` works on your machine and t
 - `GET /api/profile/:key` — **public** single profile for `/u/:key` pages
   (includes `points`: `{ overall, perServer: [{ serverId, name, accent, points }] }`
   — the member's all-time leaderboard points globally + per server, for the rank
-  badge; `null` if they have no linked Steam identity)
+  badge; `null` if they have no linked Steam identity. Also `steamId` for the
+  activity heatmap.)
+- `GET /api/player/:steamId` — **public** game stats for any player (guest profile
+  at `/p/:steamId`). Works for unregistered players: playtime, kills, points, rank,
+  per-server breakdown, latest V Blood. Includes `member` link if registered.
+- `GET /api/player/:steamId/activity?days=` — **public** daily playtime for the
+  activity heatmap (array of `{ date, seconds }`).
+- `GET /api/kills/recent?serverId=&limit=` — **public** live kill feed (latest V Blood
+  + PvP kills, newest first, with resolved boss names + member link keys).
+- `GET /api/vblood-hunt?serverId=` — **public** V Blood hunt tracker (per-player boss
+  kill sets, sorted by kill count).
+- `GET /api/season-champions` — **public** top-1 player per completed season per
+  server (between consecutive resets).
 - `GET /api/discord/widget` — **public** live guild widget (who's online)
 - `POST /api/hit` — **public** analytics beacon (no PII)
 - `GET /api/servers/:id/history?hours=` — **public** player-count history

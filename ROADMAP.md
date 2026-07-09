@@ -53,6 +53,34 @@ Ideas for growing the site, grouped by theme. Effort is a rough guide:
   a per-server breakdown. V Blood scoring rewards **variety**: the first kill of a boss
   is worth 50 pts, each repeat of the same boss 25 — so farming one easy boss no longer
   out-scores clearing new content.
+- **Guest player profiles** — unregistered players on the leaderboard are now
+  clickable too, linking to `/p/:steamId` game-stats pages showing rank, playtime,
+  kills, per-server breakdown and an activity heatmap. A "Guest" badge distinguishes
+  them from registered members; if they later register, a link to their full profile
+  appears.
+- **Leaderboard medals** — top-3 rows get gold/silver/bronze emoji medals (🥇🥈🥉)
+  with tinted row backgrounds.
+- **Game-stat auto-achievements** — 9 badges auto-granted from playtime/kill data:
+  Blood Initiate (1st V Blood), V Blood Hunter (10), V Blood Slayer (25), PvP
+  Contender (10 kills), PvP Duelist (50), Dedicated (100h), No Life (500h), Rising
+  Star (1000 pts), Legend (5000 pts). Computed on the fly via `getPlayerTotals` /
+  `getPlayerTotalsBatch` — no storage needed.
+- **Live kill feed** — a horizontally-laid-out pill feed on the leaderboard page
+  showing recent V Blood/PvP kills ("Roddan killed Alpha the White Wolf · 2m ago"),
+  auto-refreshing every 30s. Follows the leaderboard's server filter.
+- **Season Champions** — a hall-of-fame panel on the leaderboard showing the top-1
+  player for each completed season (between resets) per server, with points and
+  season date range. Backed by `getSeasonChampions()` in `playtime.js`.
+- **V Blood Hunt Tracker** (`/hunt`) — a dedicated page showing each player's boss
+  kill progress as a 64-cell matrix (🩸 for killed, ○ for missing) with progress
+  bars, player search and server filter. Backed by `getVBloodHuntProgress()`.
+- **Activity heatmap** — GitHub-style contributions graph showing daily playtime
+  for the last year with 5 intensity levels. Shown on both `/p/:steamId` (guest)
+  and `/u/:key` (member) profile pages. Backed by `getPlayerActivity()`.
+- **Season reset admin panel** — non-destructive leaderboard season wipes with a
+  rolling one-step backup (`previous` cutoff). Admin can reset, restore previous,
+  or clear a reset per server. Standalone `/admin` route with `useAuth()` access
+  control.
 
 ---
 
@@ -86,8 +114,9 @@ Ideas for growing the site, grouped by theme. Effort is a rough guide:
 - ~~Richer profiles~~ ✅ — bio + favourite server, editable on your profile.
 - ~~Member search & filters~~ ✅ — search the roster by name + filter by role.
 - ~~Public profile pages~~ ✅ — shareable `/u/:key` pages (badges, roles, bio).
-- ~~Achievements / badges~~ ✅ — auto (founder/veteran/staff) + admin-granted
-  (event champion, bug hunter, supporter, …). Catalog in `src/data/achievements.js`.
+- ~~Achievements / badges~~ ✅ — auto (founder/veteran/staff + 9 game-stat badges)
+  + admin-granted (event champion, bug hunter, supporter, …). Catalog in
+  `src/data/achievements.js`. Stat-based badges computed via `getPlayerTotals`.
 
 ## 🛠️ Admin & operations
 
@@ -130,13 +159,9 @@ Most of the roadmap is now built. What's left:
    VPN/CORS "Unknown" (see Polish & infra).
 2. **Donations / VIP** (M) — optional; the `supporter` badge is already there.
 
-Recently shipped: **player ranks** — an all-time points "Vampire Ascension"
-ladder shown as a rank pill on the leaderboard and a progress badge on profiles
-(`src/data/ranks.js`), plus variety-rewarding V Blood scoring (first kill of a
-boss 50 pts, repeats 25); the leaderboard mod's V Blood + PvP kill hooks are
-**verified live** (death-based detection, mod v0.2.2); Steam + Discord account
-linking; leaderboard metric colours / bat avatar polish; the "Latest Kill"
-line showing each player's most recent V Blood boss (all 64 bosses named via
-`src/data/vbloods.js`, from the official wiki's V Blood Unit IDs table); and a
-live server status strip (Online / Full / Offline at a glance) atop the Servers
-section.
+Recently shipped: guest player profiles (`/p/:steamId`); leaderboard medals;
+9 game-stat auto-achievements; live kill feed (horizontal pills, server-filtered);
+season champions hall-of-fame; V Blood hunt tracker (`/hunt`); activity heatmap
+on both profile types; season reset admin panel with rolling backup; mod v0.2.3
+V Blood fix (`!diedIsPlayer` guard for `CHAR_VampireMale`); mod v0.2.4 on-disk
+kill queue (survives website outages).

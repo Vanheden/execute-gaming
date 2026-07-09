@@ -2973,6 +2973,73 @@ body.has-banner .nav {
   border-radius: var(--radius);
   background: var(--surface);
 }
+
+/* Season Champions */
+.champions {
+  margin-bottom: 18px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.champions__title {
+  margin: 0 0 10px;
+  font-size: 0.82rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-faint);
+}
+.champions__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+}
+.champions__server {
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--srv) 6%, var(--surface-2));
+  border: 1px solid color-mix(in srgb, var(--srv) 20%, var(--border));
+}
+.champions__server-name {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--srv);
+}
+.champions__row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 4px 0;
+  font-size: 0.82rem;
+}
+.champions__medal {
+  flex-shrink: 0;
+  font-size: 0.9rem;
+}
+.champions__name {
+  font-weight: 700;
+  color: var(--text);
+  text-decoration: none;
+}
+.champions__name:hover {
+  color: var(--c-cyan);
+}
+.champions__pts {
+  font-weight: 800;
+  color: var(--c-yellow);
+  font-variant-numeric: tabular-nums;
+}
+.champions__date {
+  flex-basis: 100%;
+  font-size: 0.7rem;
+  color: var(--text-faint);
+}
 .killfeed__title {
   display: flex;
   align-items: center;

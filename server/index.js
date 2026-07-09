@@ -41,6 +41,7 @@ import {
   getLeaderboardResetsAdmin,
   setLeaderboardReset,
   restoreLeaderboardReset,
+  getSeasonChampions,
   LEADERBOARD_PERIODS,
   LEADERBOARD_METRICS,
 } from './playtime.js'
@@ -398,6 +399,27 @@ app.get('/api/vblood-hunt', (req, res) => {
   res.json({ players, totalBosses: allBosses.length })
 })
 
+// Season champions — top-1 player for each completed season per server.
+app.get('/api/season-champions', (req, res) => {
+  const results = {}
+  for (const s of servers) {
+    const champions = getSeasonChampions(s.id)
+    results[s.id] = champions.map((c) => {
+      const member = getUserByProvider('steam', c.steamId)
+      const linked = member && !member.banned ? member : null
+      return {
+        seasonStart: c.seasonStart,
+        seasonEnd: c.seasonEnd,
+        steamId: c.steamId,
+        charName: c.charName || linked?.username || 'Unknown vampire',
+        points: c.points,
+        member: linked ? { key: keyOf(linked.id), username: linked.username } : null,
+      }
+    })
+  }
+  res.json({ champions: results })
+})
+
 // A stable, non-identifying public key for a user (never expose the raw id).
 const keyOf = (id) => createHash('sha1').update(id).digest('hex').slice(0, 12)
 
@@ -475,6 +497,7 @@ app.get('/api/profile/:key', (req, res) => {
   const gameStats = steamIdentity ? getPlayerTotals(steamIdentity.providerId) : null
   const member = publicMember(all[i], i + 1, gameStats)
   member.points = pointsForUser(all[i].id) // null if the member has no Steam link
+  member.steamId = steamIdentity?.providerId || null
   res.json({ member })
 })
 
