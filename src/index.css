@@ -2718,6 +2718,53 @@ body.has-banner .nav {
   font-weight: 700;
 }
 
+/* Season reset */
+.srlist {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.srrow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-3);
+}
+.srrow__info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.srrow__name {
+  font-weight: 700;
+}
+.srrow__cutoff {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: var(--text-dim);
+}
+.srrow__muted {
+  color: var(--text-faint);
+  font-size: 0.85rem;
+}
+.badge--reset {
+  background: rgba(255, 93, 177, 0.16);
+  color: #ff5db1;
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+}
+
 /* --------------------------------------------------------------------------
    Achievements gallery (public catalog)
    -------------------------------------------------------------------------- */

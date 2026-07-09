@@ -244,6 +244,8 @@ const ACTION_LABEL = {
   'achievement.revoke': 'revoked badge from',
   'announcement.set': 'set the announcement',
   'announcement.clear': 'cleared the announcement',
+  'leaderboard.reset': 'reset the leaderboard season for',
+  'leaderboard.reset.clear': 'cleared the leaderboard season reset for',
 }
 
 function AuditTab() {
@@ -273,6 +275,103 @@ function AuditTab() {
           </li>
         ))}
       </ul>
+    </div>
+  )
+}
+
+// --- Season reset sub-tab ---------------------------------------------------
+function SeasonResetTab() {
+  const [data, setData] = useState(null)
+  const [busy, setBusy] = useState(false)
+  const { confirm } = useConfirm()
+
+  function load() {
+    apiGet('/api/admin/leaderboard/resets')
+      .then((d) => setData(d))
+      .catch(() => setData({ resets: {}, servers: [] }))
+  }
+
+  useEffect(load, [])
+
+  async function doReset(server) {
+    const ok = await confirm({
+      title: `Reset ${server.name}?`,
+      message:
+        'This sets a cutoff at now — only playtime and kills after this moment count towards the leaderboard and ranks. Old data is kept (non-destructive); clearing the cutoff restores it.',
+      confirmLabel: 'Reset season',
+      danger: true,
+    })
+    if (!ok) return
+    setBusy(true)
+    try {
+      const { resets } = await apiSend('POST', '/api/admin/leaderboard/reset', { serverId: server.id })
+      setData((d) => ({ ...d, resets }))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function doClear(server) {
+    const ok = await confirm({
+      title: `Clear ${server.name} reset?`,
+      message: 'The full history will count again — ranks and leaderboard go back to all-time.',
+      confirmLabel: 'Clear reset',
+    })
+    if (!ok) return
+    setBusy(true)
+    try {
+      const { resets } = await apiSend('POST', '/api/admin/leaderboard/reset', {
+        serverId: server.id,
+        clear: true,
+      })
+      setData((d) => ({ ...d, resets }))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  if (data === null) return <p className="empty">Loading season resets…</p>
+
+  const { resets, servers } = data
+
+  return (
+    <div className="amtab">
+      <p className="amtab__count">
+        Per-server season wipe — sets a cutoff so only activity after it counts. Non-destructive: raw
+        data is kept and clearing the cutoff restores the full history.
+      </p>
+      <div className="srlist">
+        {servers.map((s) => {
+          const cutoff = resets[s.id]
+          return (
+            <div key={s.id} className="srrow">
+              <div className="srrow__info">
+                <span className="srrow__name">{s.name}</span>
+                {cutoff ? (
+                  <span className="srrow__cutoff">
+                    <span className="badge badge--reset">Reset</span>{' '}
+                    <span title={new Date(cutoff).toLocaleString()}>since {timeAgo(cutoff)}</span>
+                  </span>
+                ) : (
+                  <span className="srrow__muted">All-time — no reset active</span>
+                )}
+              </div>
+              <div className="srrow__actions">
+                {cutoff ? (
+                  <button className="btn btn--sm" disabled={busy} onClick={() => doClear(s)}>
+                    Clear reset
+                  </button>
+                ) : (
+                  <button className="btn btn--sm btn--danger" disabled={busy} onClick={() => doReset(s)}>
+                    Reset season
+                  </button>
+                )}
+              </div>
+            </div>
+          )
+        })}
+        {servers.length === 0 && <p className="empty">No servers configured.</p>}
+      </div>
     </div>
   )
 }
@@ -332,6 +431,7 @@ function AnalyticsTab() {
 // --- Panel shell ------------------------------------------------------------
 const TABS = [
   ['members', 'Members'],
+  ['season', 'Season reset'],
   ['audit', 'Audit log'],
   ['analytics', 'Analytics'],
 ]
@@ -352,6 +452,7 @@ export default function AdminPanel({ currentUser }) {
         ))}
       </div>
       {sub === 'members' && <MembersTab currentUser={currentUser} />}
+      {sub === 'season' && <SeasonResetTab />}
       {sub === 'audit' && <AuditTab />}
       {sub === 'analytics' && <AnalyticsTab />}
     </div>

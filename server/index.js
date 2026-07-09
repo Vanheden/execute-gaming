@@ -31,6 +31,8 @@ import {
   recordKill,
   getLeaderboard,
   allTimePoints,
+  getLeaderboardResets,
+  setLeaderboardReset,
   LEADERBOARD_PERIODS,
   LEADERBOARD_METRICS,
 } from './playtime.js'
@@ -613,6 +615,31 @@ app.get('/api/admin/audit', ensureAdmin, (req, res) => {
 // Traffic analytics summary.
 app.get('/api/admin/analytics', ensureAdmin, (req, res) => {
   res.json(analyticsSummary(req.query.days))
+})
+
+// --- Leaderboard season resets (admin) -------------------------------------
+// Non-destructive per-server "season wipe": stores a cutoff timestamp so ranks +
+// leaderboard only count that server's activity afterwards. Raw data is preserved,
+// so clearing the cutoff restores the full history. See server/playtime.js.
+app.get('/api/admin/leaderboard/resets', ensureAdmin, (req, res) => {
+  res.json({
+    resets: getLeaderboardResets(),
+    servers: servers.map((s) => ({ id: s.id, name: s.name })),
+  })
+})
+
+app.post('/api/admin/leaderboard/reset', ensureAdmin, (req, res) => {
+  const serverId = str(req.body?.serverId, 60)
+  // `clear: true` removes the cutoff (restores history); otherwise reset to now.
+  const at = req.body?.clear ? null : new Date().toISOString()
+  const result = setLeaderboardReset(serverId, at)
+  if (result.error) return res.status(400).json({ error: result.error })
+  logAudit({
+    actor: req.user,
+    action: at ? 'leaderboard.reset' : 'leaderboard.reset.clear',
+    detail: { serverId, at },
+  })
+  res.json({ resets: result.resets })
 })
 
 // Log out.

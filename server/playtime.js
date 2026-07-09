@@ -136,6 +136,65 @@ const METRICS = {
   pvp: 'pvp',
 }
 
+// --- Per-server leaderboard resets ("season wipe") --------------------------
+// A reset stores a cutoff timestamp per server (JSON { serverId: iso } under the
+// `leaderboard_resets` settings key). The leaderboard and ranks then only count a
+// server's activity at/after its cutoff. This is non-destructive (raw sessions/kills
+// are kept, so backups/audit are intact) and reversible — clearing the cutoff
+// restores the full history. Fits the PvP server's monthly wipe.
+export function getLeaderboardResets() {
+  const row = db.prepare("SELECT value FROM settings WHERE key = 'leaderboard_resets'").get()
+  if (!row?.value) return {}
+  try {
+    const map = JSON.parse(row.value)
+    // Only surface cutoffs for servers we still know about.
+    return Object.fromEntries(Object.entries(map).filter(([id, iso]) => SERVER_IDS.has(id) && iso))
+  } catch {
+    return {}
+  }
+}
+
+function saveResets(map) {
+  const clean = Object.fromEntries(Object.entries(map).filter(([id, iso]) => SERVER_IDS.has(id) && iso))
+  if (!Object.keys(clean).length) {
+    db.prepare("DELETE FROM settings WHERE key = 'leaderboard_resets'").run()
+    return {}
+  }
+  db.prepare(
+    `INSERT INTO settings (key, value) VALUES ('leaderboard_resets', ?)
+     ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+  ).run(JSON.stringify(clean))
+  return clean
+}
+
+// Set a server's reset cutoff to `at` (default now), or clear it when at === null.
+// Returns { resets } (the full updated map) or { error } for an unknown serverId.
+export function setLeaderboardReset(serverId, at = new Date().toISOString()) {
+  if (!SERVER_IDS.has(serverId)) return { error: 'unknown serverId' }
+  const map = getLeaderboardResets()
+  if (at === null) delete map[serverId]
+  else map[serverId] = at
+  return { resets: saveResets(map) }
+}
+
+// Build an SQL fragment enforcing each reset cutoff on a time column `col`, using
+// numbered params starting at `base` (so the same cutoffs can be referenced in
+// several places). serverIds come from our own config (safe to inline); the cutoffs
+// are bound parameters. Returns '' when no resets are set (query unchanged).
+function resetFloorSql(col, entries, base) {
+  if (!entries.length) return ''
+  const whens = entries.map(([id], i) => `WHEN '${id}' THEN ?${base + i}`).join(' ')
+  return ` AND ${col} >= CASE serverId ${whens} ELSE '0' END`
+}
+
+// Same reset floor for anonymous-parameter queries: returns { sql, params } so the
+// caller can splice the cutoff params into its positional argument list.
+function resetFloorAnon(col, entries) {
+  if (!entries.length) return { sql: '', params: [] }
+  const whens = entries.map(([id]) => `WHEN '${id}' THEN ?`).join(' ')
+  return { sql: ` AND ${col} >= CASE serverId ${whens} ELSE '0' END`, params: entries.map(([, iso]) => iso) }
+}
+
 // Unified leaderboard across playtime + kills, ranked by `metric`. Each row carries
 // every metric (seconds/sessions/vblood/pvp/points) so the UI can show a breakdown
 // on the Points tab. `serverId` null = all servers. index.js links rows to accounts.
@@ -144,6 +203,14 @@ export function getLeaderboard({ serverId = null, period = 'all', metric = 'poin
   const days = PERIODS[period] ?? null
   const since = days ? new Date(Date.now() - days * 864e5).toISOString() : '0'
   const cap = Math.min(Math.max(Number(limit) || 100, 1), 500)
+
+  // Per-server season resets: only count each server's activity at/after its cutoff.
+  // Referenced as numbered params ?8.. (the same cutoffs reused across all the time
+  // filters below). Empty when no resets are set, leaving the query unchanged.
+  const resetEntries = Object.entries(getLeaderboardResets())
+  const resetParams = resetEntries.map(([, iso]) => iso)
+  const floorS = resetFloorSql('startedAt', resetEntries, 8)
+  const floorK = resetFloorSql('occurredAt', resetEntries, 8)
 
   // Aggregate playtime and kills separately (each filtered on its own time column),
   // union the SteamIDs, then join. Points is derived from the weights. Wrapped in an
@@ -175,23 +242,23 @@ export function getLeaderboard({ serverId = null, period = 'all', metric = 'poin
              -- Both subqueries share the same filter+order so they read the same row.
              (SELECT victim FROM kill_events
                 WHERE steamId = ids.steamId AND kind = 'vblood' AND victim IS NOT NULL
-                  AND (?1 IS NULL OR serverId = ?1) AND occurredAt >= ?2
+                  AND (?1 IS NULL OR serverId = ?1) AND occurredAt >= ?2${floorK}
                 ORDER BY occurredAt DESC LIMIT 1) AS lastVBlood,
              (SELECT occurredAt FROM kill_events
                 WHERE steamId = ids.steamId AND kind = 'vblood' AND victim IS NOT NULL
-                  AND (?1 IS NULL OR serverId = ?1) AND occurredAt >= ?2
+                  AND (?1 IS NULL OR serverId = ?1) AND occurredAt >= ?2${floorK}
                 ORDER BY occurredAt DESC LIMIT 1) AS lastVBloodAt
         FROM (
           SELECT steamId FROM play_sessions
-            WHERE (?1 IS NULL OR serverId = ?1) AND startedAt >= ?2
+            WHERE (?1 IS NULL OR serverId = ?1) AND startedAt >= ?2${floorS}
           UNION
           SELECT steamId FROM kill_events
-            WHERE (?1 IS NULL OR serverId = ?1) AND occurredAt >= ?2
+            WHERE (?1 IS NULL OR serverId = ?1) AND occurredAt >= ?2${floorK}
         ) ids
         LEFT JOIN (
           SELECT steamId, SUM(seconds) AS seconds, COUNT(*) AS sessions, MAX(updatedAt) AS lastSeen
             FROM play_sessions
-           WHERE (?1 IS NULL OR serverId = ?1) AND startedAt >= ?2
+           WHERE (?1 IS NULL OR serverId = ?1) AND startedAt >= ?2${floorS}
            GROUP BY steamId
         ) p ON p.steamId = ids.steamId
         LEFT JOIN (
@@ -202,7 +269,7 @@ export function getLeaderboard({ serverId = null, period = 'all', metric = 'poin
                  SUM(CASE WHEN kind = 'pvp' THEN 1 ELSE 0 END)    AS pvp,
                  MAX(occurredAt) AS lastKill
             FROM kill_events
-           WHERE (?1 IS NULL OR serverId = ?1) AND occurredAt >= ?2
+           WHERE (?1 IS NULL OR serverId = ?1) AND occurredAt >= ?2${floorK}
            GROUP BY steamId
         ) k ON k.steamId = ids.steamId
     )
@@ -220,6 +287,7 @@ export function getLeaderboard({ serverId = null, period = 'all', metric = 'poin
       POINTS.perVBloodRepeat,
       POINTS.perPvpKill,
       cap,
+      ...resetParams,
     )
 }
 
@@ -233,6 +301,14 @@ export function allTimePoints(steamIds, serverId = null) {
   const ids = [...new Set((steamIds || []).filter(Boolean))]
   if (!ids.length) return {}
   const values = ids.map(() => '(?)').join(',')
+
+  // Apply the same per-server season resets as the leaderboard, so the rank drops
+  // when a server is wiped. Positional params (this query is all-anonymous), so each
+  // subquery gets its own copy of the cutoff params in textual order.
+  const resetEntries = Object.entries(getLeaderboardResets())
+  const floorP = resetFloorAnon('startedAt', resetEntries)
+  const floorK = resetFloorAnon('occurredAt', resetEntries)
+
   const sql = `
     WITH ids(steamId) AS (VALUES ${values})
     SELECT ids.steamId AS steamId,
@@ -245,7 +321,7 @@ export function allTimePoints(steamIds, serverId = null) {
       FROM ids
       LEFT JOIN (
         SELECT steamId, SUM(seconds) AS seconds FROM play_sessions
-         WHERE (? IS NULL OR serverId = ?) GROUP BY steamId
+         WHERE (? IS NULL OR serverId = ?)${floorP.sql} GROUP BY steamId
       ) p ON p.steamId = ids.steamId
       LEFT JOIN (
         SELECT steamId,
@@ -254,7 +330,7 @@ export function allTimePoints(steamIds, serverId = null) {
                                    THEN victim END)              AS vbloodDistinct,
                SUM(CASE WHEN kind = 'pvp' THEN 1 ELSE 0 END)    AS pvp
           FROM kill_events
-         WHERE (? IS NULL OR serverId = ?) GROUP BY steamId
+         WHERE (? IS NULL OR serverId = ?)${floorK.sql} GROUP BY steamId
       ) k ON k.steamId = ids.steamId`
 
   const rows = db
@@ -267,8 +343,10 @@ export function allTimePoints(steamIds, serverId = null) {
       POINTS.perPvpKill,
       serverId,
       serverId,
+      ...floorP.params,
       serverId,
       serverId,
+      ...floorK.params,
     )
   return Object.fromEntries(rows.map((r) => [r.steamId, r.points]))
 }
