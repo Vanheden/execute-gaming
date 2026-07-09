@@ -13,30 +13,64 @@ function formatDate(iso) {
   return new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
 }
 
-// Rank badge + progress toward the next tier, from the member's all-time points.
-// Only shown when the member has a Steam link (points is a number).
-function RankBadge({ points }) {
+// The headline rank card: tier icon + name, points, and progress to the next tier.
+function RankBox({ points }) {
   const { tier, next, progressPct, toNext, isMax } = rankForPoints(points)
+  return (
+    <div className="rankbox" style={{ '--rank': tier.color }}>
+      <span className="rankbox__icon" aria-hidden="true">
+        {tier.icon}
+      </span>
+      <div className="rankbox__body">
+        <div className="rankbox__top">
+          <span className="rankbox__name">{tier.name}</span>
+          <span className="rankbox__pts">{points.toLocaleString()} pts</span>
+        </div>
+        <div className="rankbox__bar">
+          <span style={{ width: `${progressPct}%` }} />
+        </div>
+        <span className="rankbox__next">
+          {isMax ? 'Max rank — apex predator of the night' : `${toNext.toLocaleString()} pts to ${next.name}`}
+        </span>
+      </div>
+    </div>
+  )
+}
+
+// A compact per-server rank row: server name + its rank pill + points on that server.
+function ServerRank({ name, accent, points }) {
+  const { tier } = rankForPoints(points)
+  return (
+    <div className="ranksrv" style={{ '--rank': tier.color, '--srv': accent }}>
+      <span className="ranksrv__server">{name}</span>
+      <span className="ranksrv__pill">
+        <span className="ranksrv__icon" aria-hidden="true">
+          {tier.icon}
+        </span>
+        {tier.name}
+      </span>
+      <span className="ranksrv__pts">{points.toLocaleString()} pts</span>
+    </div>
+  )
+}
+
+// Rank section: the global (all-server) rank as the headline, plus a per-server
+// breakdown for every server the member has actually earned points on. Only shown
+// when the member has a Steam link (points is an object with an `overall` total).
+function RankBadge({ points }) {
+  const active = (points.perServer || []).filter((s) => s.points > 0)
   return (
     <section className="pubcard__section">
       <h2 className="pubcard__label">Rank</h2>
-      <div className="rankbox" style={{ '--rank': tier.color }}>
-        <span className="rankbox__icon" aria-hidden="true">
-          {tier.icon}
-        </span>
-        <div className="rankbox__body">
-          <div className="rankbox__top">
-            <span className="rankbox__name">{tier.name}</span>
-            <span className="rankbox__pts">{points.toLocaleString()} pts</span>
-          </div>
-          <div className="rankbox__bar">
-            <span style={{ width: `${progressPct}%` }} />
-          </div>
-          <span className="rankbox__next">
-            {isMax ? 'Max rank — apex predator of the night' : `${toNext.toLocaleString()} pts to ${next.name}`}
-          </span>
+      <RankBox points={points.overall} />
+      {active.length > 0 && (
+        <div className="rankservers">
+          <span className="rankservers__label">By server</span>
+          {active.map((s) => (
+            <ServerRank key={s.serverId} name={s.name} accent={s.accent} points={s.points} />
+          ))}
         </div>
-      </div>
+      )}
     </section>
   )
 }
@@ -117,7 +151,7 @@ export default function PublicProfile({ profileKey }) {
               </div>
             </div>
 
-            {typeof m.points === 'number' && <RankBadge points={m.points} />}
+            {m.points && typeof m.points.overall === 'number' && <RankBadge points={m.points} />}
 
             {m.badges?.length > 0 && (
               <section className="pubcard__section">

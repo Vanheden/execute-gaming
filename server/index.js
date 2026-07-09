@@ -36,6 +36,7 @@ import {
 } from './playtime.js'
 import { fetchWidget } from './discord.js'
 import { vbloodName } from '../src/data/vbloods.js'
+import { servers } from '../src/data/servers.js'
 import {
   badgesForUser,
   grantAchievement,
@@ -308,9 +309,10 @@ app.get('/api/leaderboard', (req, res) => {
   const period = LEADERBOARD_PERIODS.includes(req.query.period) ? req.query.period : 'all'
   const metric = LEADERBOARD_METRICS.includes(req.query.metric) ? req.query.metric : 'points'
   const rows = getLeaderboard({ serverId, period, metric, limit: req.query.limit })
-  // Rank is always all-time (independent of the period/server filter), so resolve
-  // each row's lifetime points in one batch and attach it for the rank badge.
-  const lifetime = allTimePoints(rows.map((r) => r.steamId))
+  // Rank is all-time (independent of the *period* filter) but follows the *server*
+  // filter: "All servers" → global rank, a specific server → that server's rank.
+  // Resolve each row's lifetime points in one batch and attach it for the rank badge.
+  const lifetime = allTimePoints(rows.map((r) => r.steamId), serverId)
   const entries = rows.map((r) => {
     const member = getUserByProvider('steam', r.steamId)
     const linked = member && !member.banned ? member : null
@@ -379,14 +381,23 @@ app.get('/api/members', (req, res) => {
 })
 
 // All-time leaderboard points for an account, summed across its Steam identities
-// (an account can link more than one). Used for the rank badge on profiles.
+// (an account can link more than one). Used for the rank badge on profiles. Returns
+// { overall, perServer: [{ serverId, name, accent, points }] } — the global rank plus
+// a per-server breakdown — or null if the account has no linked Steam identity.
 function pointsForUser(userId) {
   const steamIds = getUserIdentities(userId)
     .filter((idn) => idn.provider === 'steam')
     .map((idn) => idn.providerId)
   if (!steamIds.length) return null
-  const map = allTimePoints(steamIds)
-  return steamIds.reduce((sum, id) => sum + (map[id] || 0), 0)
+  const sum = (map) => steamIds.reduce((acc, id) => acc + (map[id] || 0), 0)
+  const overall = sum(allTimePoints(steamIds))
+  const perServer = servers.map((s) => ({
+    serverId: s.id,
+    name: s.name,
+    accent: s.accent,
+    points: sum(allTimePoints(steamIds, s.id)),
+  }))
+  return { overall, perServer }
 }
 
 // A single public profile by its hashed key (for shareable /u/:key pages).

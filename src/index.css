@@ -2386,6 +2386,68 @@ body.has-banner .nav {
   font-size: 0.76rem;
   color: var(--text-faint);
 }
+
+/* Per-server rank breakdown under the headline rank box. */
+.rankservers {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.rankservers__label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+.ranksrv {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--srv, var(--rank)) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--srv, var(--rank)) 22%, transparent);
+}
+.ranksrv__server {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ranksrv__pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  padding: 2px 9px 2px 7px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--rank);
+  background: color-mix(in srgb, var(--rank) 20%, transparent);
+  border: 1px solid color-mix(in srgb, var(--rank) 52%, transparent);
+}
+.ranksrv__icon {
+  font-size: 0.9rem;
+  line-height: 1;
+  filter: drop-shadow(0 0 3px color-mix(in srgb, var(--rank) 55%, transparent));
+}
+.ranksrv__pts {
+  flex-shrink: 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
 .pubcard__section {
   padding-top: 18px;
   border-top: 1px solid var(--border);

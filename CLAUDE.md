@@ -117,15 +117,18 @@ the live domain while developing — the same `.env` works on your machine and t
   reweights all history instantly. **V Blood points reward variety:** the first time
   a player fells a given boss is worth `perVBloodFirst` (50); every repeat kill of
   that same boss is worth `perVBloodRepeat` (25). This is derived in SQL from a
-  `COUNT(DISTINCT victim)` (no per-kill flag stored). `allTimePoints(steamIds)`
-  returns a lifetime-points map (same weighting, ignoring the period/server filter)
-  for the rank badge. Data comes from the in-game BepInEx mod (`mod/`) via
-  `POST /api/ingest/session` + `/api/ingest/kill`.
+  `COUNT(DISTINCT victim)` (no per-kill flag stored). `allTimePoints(steamIds,
+  serverId=null)` returns a lifetime-points map (same weighting, ignoring the *period*
+  filter) for the rank badge; pass a `serverId` to scope the total to one server
+  (per-server rank), or `null` to sum across all servers (global rank). Data comes
+  from the in-game BepInEx mod (`mod/`) via `POST /api/ingest/session` + `/api/ingest/kill`.
 - `src/data/ranks.js` — **single source of truth** for the **rank ladder** ("Vampire
   Ascension": Fledgling → … → Dracula, 8 point-threshold tiers). `rankForPoints(points)`
   resolves a lifetime-points total to its tier + progress to the next. Rendered as a
   coloured pill on each leaderboard row and as a progress badge on `/u/:key` profiles.
-  Rank is always **all-time** (independent of the leaderboard's period/server filter).
+  Rank is **all-time** (independent of the leaderboard's *period* filter) but **per
+  server**: the leaderboard pill follows the active server filter (global on "All
+  servers"), and profiles show the global rank plus a per-server breakdown.
 
 ### Key routes
 
@@ -142,8 +145,9 @@ the live domain while developing — the same `.env` works on your machine and t
 - `GET /api/announcement` (public), `PUT /api/announcement` (admin) — site banner
 - `GET /api/members` — **public** roster (hashed key, safe fields, badges; banned hidden)
 - `GET /api/profile/:key` — **public** single profile for `/u/:key` pages
-  (includes `points`: the member's all-time leaderboard points, for the rank badge;
-  `null` if they have no linked Steam identity)
+  (includes `points`: `{ overall, perServer: [{ serverId, name, accent, points }] }`
+  — the member's all-time leaderboard points globally + per server, for the rank
+  badge; `null` if they have no linked Steam identity)
 - `GET /api/discord/widget` — **public** live guild widget (who's online)
 - `POST /api/hit` — **public** analytics beacon (no PII)
 - `GET /api/servers/:id/history?hours=` — **public** player-count history
@@ -151,7 +155,8 @@ the live domain while developing — the same `.env` works on your machine and t
 - `GET /api/leaderboard?metric=points|playtime|vblood|pvp&serverId=&period=all|30d|7d&limit=`
   — **public** leaderboard. Every row carries all metrics; `metric` (default
   `points`) picks the ranking. Each row also carries `allTimePoints` (lifetime
-  points, for the rank pill — independent of the period/server filter). Rows link to
+  points for the rank pill — independent of the *period* filter, but scoped to the
+  active *server* filter: global on "All servers", per-server otherwise). Rows link to
   member profiles where the SteamID matches a Steam login. Rendered by
   `components/Leaderboard.jsx` (metric tabs + per-row rank pill from `src/data/ranks.js`).
 - `POST /api/ingest/session` and `POST /api/ingest/kill` — ingest from the in-game

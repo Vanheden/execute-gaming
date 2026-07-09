@@ -48,9 +48,11 @@ Ideas for growing the site, grouped by theme. Effort is a rough guide:
   from each player's **all-time points**. Shows as a coloured rank pill on every
   leaderboard row and as a progress badge (with "N pts to next rank") on public
   `/u/:key` profiles. Thresholds/names/colours live in one file (`src/data/ranks.js`).
-  V Blood scoring now rewards **variety**: the first kill of a boss is worth 50 pts,
-  each repeat of the same boss 25 — so farming one easy boss no longer out-scores
-  clearing new content.
+  Ranks are **per server as well as global**: the leaderboard pill follows the active
+  server filter (global on "All servers"), and each profile shows the global rank plus
+  a per-server breakdown. V Blood scoring rewards **variety**: the first kill of a boss
+  is worth 50 pts, each repeat of the same boss 25 — so farming one easy boss no longer
+  out-scores clearing new content.
 
 ---
 

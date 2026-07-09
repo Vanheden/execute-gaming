@@ -223,11 +223,13 @@ export function getLeaderboard({ serverId = null, period = 'all', metric = 'poin
     )
 }
 
-// All-time points per SteamID, independent of any period/server filter — the rank
-// badge always reflects lifetime progress (see src/data/ranks.js). Uses the same
-// first-vs-repeat V Blood weighting as the leaderboard. Returns a plain object map
-// { steamId: points }. Unknown/empty ids yield {}.
-export function allTimePoints(steamIds) {
+// All-time points per SteamID, independent of any *period* filter — the rank badge
+// always reflects lifetime progress (see src/data/ranks.js). Uses the same
+// first-vs-repeat V Blood weighting as the leaderboard. Pass a `serverId` to scope
+// the total to one server (per-server rank); `null`/omitted sums across all servers
+// (the global rank). Returns a plain object map { steamId: points }. Unknown/empty
+// ids yield {}.
+export function allTimePoints(steamIds, serverId = null) {
   const ids = [...new Set((steamIds || []).filter(Boolean))]
   if (!ids.length) return {}
   const values = ids.map(() => '(?)').join(',')
@@ -242,7 +244,8 @@ export function allTimePoints(steamIds) {
            AS INTEGER) AS points
       FROM ids
       LEFT JOIN (
-        SELECT steamId, SUM(seconds) AS seconds FROM play_sessions GROUP BY steamId
+        SELECT steamId, SUM(seconds) AS seconds FROM play_sessions
+         WHERE (? IS NULL OR serverId = ?) GROUP BY steamId
       ) p ON p.steamId = ids.steamId
       LEFT JOIN (
         SELECT steamId,
@@ -250,12 +253,23 @@ export function allTimePoints(steamIds) {
                COUNT(DISTINCT CASE WHEN kind = 'vblood' AND victim IS NOT NULL
                                    THEN victim END)              AS vbloodDistinct,
                SUM(CASE WHEN kind = 'pvp' THEN 1 ELSE 0 END)    AS pvp
-          FROM kill_events GROUP BY steamId
+          FROM kill_events
+         WHERE (? IS NULL OR serverId = ?) GROUP BY steamId
       ) k ON k.steamId = ids.steamId`
 
   const rows = db
     .prepare(sql)
-    .all(...ids, POINTS.perHour, POINTS.perVBloodFirst, POINTS.perVBloodRepeat, POINTS.perPvpKill)
+    .all(
+      ...ids,
+      POINTS.perHour,
+      POINTS.perVBloodFirst,
+      POINTS.perVBloodRepeat,
+      POINTS.perPvpKill,
+      serverId,
+      serverId,
+      serverId,
+      serverId,
+    )
   return Object.fromEntries(rows.map((r) => [r.steamId, r.points]))
 }
 
