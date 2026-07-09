@@ -32,6 +32,11 @@ import {
   getLeaderboard,
   allTimePoints,
   getPlayerStats,
+  getPlayerTotals,
+  getPlayerTotalsBatch,
+  getRecentKills,
+  getVBloodHuntProgress,
+  getPlayerActivity,
   getLeaderboardResets,
   getLeaderboardResetsAdmin,
   setLeaderboardReset,
@@ -40,7 +45,7 @@ import {
   LEADERBOARD_METRICS,
 } from './playtime.js'
 import { fetchWidget } from './discord.js'
-import { vbloodName } from '../src/data/vbloods.js'
+import { vbloodName, VBLOOD_NAMES } from '../src/data/vbloods.js'
 import { servers } from '../src/data/servers.js'
 import {
   badgesForUser,
@@ -231,8 +236,11 @@ app.get('/api/me', (req, res) => {
     provider: i.provider,
     providerId: i.providerId,
   }))
+  // Fetch game stats for auto-achievement badges (if the user has a Steam link).
+  const steamIdentity = getUserIdentities(req.user.id).find((i) => i.provider === 'steam')
+  const gameStats = steamIdentity ? getPlayerTotals(steamIdentity.providerId) : null
   res.json({
-    user: { ...req.user, key: keyOf(req.user.id), rank, identities, badges: badgesForUser(req.user, rank) },
+    user: { ...req.user, key: keyOf(req.user.id), rank, identities, badges: badgesForUser(req.user, rank, gameStats) },
   })
 })
 
@@ -347,6 +355,49 @@ app.get('/api/leaderboard', (req, res) => {
   res.json({ entries, period, serverId, metric })
 })
 
+// Public kill feed — recent V Blood + PvP kills across all servers (or one).
+// Used by the live kill feed widget on the leaderboard page.
+app.get('/api/kills/recent', (req, res) => {
+  const serverId = req.query.serverId ? String(req.query.serverId) : null
+  const limit = req.query.limit ? Number(req.query.limit) : 20
+  const kills = getRecentKills(serverId, limit)
+  const entries = kills.map((k) => {
+    const member = getUserByProvider('steam', k.steamId)
+    const linked = member && !member.banned ? member : null
+    return {
+      steamId: k.steamId,
+      charName: k.charName || linked?.username || 'Unknown vampire',
+      kind: k.kind,
+      victim: k.kind === 'vblood' ? vbloodName(k.victim) : k.victim,
+      victimGuid: k.victim,
+      occurredAt: k.occurredAt,
+      serverId: k.serverId,
+      member: linked ? { key: keyOf(linked.id) } : null,
+    }
+  })
+  res.json({ kills: entries })
+})
+
+// V Blood hunt tracker — which bosses each player has killed (for the hunt page).
+app.get('/api/vblood-hunt', (req, res) => {
+  const serverId = req.query.serverId ? String(req.query.serverId) : null
+  const progress = getVBloodHuntProgress(serverId)
+  const allBosses = Object.keys(VBLOOD_NAMES)
+  const players = Object.entries(progress).map(([steamId, data]) => {
+    const member = getUserByProvider('steam', steamId)
+    const linked = member && !member.banned ? member : null
+    return {
+      steamId,
+      charName: data.charName || linked?.username || 'Unknown vampire',
+      bosses: [...data.bosses],
+      count: data.bosses.size,
+      member: linked ? { key: keyOf(linked.id) } : null,
+    }
+  })
+  players.sort((a, b) => b.count - a.count)
+  res.json({ players, totalBosses: allBosses.length })
+})
+
 // A stable, non-identifying public key for a user (never expose the raw id).
 const keyOf = (id) => createHash('sha1').update(id).digest('hex').slice(0, 12)
 
@@ -357,7 +408,8 @@ function memberRank(id) {
 }
 
 // Public-safe serialisation of a member, including earned badges.
-function publicMember(u, rank) {
+// `gameStats` is optional { seconds, vblood, pvp, points } for stat-based badges.
+function publicMember(u, rank, gameStats) {
   return {
     key: keyOf(u.id),
     username: u.username,
@@ -367,7 +419,7 @@ function publicMember(u, rank) {
     discordRoles: u.discordRoles || [],
     bio: u.bio || null,
     favoriteServer: u.favoriteServer || null,
-    badges: badgesForUser(u, rank),
+    badges: badgesForUser(u, rank, gameStats),
     rank,
     createdAt: u.createdAt,
   }
@@ -378,10 +430,19 @@ function publicMember(u, rank) {
 // exposed (a hashed key instead of the raw Discord/Steam id). Banned members
 // are hidden. Ranks are computed before hiding so join order stays stable.
 app.get('/api/members', (req, res) => {
-  const members = listUsers()
-    .map((u, i) => ({ u, rank: i + 1 }))
-    .filter(({ u }) => !u.banned)
-    .map(({ u, rank }) => publicMember(u, rank))
+  const all = listUsers()
+  const indexed = all.map((u, i) => ({ u, rank: i + 1 })).filter(({ u }) => !u.banned)
+  // Batch-fetch game stats for all members with Steam links (for auto badges).
+  const steamIdMap = {}
+  for (const { u } of indexed) {
+    const sid = getUserIdentities(u.id).find((id) => id.provider === 'steam')?.providerId
+    if (sid) steamIdMap[u.id] = sid
+  }
+  const steamIds = Object.values(steamIdMap)
+  const totals = steamIds.length ? getPlayerTotalsBatch(steamIds) : {}
+  const members = indexed.map(({ u, rank }) =>
+    publicMember(u, rank, totals[steamIdMap[u.id]] || null),
+  )
   res.json({ members })
 })
 
@@ -410,7 +471,9 @@ app.get('/api/profile/:key', (req, res) => {
   const all = listUsers()
   const i = all.findIndex((u) => keyOf(u.id) === req.params.key)
   if (i === -1 || all[i].banned) return res.status(404).json({ error: 'not found' })
-  const member = publicMember(all[i], i + 1)
+  const steamIdentity = getUserIdentities(all[i].id).find((id) => id.provider === 'steam')
+  const gameStats = steamIdentity ? getPlayerTotals(steamIdentity.providerId) : null
+  const member = publicMember(all[i], i + 1, gameStats)
   member.points = pointsForUser(all[i].id) // null if the member has no Steam link
   res.json({ member })
 })
@@ -447,10 +510,22 @@ app.get('/api/player/:steamId', (req, res) => {
   })
 })
 
+// Daily activity for a player's activity heatmap (on /p/:steamId).
+app.get('/api/player/:steamId/activity', (req, res) => {
+  const days = req.query.days ? Number(req.query.days) : 365
+  const activity = getPlayerActivity(req.params.steamId, days)
+  res.json({ activity })
+})
+
 // Full achievement catalog with holder counts (public).
 app.get('/api/achievements', (req, res) => {
   const members = listUsers().filter((u) => !u.banned)
-  res.json({ achievements: catalogWithCounts(members) })
+  const memberSteamIds = {}
+  for (const u of members) {
+    const sid = getUserIdentities(u.id).find((id) => id.provider === 'steam')?.providerId
+    if (sid) memberSteamIds[u.id] = sid
+  }
+  res.json({ achievements: catalogWithCounts(members, memberSteamIds) })
 })
 
 // --- Live Discord widget (public) ------------------------------------------
@@ -583,10 +658,18 @@ app.delete('/api/suggestions/:id', ensureAuth, (req, res) => {
 
 // List all registered members (with moderation fields + badges + rank).
 app.get('/api/admin/users', ensureAdmin, (req, res) => {
-  const users = listUsersAdmin().map((u, i) => ({
+  const all = listUsersAdmin()
+  const steamIdMap = {}
+  for (const u of all) {
+    const sid = getUserIdentities(u.id).find((id) => id.provider === 'steam')?.providerId
+    if (sid) steamIdMap[u.id] = sid
+  }
+  const steamIds = Object.values(steamIdMap)
+  const totals = steamIds.length ? getPlayerTotalsBatch(steamIds) : {}
+  const users = all.map((u, i) => ({
     ...u,
     rank: i + 1,
-    badges: badgesForUser(u, i + 1),
+    badges: badgesForUser(u, i + 1, totals[steamIdMap[u.id]] || null),
   }))
   res.json({ users })
 })
@@ -630,7 +713,9 @@ app.post('/api/admin/users/:id/achievements', ensureAdmin, (req, res) => {
   if (!target) return res.status(404).json({ error: 'not found' })
   grantAchievement(target.id, code, req.user.id)
   logAudit({ actor: req.user, action: 'achievement.grant', targetId: target.id, targetName: target.username, detail: code })
-  res.json({ rank: memberRank(target.id), badges: badgesForUser(target, memberRank(target.id)) })
+  const sid = getUserIdentities(target.id).find((id) => id.provider === 'steam')?.providerId
+  const gs = sid ? getPlayerTotals(sid) : null
+  res.json({ rank: memberRank(target.id), badges: badgesForUser(target, memberRank(target.id), gs) })
 })
 
 // Revoke an achievement badge.
@@ -639,7 +724,9 @@ app.delete('/api/admin/users/:id/achievements/:code', ensureAdmin, (req, res) =>
   if (!target) return res.status(404).json({ error: 'not found' })
   revokeAchievement(target.id, req.params.code)
   logAudit({ actor: req.user, action: 'achievement.revoke', targetId: target.id, targetName: target.username, detail: req.params.code })
-  res.json({ rank: memberRank(target.id), badges: badgesForUser(target, memberRank(target.id)) })
+  const sid = getUserIdentities(target.id).find((id) => id.provider === 'steam')?.providerId
+  const gs = sid ? getPlayerTotals(sid) : null
+  res.json({ rank: memberRank(target.id), badges: badgesForUser(target, memberRank(target.id), gs) })
 })
 
 // Audit log (most recent first).

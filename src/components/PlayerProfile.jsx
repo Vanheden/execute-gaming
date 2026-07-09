@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { community } from '../data/servers.js'
 import { rankForPoints } from '../data/ranks.js'
 import { linkProps } from '../lib/router.js'
+import ActivityHeatmap from './ActivityHeatmap.jsx'
 
 function formatDuration(seconds) {
   const h = Math.floor(seconds / 3600)
@@ -188,6 +189,8 @@ export default function PlayerProfile({ steamId }) {
                 </div>
               </section>
             )}
+
+            <ActivityHeatmap steamId={p.steamId} />
           </article>
         )}
       </main>

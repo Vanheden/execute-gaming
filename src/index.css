@@ -2966,6 +2966,95 @@ body.has-banner .nav {
 /* ===========================================================================
    Playtime leaderboard
    =========================================================================== */
+.killfeed {
+  margin-bottom: 18px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.killfeed__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 10px;
+  font-size: 0.82rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-faint);
+}
+.killfeed__pulse {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--c-green, #3ee089);
+  box-shadow: 0 0 8px var(--c-green, #3ee089);
+  animation: kfpulse 2s ease-in-out infinite;
+}
+@keyframes kfpulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+.killfeed__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.killfeed__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  transition: background 0.15s ease;
+}
+.killfeed__item:hover {
+  background: var(--surface-2);
+}
+.killfeed__icon {
+  flex-shrink: 0;
+  font-size: 1rem;
+  line-height: 1;
+}
+.killfeed__text {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.84rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.killfeed__name {
+  font-weight: 700;
+  color: var(--text);
+  text-decoration: none;
+}
+.killfeed__name:hover {
+  color: var(--c-cyan);
+}
+.killfeed__verb {
+  color: var(--text-dim);
+}
+.killfeed__victim {
+  font-weight: 700;
+}
+.killfeed__victim--vb {
+  color: var(--c-green, #3ee089);
+}
+.killfeed__victim--pvp {
+  color: var(--c-red, #ff6b81);
+}
+.killfeed__time {
+  flex-shrink: 0;
+  font-size: 0.72rem;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
 .lbfilter {
   display: flex;
   flex-wrap: wrap;
@@ -3005,6 +3094,18 @@ body.has-banner .nav {
 .lb__row--top {
   border-color: color-mix(in srgb, var(--c-yellow) 35%, var(--border));
 }
+.lb__row--top.lb__row--1 {
+  border-color: color-mix(in srgb, var(--c-yellow) 55%, var(--border));
+  background: color-mix(in srgb, var(--c-yellow) 6%, var(--surface));
+}
+.lb__row--top.lb__row--2 {
+  border-color: color-mix(in srgb, #cfd8e6 45%, var(--border));
+  background: color-mix(in srgb, #cfd8e6 5%, var(--surface));
+}
+.lb__row--top.lb__row--3 {
+  border-color: color-mix(in srgb, var(--c-orange) 45%, var(--border));
+  background: color-mix(in srgb, var(--c-orange) 5%, var(--surface));
+}
 .lb__rank {
   flex-shrink: 0;
   min-width: 40px;
@@ -3014,13 +3115,18 @@ body.has-banner .nav {
   color: var(--text-faint);
   text-align: center;
 }
-.lb__rank--1 {
+.lb__medal {
+  font-size: 1.4rem;
+  line-height: 1;
+  filter: drop-shadow(0 1px 4px color-mix(in srgb, currentColor 50%, transparent));
+}
+.lb__rank--1 .lb__medal {
   color: var(--c-yellow);
 }
-.lb__rank--2 {
+.lb__rank--2 .lb__medal {
   color: #cfd8e6;
 }
-.lb__rank--3 {
+.lb__rank--3 .lb__medal {
   color: var(--c-orange);
 }
 .lb__avatar {
@@ -3168,4 +3274,163 @@ body.has-banner .nav {
   .lb__time {
     min-width: 70px;
   }
+}
+
+/* ===========================================================================
+   V Blood Hunt Tracker
+   =========================================================================== */
+.hunt__search {
+  width: 100%;
+  max-width: 320px;
+  margin: 0 0 18px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.9rem;
+}
+.hunt__search:focus {
+  outline: none;
+  border-color: var(--c-cyan);
+}
+.hunt__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 14px;
+}
+.hunt__card {
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  transition: border-color 0.18s ease;
+}
+.hunt__card:hover {
+  border-color: color-mix(in srgb, var(--c-green, #3ee089) 40%, var(--border));
+}
+.hunt__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.hunt__name {
+  font-weight: 700;
+  color: var(--text);
+  text-decoration: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.hunt__name:hover {
+  color: var(--c-cyan);
+}
+.hunt__count {
+  flex-shrink: 0;
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: var(--c-green, #3ee089);
+  font-variant-numeric: tabular-nums;
+}
+.hunt__bar {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+.hunt__bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--c-green, #3ee089);
+  transition: width 0.3s ease;
+}
+.hunt__bosses {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+.hunt__boss {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  font-size: 0.7rem;
+  line-height: 1;
+  border-radius: 4px;
+  color: var(--text-faint);
+  background: var(--surface-2);
+  cursor: help;
+}
+.hunt__boss--done {
+  color: var(--c-green, #3ee089);
+  background: color-mix(in srgb, var(--c-green, #3ee089) 15%, transparent);
+}
+
+/* ===========================================================================
+   Activity Heatmap (GitHub-style)
+   =========================================================================== */
+.heatmap__summary {
+  margin: 0 0 12px;
+  font-size: 0.82rem;
+  color: var(--text-dim);
+}
+.heatmap {
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+.heatmap__months {
+  display: grid;
+  grid-template-columns: repeat(var(--cols, 53), 1fr);
+  gap: 3px;
+  margin-bottom: 4px;
+  font-size: 0.65rem;
+  color: var(--text-faint);
+}
+.heatmap__month {
+  white-space: nowrap;
+}
+.heatmap__grid {
+  display: grid;
+  grid-auto-flow: column;
+  grid-template-rows: repeat(7, 1fr);
+  gap: 3px;
+}
+.heatmap__col {
+  display: contents;
+}
+.heatmap__cell {
+  width: 11px;
+  height: 11px;
+  border-radius: 2px;
+  background: var(--surface-2);
+  border: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+}
+.heatmap__cell--1 {
+  background: color-mix(in srgb, var(--c-green, #3ee089) 25%, var(--surface-2));
+}
+.heatmap__cell--2 {
+  background: color-mix(in srgb, var(--c-green, #3ee089) 50%, var(--surface-2));
+}
+.heatmap__cell--3 {
+  background: color-mix(in srgb, var(--c-green, #3ee089) 75%, var(--surface-2));
+}
+.heatmap__cell--4 {
+  background: var(--c-green, #3ee089);
+}
+.heatmap__cell--sm {
+  width: 10px;
+  height: 10px;
+}
+.heatmap__legend {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 8px;
+  font-size: 0.68rem;
+  color: var(--text-faint);
 }

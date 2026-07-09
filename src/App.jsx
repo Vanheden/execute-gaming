@@ -10,6 +10,7 @@ import Members from './components/Members.jsx'
 import Leaderboard from './components/Leaderboard.jsx'
 import Achievements from './components/Achievements.jsx'
 import Suggestions from './components/Suggestions.jsx'
+import VBloodHunt from './components/VBloodHunt.jsx'
 import Rules from './components/Rules.jsx'
 import Footer from './components/Footer.jsx'
 import PublicProfile from './components/PublicProfile.jsx'
@@ -64,6 +65,7 @@ const PAGES = {
   '/leaderboard': Leaderboard,
   '/achievements': Achievements,
   '/suggestions': Suggestions,
+  '/hunt': VBloodHunt,
   '/admin': AdminPanel,
 }
 

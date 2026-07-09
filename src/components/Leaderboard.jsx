@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { servers } from '../data/servers.js'
 import { rankForPoints } from '../data/ranks.js'
 import { linkProps } from '../lib/router.js'
+import KillFeed from './KillFeed.jsx'
 
 // Human-readable playtime, e.g. 5400s → "1h 30m".
 function formatDuration(seconds) {
@@ -208,6 +209,7 @@ export default function Leaderboard() {
         </div>
 
         <div className="lbfilter">
+          <KillFeed />
           <div className="mfilter__tabs lbfilter__metrics">
             {METRICS.map((m) => (
               <button
@@ -246,8 +248,10 @@ export default function Leaderboard() {
         {entries && total > 0 && (
           <ol className="lb">
             {entries.map((e, i) => (
-              <li className={`lb__row ${i < 3 ? 'lb__row--top' : ''}`} key={e.steamId}>
-                <span className={`lb__rank lb__rank--${i + 1}`}>#{i + 1}</span>
+              <li className={`lb__row ${i < 3 ? `lb__row--top lb__row--${i + 1}` : ''}`} key={e.steamId}>
+                <span className={`lb__rank lb__rank--${i + 1}`}>
+                  {i < 3 ? <span className="lb__medal">{'🥇🥈🥉'[i]}</span> : `#${i + 1}`}
+                </span>
                 <Avatar e={e} />
                 <div className="lb__info">
                   <div className="lb__nameline">

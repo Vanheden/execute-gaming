@@ -395,6 +395,109 @@ export function allTimePoints(steamIds, serverId = null) {
 export const LEADERBOARD_PERIODS = Object.keys(PERIODS)
 export const LEADERBOARD_METRICS = Object.keys(METRICS)
 
+// Lightweight aggregate totals for a single SteamID — used by the auto-achievement
+// system to check stat-based badges. Returns { seconds, vblood, pvp, points } or
+// null for an invalid/unknown SteamID. Respects season-reset floors.
+export function getPlayerTotals(steamId) {
+  if (!steamId || !/^\d{5,20}$/.test(steamId)) return null
+
+  const resetEntries = Object.entries(getLeaderboardResets())
+  const floorS = resetFloorAnon('startedAt', resetEntries)
+  const floorK = resetFloorAnon('occurredAt', resetEntries)
+
+  const sql = `
+    SELECT
+      COALESCE(p.seconds, 0) AS seconds,
+      COALESCE(k.vblood, 0)  AS vblood,
+      COALESCE(k.pvp, 0)     AS pvp,
+      CAST(
+        COALESCE(p.seconds, 0) / 3600.0 * ?
+        + COALESCE(k.vbloodDistinct, 0) * ?
+        + (COALESCE(k.vblood, 0) - COALESCE(k.vbloodDistinct, 0)) * ?
+        + COALESCE(k.pvp, 0) * ?
+      AS INTEGER) AS points
+    FROM (SELECT 1) dummy
+    LEFT JOIN (
+      SELECT SUM(seconds) AS seconds FROM play_sessions
+       WHERE steamId = ?${floorS.sql}
+    ) p ON 1=1
+    LEFT JOIN (
+      SELECT
+        SUM(CASE WHEN kind = 'vblood' THEN 1 ELSE 0 END) AS vblood,
+        COUNT(DISTINCT CASE WHEN kind = 'vblood' AND victim IS NOT NULL
+                            THEN victim END)              AS vbloodDistinct,
+        SUM(CASE WHEN kind = 'pvp' THEN 1 ELSE 0 END)    AS pvp
+      FROM kill_events
+       WHERE steamId = ?${floorK.sql}
+    ) k ON 1=1`
+
+  const row = db.prepare(sql).get(
+    POINTS.perHour,
+    POINTS.perVBloodFirst,
+    POINTS.perVBloodRepeat,
+    POINTS.perPvpKill,
+    steamId, ...floorS.params,
+    steamId, ...floorK.params,
+  )
+
+  if (!row) return null
+  return { seconds: row.seconds, vblood: row.vblood, pvp: row.pvp, points: row.points }
+}
+
+// Batch version of getPlayerTotals for multiple SteamIDs at once — used by the
+// achievement catalog to count holders of game-stat badges. Returns a map
+// { steamId: { seconds, vblood, pvp, points } }. Respects season-reset floors.
+export function getPlayerTotalsBatch(steamIds) {
+  const ids = [...new Set((steamIds || []).filter(Boolean))]
+  if (!ids.length) return {}
+
+  const resetEntries = Object.entries(getLeaderboardResets())
+  const floorS = resetFloorAnon('startedAt', resetEntries)
+  const floorK = resetFloorAnon('occurredAt', resetEntries)
+  const placeholders = ids.map(() => '(?)').join(',')
+
+  const sql = `
+    WITH ids(steamId) AS (VALUES ${placeholders})
+    SELECT ids.steamId AS steamId,
+           COALESCE(p.seconds, 0) AS seconds,
+           COALESCE(k.vblood, 0)  AS vblood,
+           COALESCE(k.pvp, 0)     AS pvp,
+           CAST(
+             COALESCE(p.seconds, 0) / 3600.0 * ?
+             + COALESCE(k.vbloodDistinct, 0) * ?
+             + (COALESCE(k.vblood, 0) - COALESCE(k.vbloodDistinct, 0)) * ?
+             + COALESCE(k.pvp, 0) * ?
+           AS INTEGER) AS points
+    FROM ids
+    LEFT JOIN (
+      SELECT steamId, SUM(seconds) AS seconds FROM play_sessions
+       WHERE steamId IN (SELECT steamId FROM ids)${floorS.sql} GROUP BY steamId
+    ) p ON p.steamId = ids.steamId
+    LEFT JOIN (
+      SELECT steamId,
+             SUM(CASE WHEN kind = 'vblood' THEN 1 ELSE 0 END) AS vblood,
+             COUNT(DISTINCT CASE WHEN kind = 'vblood' AND victim IS NOT NULL
+                                 THEN victim END)              AS vbloodDistinct,
+             SUM(CASE WHEN kind = 'pvp' THEN 1 ELSE 0 END)    AS pvp
+        FROM kill_events
+       WHERE steamId IN (SELECT steamId FROM ids)${floorK.sql} GROUP BY steamId
+    ) k ON k.steamId = ids.steamId`
+
+  const rows = db.prepare(sql).all(
+    ...ids,
+    POINTS.perHour,
+    POINTS.perVBloodFirst,
+    POINTS.perVBloodRepeat,
+    POINTS.perPvpKill,
+    ...floorS.params,
+    ...floorK.params,
+  )
+
+  return Object.fromEntries(
+    rows.map((r) => [r.steamId, { seconds: r.seconds, vblood: r.vblood, pvp: r.pvp, points: r.points }]),
+  )
+}
+
 // Stats for a single player by SteamID — used by /api/player/:steamId for the
 // public player profile page (/p/:steamId). Returns per-server breakdown plus
 // overall totals, respecting the same season-reset floors as the leaderboard.
@@ -510,6 +613,71 @@ export function getPlayerStats(steamId) {
         points: r.points,
       })),
   }
+}
+
+// Recent kill events for the live kill feed. Returns the latest N kills across
+// all servers (or one server), newest first. Each row: { steamId, charName, kind,
+// victim, occurredAt, serverId }. Respects season-reset floors.
+export function getRecentKills(serverId = null, limit = 20) {
+  const resetEntries = Object.entries(getLeaderboardResets())
+  const floorK = resetFloorAnon('occurredAt', resetEntries)
+  const cap = Math.min(Math.max(Number(limit) || 20, 1), 100)
+
+  const sql = `
+    SELECT steamId, charName, kind, victim, occurredAt, serverId
+      FROM kill_events
+     WHERE (? IS NULL OR serverId = ?)${floorK.sql}
+     ORDER BY occurredAt DESC
+     LIMIT ?`
+
+  return db.prepare(sql).all(serverId, serverId, ...floorK.params, cap)
+}
+
+// V Blood hunt tracker — which bosses each player has killed. Returns a map
+// { steamId: { charName, bosses: Set of victim GUIDs } }. Respects season resets.
+export function getVBloodHuntProgress(serverId = null) {
+  const resetEntries = Object.entries(getLeaderboardResets())
+  const floorK = resetFloorAnon('occurredAt', resetEntries)
+
+  const sql = `
+    SELECT steamId,
+           MAX(charName) AS charName,
+           GROUP_CONCAT(DISTINCT victim) AS bosses
+      FROM kill_events
+     WHERE kind = 'vblood' AND victim IS NOT NULL
+       AND (? IS NULL OR serverId = ?)${floorK.sql}
+     GROUP BY steamId`
+
+  const rows = db.prepare(sql).all(serverId, serverId, ...floorK.params)
+  return Object.fromEntries(
+    rows.map((r) => [
+      r.steamId,
+      {
+        charName: r.charName,
+        bosses: new Set(r.bosses ? r.bosses.split(',') : []),
+      },
+    ]),
+  )
+}
+
+// Daily activity for a single player — used by the activity heatmap on /p/:steamId.
+// Returns an array of { date: 'YYYY-MM-DD', seconds } for the last N days.
+// Respects season-reset floors.
+export function getPlayerActivity(steamId, days = 365) {
+  if (!steamId || !/^\d{5,20}$/.test(steamId)) return []
+
+  const resetEntries = Object.entries(getLeaderboardResets())
+  const floorS = resetFloorAnon('startedAt', resetEntries)
+
+  const since = new Date(Date.now() - days * 864e5).toISOString()
+  const sql = `
+    SELECT DATE(startedAt) AS date, SUM(seconds) AS seconds
+      FROM play_sessions
+     WHERE steamId = ? AND startedAt >= ?${floorS.sql}
+     GROUP BY DATE(startedAt)
+     ORDER BY date ASC`
+
+  return db.prepare(sql).all(steamId, since, ...floorS.params)
 }
 
 // --- helpers ---------------------------------------------------------------
