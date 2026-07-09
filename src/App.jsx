@@ -11,6 +11,7 @@ import Leaderboard from './components/Leaderboard.jsx'
 import Achievements from './components/Achievements.jsx'
 import Suggestions from './components/Suggestions.jsx'
 import VBloodHunt from './components/VBloodHunt.jsx'
+import PlayerSearch from './components/PlayerSearch.jsx'
 import Rules from './components/Rules.jsx'
 import Footer from './components/Footer.jsx'
 import PublicProfile from './components/PublicProfile.jsx'
@@ -66,6 +67,7 @@ const PAGES = {
   '/achievements': Achievements,
   '/suggestions': Suggestions,
   '/hunt': VBloodHunt,
+  '/players': PlayerSearch,
   '/admin': AdminPanel,
 }
 

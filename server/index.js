@@ -37,6 +37,8 @@ import {
   getRecentKills,
   getVBloodHuntProgress,
   getPlayerActivity,
+  getWeeklyHighlights,
+  searchPlayers,
   getLeaderboardResets,
   getLeaderboardResetsAdmin,
   setLeaderboardReset,
@@ -418,6 +420,51 @@ app.get('/api/season-champions', (req, res) => {
     })
   }
   res.json({ champions: results })
+})
+
+// Weekly highlights — top player in each category for the last 7 days.
+app.get('/api/weekly-highlights', (req, res) => {
+  const h = getWeeklyHighlights()
+  const resolve = (entry) => {
+    if (!entry) return null
+    const member = getUserByProvider('steam', entry.steamId)
+    const linked = member && !member.banned ? member : null
+    return {
+      steamId: entry.steamId,
+      charName: entry.charName || linked?.username || 'Unknown vampire',
+      value: entry.value,
+      member: linked ? { key: keyOf(linked.id), username: linked.username } : null,
+    }
+  }
+  res.json({
+    highlights: {
+      topPlaytime: resolve(h.topPlaytime),
+      topVBlood: resolve(h.topVBlood),
+      topPvp: resolve(h.topPvp),
+      topPoints: resolve(h.topPoints),
+    },
+  })
+})
+
+// Global player search — search all tracked players (registered + guests) by name.
+app.get('/api/players/search', (req, res) => {
+  const q = String(req.query.q || '')
+  if (q.length < 2) return res.json({ players: [] })
+  const results = searchPlayers(q, 20).map((r) => {
+    const member = getUserByProvider('steam', r.steamId)
+    const linked = member && !member.banned ? member : null
+    return {
+      steamId: r.steamId,
+      charName: r.charName || linked?.username || 'Unknown vampire',
+      seconds: r.seconds,
+      vblood: r.vblood,
+      pvp: r.pvp,
+      points: r.points,
+      lastSeen: r.lastSeen === '0' ? null : r.lastSeen,
+      member: linked ? { key: keyOf(linked.id), username: linked.username } : null,
+    }
+  })
+  res.json({ players: results })
 })
 
 // A stable, non-identifying public key for a user (never expose the raw id).

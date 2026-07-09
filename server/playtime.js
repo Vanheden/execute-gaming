@@ -769,6 +769,153 @@ export function getPlayerActivity(steamId, days = 365) {
   return db.prepare(sql).all(steamId, since, ...floorS.params)
 }
 
+// Weekly highlights — top players in the last 7 days across categories.
+// Returns { topPlaytime, topVBlood, topPvp, topPoints } — each an array of
+// { steamId, charName, value } (1 entry or empty). Respects season resets.
+export function getWeeklyHighlights() {
+  const since = new Date(Date.now() - 7 * 864e5).toISOString()
+  const resetEntries = Object.entries(getLeaderboardResets())
+  const floorS = resetFloorAnon('startedAt', resetEntries)
+  const floorK = resetFloorAnon('occurredAt', resetEntries)
+
+  function topQuery(sql, params) {
+    const row = db.prepare(sql).get(...params)
+    if (!row) return null
+    return { steamId: row.steamId, charName: row.charName, value: row.value }
+  }
+
+  const playtimeSql = `
+    SELECT steamId, MAX(charName) AS charName, SUM(seconds) AS value
+      FROM play_sessions
+     WHERE startedAt >= ?${floorS.sql}
+     GROUP BY steamId ORDER BY value DESC LIMIT 1`
+
+  const vbloodSql = `
+    SELECT steamId, MAX(charName) AS charName, COUNT(*) AS value
+      FROM kill_events
+     WHERE kind = 'vblood' AND occurredAt >= ?${floorK.sql}
+     GROUP BY steamId ORDER BY value DESC LIMIT 1`
+
+  const pvpSql = `
+    SELECT steamId, MAX(charName) AS charName, COUNT(*) AS value
+      FROM kill_events
+     WHERE kind = 'pvp' AND occurredAt >= ?${floorK.sql}
+     GROUP BY steamId ORDER BY value DESC LIMIT 1`
+
+  const pointsSql = `
+    SELECT ids.steamId AS steamId,
+           (SELECT charName FROM (
+              SELECT charName, startedAt AS t FROM play_sessions
+                WHERE steamId = ids.steamId AND charName IS NOT NULL
+              UNION ALL
+              SELECT charName, occurredAt AS t FROM kill_events
+                WHERE steamId = ids.steamId AND charName IS NOT NULL
+            ) ORDER BY t DESC LIMIT 1) AS charName,
+           CAST(
+             COALESCE(p.seconds, 0) / 3600.0 * ?
+             + COALESCE(k.vbloodDistinct, 0) * ?
+             + (COALESCE(k.vblood, 0) - COALESCE(k.vbloodDistinct, 0)) * ?
+             + COALESCE(k.pvp, 0) * ?
+           AS INTEGER) AS value
+    FROM (
+      SELECT steamId FROM play_sessions WHERE startedAt >= ?${floorS.sql}
+      UNION
+      SELECT steamId FROM kill_events WHERE occurredAt >= ?${floorK.sql}
+    ) ids
+    LEFT JOIN (
+      SELECT steamId, SUM(seconds) AS seconds FROM play_sessions
+       WHERE startedAt >= ?${floorS.sql} GROUP BY steamId
+    ) p ON p.steamId = ids.steamId
+    LEFT JOIN (
+      SELECT steamId,
+             SUM(CASE WHEN kind = 'vblood' THEN 1 ELSE 0 END) AS vblood,
+             COUNT(DISTINCT CASE WHEN kind = 'vblood' AND victim IS NOT NULL
+                                 THEN victim END)              AS vbloodDistinct,
+             SUM(CASE WHEN kind = 'pvp' THEN 1 ELSE 0 END)    AS pvp
+        FROM kill_events
+       WHERE occurredAt >= ?${floorK.sql} GROUP BY steamId
+    ) k ON k.steamId = ids.steamId
+    ORDER BY value DESC LIMIT 1`
+
+  return {
+    topPlaytime: topQuery(playtimeSql, [since, ...floorS.params]),
+    topVBlood: topQuery(vbloodSql, [since, ...floorK.params]),
+    topPvp: topQuery(pvpSql, [since, ...floorK.params]),
+    topPoints: topQuery(pointsSql, [
+      POINTS.perHour, POINTS.perVBloodFirst, POINTS.perVBloodRepeat, POINTS.perPvpKill,
+      since, ...floorS.params,
+      since, ...floorK.params,
+      since, ...floorS.params,
+      since, ...floorK.params,
+    ]),
+  }
+}
+
+// Search players by charName across all tracked activity (registered + guests).
+// Returns an array of { steamId, charName, seconds, vblood, pvp, points, lastSeen }
+// sorted by points desc. `query` is a substring match on charName (case-insensitive).
+export function searchPlayers(query, limit = 20) {
+  const q = String(query || '').trim()
+  if (q.length < 2) return []
+  const cap = Math.min(Math.max(Number(limit) || 20, 1), 100)
+  const resetEntries = Object.entries(getLeaderboardResets())
+  const floorS = resetFloorAnon('startedAt', resetEntries)
+  const floorK = resetFloorAnon('occurredAt', resetEntries)
+
+  const sql = `
+    SELECT ids.steamId AS steamId,
+           COALESCE(p.seconds, 0) AS seconds,
+           COALESCE(k.vblood, 0)  AS vblood,
+           COALESCE(k.pvp, 0)     AS pvp,
+           CAST(
+             COALESCE(p.seconds, 0) / 3600.0 * ?
+             + COALESCE(k.vbloodDistinct, 0) * ?
+             + (COALESCE(k.vblood, 0) - COALESCE(k.vbloodDistinct, 0)) * ?
+             + COALESCE(k.pvp, 0) * ?
+           AS INTEGER) AS points,
+           MAX(COALESCE(p.lastSeen, '0'), COALESCE(k.lastKill, '0')) AS lastSeen,
+           (SELECT charName FROM (
+              SELECT charName, startedAt AS t FROM play_sessions
+                WHERE steamId = ids.steamId AND charName IS NOT NULL
+              UNION ALL
+              SELECT charName, occurredAt AS t FROM kill_events
+                WHERE steamId = ids.steamId AND charName IS NOT NULL
+            ) ORDER BY t DESC LIMIT 1) AS charName
+    FROM (
+      SELECT DISTINCT steamId FROM play_sessions
+       WHERE charName LIKE ?${floorS.sql}
+      UNION
+      SELECT DISTINCT steamId FROM kill_events
+       WHERE charName LIKE ?${floorK.sql}
+    ) ids
+    LEFT JOIN (
+      SELECT steamId, SUM(seconds) AS seconds, MAX(updatedAt) AS lastSeen
+        FROM play_sessions${floorS.sql} GROUP BY steamId
+    ) p ON p.steamId = ids.steamId
+    LEFT JOIN (
+      SELECT steamId,
+             SUM(CASE WHEN kind = 'vblood' THEN 1 ELSE 0 END) AS vblood,
+             COUNT(DISTINCT CASE WHEN kind = 'vblood' AND victim IS NOT NULL
+                                 THEN victim END)              AS vbloodDistinct,
+             SUM(CASE WHEN kind = 'pvp' THEN 1 ELSE 0 END)    AS pvp,
+             MAX(occurredAt) AS lastKill
+        FROM kill_events${floorK.sql} GROUP BY steamId
+    ) k ON k.steamId = ids.steamId
+    WHERE charName IS NOT NULL
+    ORDER BY points DESC
+    LIMIT ?`
+
+  const pattern = `%${q}%`
+  return db.prepare(sql).all(
+    POINTS.perHour, POINTS.perVBloodFirst, POINTS.perVBloodRepeat, POINTS.perPvpKill,
+    pattern, ...floorS.params,
+    pattern, ...floorK.params,
+    ...floorS.params,
+    ...floorK.params,
+    cap,
+  )
+}
+
 // --- helpers ---------------------------------------------------------------
 function str(v, max) {
   if (typeof v !== 'string') return null

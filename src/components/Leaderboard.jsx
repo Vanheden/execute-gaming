@@ -4,6 +4,7 @@ import { rankForPoints } from '../data/ranks.js'
 import { linkProps } from '../lib/router.js'
 import KillFeed from './KillFeed.jsx'
 import SeasonChampions from './SeasonChampions.jsx'
+import WeeklyHighlights from './WeeklyHighlights.jsx'
 
 // Human-readable playtime, e.g. 5400s → "1h 30m".
 function formatDuration(seconds) {
@@ -210,6 +211,7 @@ export default function Leaderboard() {
         </div>
 
         <div className="lbfilter">
+          <WeeklyHighlights />
           <SeasonChampions />
           <KillFeed serverId={serverId} />
           <div className="mfilter__tabs lbfilter__metrics">

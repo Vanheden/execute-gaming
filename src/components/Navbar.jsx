@@ -12,6 +12,7 @@ const LINKS = [
   { label: 'Members', to: '/members', page: true },
   { label: 'Leaderboard', to: '/leaderboard', page: true },
   { label: 'Hunt Tracker', to: '/hunt', page: true },
+  { label: 'Players', to: '/players', page: true },
   { label: 'Achievements', to: '/achievements', page: true },
   { label: 'Suggestions', to: '/suggestions', page: true },
 ]
