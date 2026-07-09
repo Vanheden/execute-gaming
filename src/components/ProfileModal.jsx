@@ -153,6 +153,7 @@ export default function ProfileModal({ open, onClose }) {
   const { user, providers, logout, refresh } = useAuth()
   const [editingProfile, setEditingProfile] = useState(false)
   const isAdmin = user?.role === 'admin'
+  const hasSteam = (user?.identities || []).some((i) => i.provider === 'steam')
 
   useEffect(() => {
     if (!open) {
@@ -234,6 +235,24 @@ export default function ProfileModal({ open, onClose }) {
             )}
 
             <ConnectedAccounts user={user} providers={providers} onChange={refresh} />
+
+            {!hasSteam && (
+              <div className="pf__linkwarn">
+                <span className="pf__linkwarn-icon">⚠️</span>
+                <div>
+                  <p className="pf__linkwarn-title">Link your Steam account to show on the leaderboard</p>
+                  <p className="pf__linkwarn-body">
+                    Your playtime, V Blood kills and PvP kills are tracked by SteamID.
+                    To appear on the leaderboard with your real name and profile — instead of
+                    as a <span className="badge badge--guest">Guest</span> — you need to link
+                    your Steam account below.
+                  </p>
+                  <a className="btn btn--sm" href="/auth/steam/link">
+                    Link Steam account
+                  </a>
+                </div>
+              </div>
+            )}
 
             {editingProfile ? (
               <ProfileEditForm
