@@ -312,6 +312,69 @@ body.has-banner .nav {
 .nav__links a:not(.btn):hover {
   color: var(--text);
 }
+
+/* Dropdown menus in the navbar */
+.nav__dd {
+  position: relative;
+}
+.nav__dd-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  color: var(--text-dim);
+  font-weight: 500;
+  font-size: 0.9rem;
+  white-space: nowrap;
+  transition: color 0.15s ease;
+  padding: 4px 0;
+}
+.nav__dd-btn:hover {
+  color: var(--text);
+}
+.nav__dd-caret {
+  font-size: 0.7rem;
+  transition: transform 0.2s ease;
+}
+.nav__dd-caret--open {
+  transform: rotate(180deg);
+}
+.nav__dd-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  min-width: 180px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: rgba(10, 10, 15, 0.96);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 12px 40px -12px rgba(0, 0, 0, 0.6);
+  z-index: 100;
+}
+.nav__dd-item {
+  display: block;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  color: var(--text-dim);
+  font-weight: 500;
+  font-size: 0.86rem;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.nav__dd-item:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+.nav__dd-item--on {
+  color: var(--c-cyan);
+}
 .nav__burger {
   display: none;
   flex-direction: column;
@@ -2169,6 +2232,8 @@ body.has-banner .nav {
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.2s ease, transform 0.2s ease;
+    max-height: calc(100vh - 68px);
+    overflow-y: auto;
   }
   .nav__links--open {
     transform: translateY(0);
@@ -2180,6 +2245,29 @@ body.has-banner .nav {
   }
   .nav__links .btn {
     margin-top: 8px;
+  }
+  /* Dropdowns become inline expandable sections in the burger menu */
+  .nav__dd {
+    position: static;
+  }
+  .nav__dd-btn {
+    padding: 10px 0;
+    width: 100%;
+    justify-content: flex-start;
+  }
+  .nav__dd-caret {
+    margin-left: auto;
+  }
+  .nav__dd-menu {
+    position: static;
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+    backdrop-filter: none;
+    padding: 0 0 4px 16px;
+  }
+  .nav__dd-item {
+    padding: 8px 0;
   }
 }
 

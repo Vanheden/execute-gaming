@@ -1,21 +1,81 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { community } from '../data/servers.js'
 import { useAuth } from '../auth/AuthContext.jsx'
 import { usePath, linkProps } from '../lib/router.js'
 import LoginModal from './LoginModal.jsx'
 import ProfileModal from './ProfileModal.jsx'
 
-const LINKS = [
-  { label: 'Servers', to: '/#servers' },
-  { label: 'News', to: '/#news' },
-  { label: 'Events', to: '/events', page: true },
-  { label: 'Members', to: '/members', page: true },
-  { label: 'Leaderboard', to: '/leaderboard', page: true },
-  { label: 'Hunt Tracker', to: '/hunt', page: true },
-  { label: 'Players', to: '/players', page: true },
-  { label: 'Achievements', to: '/achievements', page: true },
-  { label: 'Suggestions', to: '/suggestions', page: true },
+const NAV_GROUPS = [
+  {
+    label: 'Community',
+    items: [
+      { label: 'Servers', to: '/#servers' },
+      { label: 'News', to: '/#news' },
+      { label: 'Events', to: '/events', page: true },
+      { label: 'Members', to: '/members', page: true },
+      { label: 'Suggestions', to: '/suggestions', page: true },
+    ],
+  },
+  {
+    label: 'Stats',
+    items: [
+      { label: 'Leaderboard', to: '/leaderboard', page: true },
+      { label: 'Hunt Tracker', to: '/hunt', page: true },
+      { label: 'Players', to: '/players', page: true },
+      { label: 'Achievements', to: '/achievements', page: true },
+    ],
+  },
 ]
+
+function Dropdown({ group, path, onNavigate }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+  const anyActive = group.items.some((i) => i.page && path === i.to)
+
+  useEffect(() => {
+    if (!open) return
+    const onDown = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onDown)
+    return () => document.removeEventListener('mousedown', onDown)
+  }, [open])
+
+  return (
+    <div className="nav__dd" ref={ref}>
+      <button
+        className={`nav__dd-btn ${anyActive ? 'nav__link--on' : ''}`}
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+      >
+        {group.label}
+        <span className={`nav__dd-caret ${open ? 'nav__dd-caret--open' : ''}`}>▾</span>
+      </button>
+      {open && (
+        <div className="nav__dd-menu">
+          {group.items.map((item) => {
+            const active = item.page && path === item.to
+            const lp = linkProps(item.to)
+            return (
+              <a
+                key={item.to}
+                {...lp}
+                className={`nav__dd-item ${active ? 'nav__dd-item--on' : ''}`}
+                onClick={(e) => {
+                  lp.onClick(e)
+                  setOpen(false)
+                  onNavigate()
+                }}
+              >
+                {item.label}
+              </a>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
 
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false)
@@ -32,7 +92,6 @@ export default function Navbar() {
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
 
-  // Sub-pages get a solid bar (no dark hero behind the nav to sit over).
   const solid = scrolled || path !== '/'
 
   return (
@@ -45,24 +104,9 @@ export default function Navbar() {
           </a>
 
           <nav className={`nav__links ${open ? 'nav__links--open' : ''}`}>
-            {LINKS.map((link) => {
-              const active = link.page && path === link.to
-              const lp = linkProps(link.to)
-              return (
-                <a
-                  key={link.to}
-                  {...lp}
-                  className={active ? 'nav__link--on' : undefined}
-                  aria-current={active ? 'page' : undefined}
-                  onClick={(e) => {
-                    lp.onClick(e)
-                    setOpen(false)
-                  }}
-                >
-                  {link.label}
-                </a>
-              )
-            })}
+            {NAV_GROUPS.map((group) => (
+              <Dropdown key={group.label} group={group} path={path} onNavigate={() => setOpen(false)} />
+            ))}
             {user?.role === 'admin' && (
               <a
                 {...linkProps('/admin')}
