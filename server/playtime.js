@@ -395,6 +395,123 @@ export function allTimePoints(steamIds, serverId = null) {
 export const LEADERBOARD_PERIODS = Object.keys(PERIODS)
 export const LEADERBOARD_METRICS = Object.keys(METRICS)
 
+// Stats for a single player by SteamID — used by /api/player/:steamId for the
+// public player profile page (/p/:steamId). Returns per-server breakdown plus
+// overall totals, respecting the same season-reset floors as the leaderboard.
+// Returns null for an invalid SteamID or a player with no activity.
+export function getPlayerStats(steamId) {
+  if (!steamId || !/^\d{5,20}$/.test(steamId)) return null
+
+  const resetEntries = Object.entries(getLeaderboardResets())
+  const floorS = resetFloorAnon('startedAt', resetEntries)
+  const floorK = resetFloorAnon('occurredAt', resetEntries)
+
+  // Per-server aggregation (same pattern as getLeaderboard, but for one SteamID
+  // and grouped by serverId instead of globally ranked).
+  const sql = `
+    SELECT ids.serverId AS serverId,
+           COALESCE(p.seconds, 0)  AS seconds,
+           COALESCE(p.sessions, 0) AS sessions,
+           COALESCE(k.vblood, 0)   AS vblood,
+           COALESCE(k.vbloodDistinct, 0) AS vbloodDistinct,
+           COALESCE(k.pvp, 0)      AS pvp,
+           CAST(
+             COALESCE(p.seconds, 0) / 3600.0 * ?
+             + COALESCE(k.vbloodDistinct, 0) * ?
+             + (COALESCE(k.vblood, 0) - COALESCE(k.vbloodDistinct, 0)) * ?
+             + COALESCE(k.pvp, 0) * ?
+           AS INTEGER) AS points,
+           MAX(COALESCE(p.lastSeen, '0'), COALESCE(k.lastKill, '0')) AS lastSeen
+    FROM (
+      SELECT serverId FROM play_sessions
+        WHERE steamId = ?${floorS.sql} GROUP BY serverId
+      UNION
+      SELECT serverId FROM kill_events
+        WHERE steamId = ?${floorK.sql} GROUP BY serverId
+    ) ids
+    LEFT JOIN (
+      SELECT serverId, SUM(seconds) AS seconds, COUNT(*) AS sessions, MAX(updatedAt) AS lastSeen
+        FROM play_sessions
+       WHERE steamId = ?${floorS.sql} GROUP BY serverId
+    ) p ON p.serverId = ids.serverId
+    LEFT JOIN (
+      SELECT serverId,
+             SUM(CASE WHEN kind = 'vblood' THEN 1 ELSE 0 END) AS vblood,
+             COUNT(DISTINCT CASE WHEN kind = 'vblood' AND victim IS NOT NULL
+                                 THEN victim END)              AS vbloodDistinct,
+             SUM(CASE WHEN kind = 'pvp' THEN 1 ELSE 0 END)    AS pvp,
+             MAX(occurredAt) AS lastKill
+        FROM kill_events
+       WHERE steamId = ?${floorK.sql} GROUP BY serverId
+    ) k ON k.serverId = ids.serverId`
+
+  const rows = db.prepare(sql).all(
+    POINTS.perHour,
+    POINTS.perVBloodFirst,
+    POINTS.perVBloodRepeat,
+    POINTS.perPvpKill,
+    steamId, ...floorS.params,
+    steamId, ...floorK.params,
+    steamId, ...floorS.params,
+    steamId, ...floorK.params,
+  )
+
+  if (!rows.length) return null
+
+  const totalSeconds = rows.reduce((s, r) => s + r.seconds, 0)
+  const totalSessions = rows.reduce((s, r) => s + r.sessions, 0)
+  const totalVBlood = rows.reduce((s, r) => s + r.vblood, 0)
+  const totalPvp = rows.reduce((s, r) => s + r.pvp, 0)
+  const totalPoints = rows.reduce((s, r) => s + r.points, 0)
+  const lastSeen = rows.reduce((m, r) => (r.lastSeen > m ? r.lastSeen : m), '0')
+
+  // Latest V Blood kill across all servers
+  const latestRow = db
+    .prepare(
+      `SELECT victim, occurredAt FROM kill_events
+         WHERE steamId = ? AND kind = 'vblood' AND victim IS NOT NULL${floorK.sql}
+         ORDER BY occurredAt DESC LIMIT 1`,
+    )
+    .get(steamId, ...floorK.params)
+
+  // Most recent charName across sessions + kill events
+  const nameRow = db
+    .prepare(
+      `SELECT charName FROM (
+         SELECT charName, startedAt AS t FROM play_sessions
+           WHERE steamId = ? AND charName IS NOT NULL
+         UNION ALL
+         SELECT charName, occurredAt AS t FROM kill_events
+           WHERE steamId = ? AND charName IS NOT NULL
+       ) ORDER BY t DESC LIMIT 1`,
+    )
+    .get(steamId, steamId)
+
+  return {
+    steamId,
+    charName: nameRow?.charName || null,
+    seconds: totalSeconds,
+    sessions: totalSessions,
+    vblood: totalVBlood,
+    pvp: totalPvp,
+    points: totalPoints,
+    lastSeen: lastSeen === '0' ? null : lastSeen,
+    latestVBlood: latestRow
+      ? { id: latestRow.victim, at: latestRow.occurredAt }
+      : null,
+    perServer: rows
+      .filter((r) => r.seconds > 0 || r.vblood > 0 || r.pvp > 0)
+      .map((r) => ({
+        serverId: r.serverId,
+        seconds: r.seconds,
+        sessions: r.sessions,
+        vblood: r.vblood,
+        pvp: r.pvp,
+        points: r.points,
+      })),
+  }
+}
+
 // --- helpers ---------------------------------------------------------------
 function str(v, max) {
   if (typeof v !== 'string') return null

@@ -107,15 +107,16 @@ function Rank({ e }) {
 }
 
 function Name({ e }) {
-  // Linked members deep-link to their public profile; unlinked players are plain text.
-  if (e.member)
-    return (
-      <a className="lb__name lb__name--link" {...linkProps(`/u/${e.member.key}`)}>
-        {e.name}
-        {e.member.role === 'admin' && <span className="badge badge--admin">Admin</span>}
-      </a>
-    )
-  return <span className="lb__name">{e.name}</span>
+  // All players are clickable. Registered members link to their full profile
+  // (/u/:key); unregistered players link to their game-stats page (/p/:steamId).
+  const href = e.member ? `/u/${e.member.key}` : `/p/${e.steamId}`
+  return (
+    <a className="lb__name lb__name--link" {...linkProps(href)}>
+      {e.name}
+      {e.member?.role === 'admin' && <span className="badge badge--admin">Admin</span>}
+      {!e.member && <span className="badge badge--guest">Guest</span>}
+    </a>
+  )
 }
 
 // Secondary line under the name. On the Points tab, show the full breakdown that

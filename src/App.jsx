@@ -13,6 +13,7 @@ import Suggestions from './components/Suggestions.jsx'
 import Rules from './components/Rules.jsx'
 import Footer from './components/Footer.jsx'
 import PublicProfile from './components/PublicProfile.jsx'
+import PlayerProfile from './components/PlayerProfile.jsx'
 import AdminPanel from './components/AdminPanel.jsx'
 import { usePath } from './lib/router.js'
 import { useAuth } from './auth/AuthContext.jsx'
@@ -84,6 +85,15 @@ export default function App() {
       <>
         <LoginToast />
         <PublicProfile profileKey={decodeURIComponent(profileMatch[1])} />
+      </>
+    )
+
+  const playerMatch = path.match(/^\/p\/(\d+)\/?$/)
+  if (playerMatch)
+    return (
+      <>
+        <LoginToast />
+        <PlayerProfile steamId={playerMatch[1]} />
       </>
     )
 

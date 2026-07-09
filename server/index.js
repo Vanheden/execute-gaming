@@ -31,6 +31,7 @@ import {
   recordKill,
   getLeaderboard,
   allTimePoints,
+  getPlayerStats,
   getLeaderboardResets,
   getLeaderboardResetsAdmin,
   setLeaderboardReset,
@@ -412,6 +413,38 @@ app.get('/api/profile/:key', (req, res) => {
   const member = publicMember(all[i], i + 1)
   member.points = pointsForUser(all[i].id) // null if the member has no Steam link
   res.json({ member })
+})
+
+// Public game stats for any player by SteamID (for /p/:steamId pages). Works for
+// unregistered players too — shows playtime, kills, points, rank, per-server
+// breakdown. If the SteamID belongs to a registered member, includes a link key.
+app.get('/api/player/:steamId', (req, res) => {
+  const stats = getPlayerStats(req.params.steamId)
+  if (!stats) return res.status(404).json({ error: 'not found' })
+  const member = getUserByProvider('steam', stats.steamId)
+  const linked = member && !member.banned ? member : null
+  const perServer = stats.perServer.map((s) => {
+    const srv = servers.find((sv) => sv.id === s.serverId)
+    return { ...s, name: srv?.name || s.serverId, accent: srv?.accent }
+  })
+  const latestVBlood = stats.latestVBlood
+    ? { id: stats.latestVBlood.id, name: vbloodName(stats.latestVBlood.id), at: stats.latestVBlood.at }
+    : null
+  res.json({
+    player: {
+      steamId: stats.steamId,
+      charName: stats.charName,
+      seconds: stats.seconds,
+      sessions: stats.sessions,
+      vblood: stats.vblood,
+      pvp: stats.pvp,
+      points: stats.points,
+      lastSeen: stats.lastSeen,
+      latestVBlood,
+      perServer,
+      member: linked ? { key: keyOf(linked.id), username: linked.username } : null,
+    },
+  })
 })
 
 // Full achievement catalog with holder counts (public).

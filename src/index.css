@@ -2442,11 +2442,12 @@ body.has-banner .nav {
   filter: drop-shadow(0 0 3px color-mix(in srgb, var(--rank) 55%, transparent));
 }
 .ranksrv__pts {
-  flex-shrink: 0;
+  flex-shrink: 1;
   font-size: 0.78rem;
   font-weight: 700;
   color: var(--text-dim);
   font-variant-numeric: tabular-nums;
+  text-align: right;
 }
 .pubcard__section {
   padding-top: 18px;
@@ -2472,6 +2473,65 @@ body.has-banner .nav {
   margin: 10px 0 0;
   color: var(--c-yellow);
   font-weight: 700;
+}
+.badge--guest {
+  color: var(--c-cyan);
+  background: color-mix(in srgb, var(--c-cyan) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--c-cyan) 30%, transparent);
+}
+.pubcard__linked {
+  margin-bottom: 18px;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--c-cyan) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--c-cyan) 22%, transparent);
+  font-size: 0.86rem;
+  color: var(--text-dim);
+}
+.pubcard__link {
+  color: var(--c-cyan);
+  font-weight: 700;
+  text-decoration: none;
+}
+.pubcard__link:hover {
+  text-decoration: underline;
+}
+.pstats {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 10px;
+}
+.pstats__item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+.pstats__num {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.pstats__label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-faint);
+}
+.pstats__latest {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text);
+}
+.pstats__latestdate {
+  font-weight: 500;
+  color: var(--text-dim);
 }
 
 /* --------------------------------------------------------------------------
