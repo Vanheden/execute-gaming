@@ -13,6 +13,7 @@ import Suggestions from './components/Suggestions.jsx'
 import Rules from './components/Rules.jsx'
 import Footer from './components/Footer.jsx'
 import PublicProfile from './components/PublicProfile.jsx'
+import AdminPanel from './components/AdminPanel.jsx'
 import { usePath } from './lib/router.js'
 import { useAuth } from './auth/AuthContext.jsx'
 
@@ -62,6 +63,7 @@ const PAGES = {
   '/leaderboard': Leaderboard,
   '/achievements': Achievements,
   '/suggestions': Suggestions,
+  '/admin': AdminPanel,
 }
 
 export default function App() {

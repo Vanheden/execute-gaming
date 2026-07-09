@@ -3,7 +3,6 @@ import { useAuth } from '../auth/AuthContext.jsx'
 import { servers } from '../data/servers.js'
 import { apiSend } from '../lib/api.js'
 import { linkProps } from '../lib/router.js'
-import AdminPanel from './AdminPanel.jsx'
 import Badges from './Badges.jsx'
 
 function serverName(id) {
@@ -152,13 +151,11 @@ function ProfileEditForm({ user, onCancel, onSaved }) {
 
 export default function ProfileModal({ open, onClose }) {
   const { user, providers, logout, refresh } = useAuth()
-  const [tab, setTab] = useState('profile')
   const [editingProfile, setEditingProfile] = useState(false)
   const isAdmin = user?.role === 'admin'
 
   useEffect(() => {
     if (!open) {
-      setTab('profile')
       setEditingProfile(false)
     }
   }, [open])
@@ -179,25 +176,7 @@ export default function ProfileModal({ open, onClose }) {
           ×
         </button>
 
-        {isAdmin && (
-          <div className="tabs">
-            <button
-              className={`tab ${tab === 'profile' ? 'tab--on' : ''}`}
-              onClick={() => setTab('profile')}
-            >
-              Profile
-            </button>
-            <button
-              className={`tab ${tab === 'admin' ? 'tab--on' : ''}`}
-              onClick={() => setTab('admin')}
-            >
-              Members
-            </button>
-          </div>
-        )}
-
-        {tab === 'profile' && (
-          <div className="pf">
+        <div className="pf">
             <div className="pf__head">
               <Avatar user={user} size={72} />
               <div>
@@ -296,6 +275,15 @@ export default function ProfileModal({ open, onClose }) {
                   View Steam profile
                 </a>
               )}
+              {isAdmin && (
+                <a
+                  className="btn btn--ghost btn--sm"
+                  {...linkProps('/admin')}
+                  onClickCapture={onClose}
+                >
+                  Admin panel
+                </a>
+              )}
               <button
                 className="btn btn--sm"
                 onClick={() => {
@@ -307,9 +295,6 @@ export default function ProfileModal({ open, onClose }) {
               </button>
             </div>
           </div>
-        )}
-
-        {tab === 'admin' && isAdmin && <AdminPanel currentUser={user} />}
       </div>
     </div>
   )

@@ -4,6 +4,7 @@ import { ACHIEVEMENTS, GRANTABLE } from '../data/achievements.js'
 import { linkProps } from '../lib/router.js'
 import Badges from './Badges.jsx'
 import { useConfirm } from './ConfirmProvider.jsx'
+import { useAuth } from '../auth/AuthContext.jsx'
 
 function Avatar({ user, size = 38 }) {
   const style = { width: size, height: size }
@@ -428,7 +429,7 @@ function AnalyticsTab() {
   )
 }
 
-// --- Panel shell ------------------------------------------------------------
+// --- Panel shell (standalone /admin page) -----------------------------------
 const TABS = [
   ['members', 'Members'],
   ['season', 'Season reset'],
@@ -436,25 +437,58 @@ const TABS = [
   ['analytics', 'Analytics'],
 ]
 
-export default function AdminPanel({ currentUser }) {
+export default function AdminPanel() {
+  const { user, loading } = useAuth()
   const [sub, setSub] = useState('members')
+
+  if (loading) return null
+
+  if (!user)
+    return (
+      <section className="section">
+        <div className="container">
+          <p className="empty">You need to be logged in to view this page.</p>
+        </div>
+      </section>
+    )
+
+  if (user.role !== 'admin')
+    return (
+      <section className="section">
+        <div className="container">
+          <p className="empty">Admin access required.</p>
+        </div>
+      </section>
+    )
+
   return (
-    <div className="admin">
-      <div className="tabs tabs--sub">
-        {TABS.map(([val, label]) => (
-          <button
-            key={val}
-            className={`tab ${sub === val ? 'tab--on' : ''}`}
-            onClick={() => setSub(val)}
-          >
-            {label}
-          </button>
-        ))}
+    <section className="section" id="admin">
+      <div className="container">
+        <div className="section__head">
+          <p className="section__eyebrow">Staff only</p>
+          <h2 className="section__title">Admin panel</h2>
+          <p className="section__lead">
+            Manage members, reset leaderboard seasons, review the audit log and check traffic.
+          </p>
+        </div>
+        <div className="admin">
+          <div className="tabs tabs--sub">
+            {TABS.map(([val, label]) => (
+              <button
+                key={val}
+                className={`tab ${sub === val ? 'tab--on' : ''}`}
+                onClick={() => setSub(val)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          {sub === 'members' && <MembersTab currentUser={user} />}
+          {sub === 'season' && <SeasonResetTab />}
+          {sub === 'audit' && <AuditTab />}
+          {sub === 'analytics' && <AnalyticsTab />}
+        </div>
       </div>
-      {sub === 'members' && <MembersTab currentUser={currentUser} />}
-      {sub === 'season' && <SeasonResetTab />}
-      {sub === 'audit' && <AuditTab />}
-      {sub === 'analytics' && <AnalyticsTab />}
-    </div>
+    </section>
   )
 }

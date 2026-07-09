@@ -61,6 +61,19 @@ export default function Navbar() {
                 </a>
               )
             })}
+            {user?.role === 'admin' && (
+              <a
+                {...linkProps('/admin')}
+                className={path === '/admin' ? 'nav__link--on' : undefined}
+                aria-current={path === '/admin' ? 'page' : undefined}
+                onClick={(e) => {
+                  linkProps('/admin').onClick(e)
+                  setOpen(false)
+                }}
+              >
+                Admin
+              </a>
+            )}
             <a className="btn btn--ghost btn--sm" href={community.discord} target="_blank" rel="noreferrer">
               Discord
             </a>
