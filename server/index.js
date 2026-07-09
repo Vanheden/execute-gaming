@@ -34,6 +34,7 @@ import {
   LEADERBOARD_METRICS,
 } from './playtime.js'
 import { fetchWidget } from './discord.js'
+import { vbloodName } from '../src/data/vbloods.js'
 import {
   badgesForUser,
   grantAchievement,
@@ -309,6 +310,11 @@ app.get('/api/leaderboard', (req, res) => {
   const entries = rows.map((r) => {
     const member = getUserByProvider('steam', r.steamId)
     const linked = member && !member.banned ? member : null
+    // Latest V Blood boss killed, for the "Latest Kill" line. Resolve the PrefabGUID
+    // to a known name; unknown ids pass through raw (the client shows a neutral label).
+    const latestVBlood = r.lastVBlood
+      ? { id: r.lastVBlood, name: vbloodName(r.lastVBlood), at: r.lastVBloodAt || null }
+      : null
     return {
       steamId: r.steamId,
       name: linked?.username || r.charName || 'Unknown vampire',
@@ -318,6 +324,7 @@ app.get('/api/leaderboard', (req, res) => {
       vblood: r.vblood,
       pvp: r.pvp,
       points: r.points,
+      latestVBlood,
       lastSeen: r.lastSeen,
       // Only expose account info (never the raw id) when it's a real, unbanned member.
       member: linked

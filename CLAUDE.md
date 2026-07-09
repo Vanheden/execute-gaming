@@ -219,12 +219,20 @@ The leaderboard's data comes from a **separate C# BepInEx mod** that runs on the
 V Rising game server, not from this repo. It lives in `../mod/` (sibling of
 `Website/`) — see `mod/ExecuteGaming.PlaytimeTracker/` and its own `CLAUDE.md`.
 
-- The mod POSTs play sessions to `POST /api/ingest/session` (this repo), guarded
-  by the shared `INGEST_SECRET`. Contract + validation live in `server/playtime.js`.
+- The mod POSTs play sessions to `POST /api/ingest/session` and V Blood/PvP kills to
+  `POST /api/ingest/kill` (this repo), both guarded by the shared `INGEST_SECRET`.
+  Contract + validation live in `server/playtime.js`. The mod's kill hooks are
+  **verified live** (death-based detection in `DeathEventListenerSystem`, mod v0.2.2).
 - The site side is self-contained and testable **without** the game: set
-  `INGEST_SECRET`, `curl` a session in, and read `GET /api/leaderboard`.
-- To change the ingest contract, update **both** `server/playtime.js` (validation)
+  `INGEST_SECRET`, `curl` a session/kill in, and read `GET /api/leaderboard`.
+- To change either ingest contract, update **both** `server/playtime.js` (validation)
   and the mod's `IngestClient` so they stay in sync.
+- **"Latest Kill":** each leaderboard row shows the player's most recent V Blood boss
+  ("🩸 Latest: Alpha Wolf"). `getLeaderboard` returns the latest in-window `kill_event`
+  per SteamID (`lastVBlood` guid + `lastVBloodAt`); the route resolves the guid via
+  `src/data/vbloods.js` (`vbloodName()`). Only `-1905691330` = Alpha Wolf is confirmed
+  — add more only from real kills (server log), never a guess; unknown ids render a
+  neutral "V Blood boss" label client-side.
 
 ## Gotchas
 

@@ -34,7 +34,12 @@ Ideas for growing the site, grouped by theme. Effort is a rough guide:
 - **Styled dialogs** — custom confirm/prompt modals replace native browser popups
 - **Atmospheric hero** — self-drawn V Rising scene (blood moon, castle, embers)
 - **Playtime + points leaderboard** — playtime, V Blood & PvP kills and a combined
-  points ranking, fed by our in-game BepInEx mod (`mod/`). Deployed live.
+  points ranking, fed by our in-game BepInEx mod (`mod/`). Deployed live; the mod's
+  V Blood + PvP kill hooks are **verified live** (death-based detection, mod v0.2.2).
+  Metric tabs (Points / Playtime / V Blood / PvP) with themed colours — green V Blood,
+  red PvP, white numbers, a lightened accent for the h/m playtime units, and a
+  bat-in-blood-moon placeholder avatar. Each row also shows the player's **latest
+  V Blood** felled ("🩸 Latest: Alpha Wolf"), resolved from a boss PrefabGUID→name map.
 - **Link Steam + Discord** — one account can own both identities (link from the
   profile); logins resolve to the primary and the leaderboard attributes a linked
   SteamID to the member. Any pre-existing duplicate account is merged in.
@@ -57,8 +62,8 @@ Ideas for growing the site, grouped by theme. Effort is a rough guide:
   time-window filters, linked to member profiles), and a `/leaderboard` page with
   metric tabs. Fed by the in-game BepInEx mod (`mod/`), which reports playtime,
   V Blood boss kills and PvP kills. Points = weighted blend (playtime + V Bloods +
-  PvP), tunable in `server/playtime.js`. **Live-verify** the mod's kill hooks on
-  the game server (see mod CLAUDE.md — the VBlood/Death patches are the fragile bit).
+  PvP), tunable in `server/playtime.js`. The mod's kill hooks are **verified live**
+  (death-based detection, mod v0.2.2 — see mod CLAUDE.md).
 - ~~Live Discord widget~~ ✅ — shows who's online in Discord (needs the guild
   widget enabled in Discord → Server Settings → Widget).
 - **"Server is full / online" badges** surfaced higher on the page (S).
@@ -108,10 +113,16 @@ Ideas for growing the site, grouped by theme. Effort is a rough guide:
 
 Most of the roadmap is now built. What's left:
 
-1. ~~**Playtime + points leaderboard**~~ (L) ✅ — site + mod done (playtime, V Blood
-   & PvP kills, combined points). Remaining: live-verify the mod's kill hooks on the
-   game server after a restart (the DLL is deployed to `BepInEx/plugins/`).
-2. **Proxy BattleMetrics status server-side** (S) — kills the client-side
+1. **Proxy BattleMetrics status server-side** (S) — kills the client-side
    VPN/CORS "Unknown" (see Polish & infra).
-3. **"Server full / online" badges** higher on the page (S) — quick polish.
+2. **"Server full / online" badges** higher on the page (S) — quick polish.
+3. **Grow the V Blood name map** (S) — `src/data/vbloods.js` maps boss PrefabGUID
+   hashes → names for the "Latest Kill" line; only Alpha Wolf (`-1905691330`) is
+   confirmed. Add the rest by reading GUIDs from the game-server log as bosses fall
+   (never guess — unknown ids show a neutral "V Blood boss" label).
 4. **Donations / VIP** (M) — optional; the `supporter` badge is already there.
+
+Recently shipped: the leaderboard mod's V Blood + PvP kill hooks are now
+**verified live** (death-based detection, mod v0.2.2); Steam + Discord account
+linking; leaderboard metric colours / bat avatar polish; and the "Latest Kill"
+line showing each player's most recent V Blood boss.

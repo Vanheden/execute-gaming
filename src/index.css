@@ -2785,6 +2785,17 @@ body.has-banner .nav {
   color: color-mix(in srgb, var(--accent) 45%, #fff);
   font-weight: 600;
 }
+/* "Latest: <boss>" — the most recent V Blood felled. Subtle line under the meta. */
+.lb__latest {
+  font-size: 0.72rem;
+  color: var(--text-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lb__latest::before {
+  content: '🩸 ';
+}
 .lb__time {
   flex-shrink: 0;
   display: flex;

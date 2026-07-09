@@ -160,7 +160,17 @@ export function getLeaderboard({ serverId = null, period = 'all', metric = 'poin
                 UNION ALL
                 SELECT charName, occurredAt AS t FROM kill_events
                   WHERE steamId = ids.steamId AND charName IS NOT NULL
-              ) ORDER BY t DESC LIMIT 1) AS charName
+              ) ORDER BY t DESC LIMIT 1) AS charName,
+             -- Latest V Blood boss this player killed (in-window), for "Latest Kill".
+             -- Both subqueries share the same filter+order so they read the same row.
+             (SELECT victim FROM kill_events
+                WHERE steamId = ids.steamId AND kind = 'vblood' AND victim IS NOT NULL
+                  AND (?1 IS NULL OR serverId = ?1) AND occurredAt >= ?2
+                ORDER BY occurredAt DESC LIMIT 1) AS lastVBlood,
+             (SELECT occurredAt FROM kill_events
+                WHERE steamId = ids.steamId AND kind = 'vblood' AND victim IS NOT NULL
+                  AND (?1 IS NULL OR serverId = ?1) AND occurredAt >= ?2
+                ORDER BY occurredAt DESC LIMIT 1) AS lastVBloodAt
         FROM (
           SELECT steamId FROM play_sessions
             WHERE (?1 IS NULL OR serverId = ?1) AND startedAt >= ?2

@@ -133,6 +133,18 @@ function Meta({ e, metric }) {
   )
 }
 
+// The most recent V Blood boss this player felled, e.g. "Latest: Alpha Wolf".
+// Unknown bosses (a PrefabGUID we haven't mapped) show a neutral label — never a guess.
+function LatestKill({ e }) {
+  if (!e.latestVBlood) return null
+  const { name } = e.latestVBlood
+  return (
+    <span className="lb__latest">
+      Latest: <span className="lb__vb">{name || 'V Blood boss'}</span>
+    </span>
+  )
+}
+
 export default function Leaderboard() {
   const [entries, setEntries] = useState(null)
   const [metric, setMetric] = useState('points')
@@ -223,6 +235,7 @@ export default function Leaderboard() {
                 <div className="lb__info">
                   <Name e={e} />
                   <Meta e={e} metric={metric} />
+                  <LatestKill e={e} />
                 </div>
                 <div className="lb__time">
                   <span className="lb__hours">{active.render(e)}</span>
