@@ -228,7 +228,7 @@ V Rising game server, not from this repo. It lives in `../mod/` (sibling of
 - To change either ingest contract, update **both** `server/playtime.js` (validation)
   and the mod's `IngestClient` so they stay in sync.
 - **"Latest Kill":** each leaderboard row shows the player's most recent V Blood boss
-  ("🩸 Latest: Alpha Wolf"). `getLeaderboard` returns the latest in-window `kill_event`
+  ("🩸 Latest Kill: Alpha Wolf"). `getLeaderboard` returns the latest in-window `kill_event`
   per SteamID (`lastVBlood` guid + `lastVBloodAt`); the route resolves the guid via
   `src/data/vbloods.js` (`vbloodName()`). Only `-1905691330` = Alpha Wolf is confirmed
   — add more only from real kills (server log), never a guess; unknown ids render a

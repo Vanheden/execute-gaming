@@ -39,7 +39,7 @@ Ideas for growing the site, grouped by theme. Effort is a rough guide:
   Metric tabs (Points / Playtime / V Blood / PvP) with themed colours — green V Blood,
   red PvP, white numbers, a lightened accent for the h/m playtime units, and a
   bat-in-blood-moon placeholder avatar. Each row also shows the player's **latest
-  V Blood** felled ("🩸 Latest: Alpha Wolf"), resolved from a boss PrefabGUID→name map.
+  V Blood** felled ("🩸 Latest Kill: Alpha Wolf"), resolved from a boss PrefabGUID→name map.
 - **Link Steam + Discord** — one account can own both identities (link from the
   profile); logins resolve to the primary and the leaderboard attributes a linked
   SteamID to the member. Any pre-existing duplicate account is merged in.

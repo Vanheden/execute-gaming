@@ -140,7 +140,7 @@ function LatestKill({ e }) {
   const { name } = e.latestVBlood
   return (
     <span className="lb__latest">
-      Latest: <span className="lb__vb">{name || 'V Blood boss'}</span>
+      Latest Kill: <span className="lb__vb">{name || 'V Blood boss'}</span>
     </span>
   )
 }
