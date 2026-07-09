@@ -212,12 +212,12 @@ export default function Leaderboard() {
 
         <div className="lb-layout">
           <aside className="lb-sidebar">
-            <WeeklyHighlights />
+            <KillFeed serverId={serverId} />
           </aside>
           <div className="lb-main">
+            <WeeklyHighlights />
+            <SeasonChampions />
             <div className="lbfilter">
-              <SeasonChampions />
-              <KillFeed serverId={serverId} />
           <div className="mfilter__tabs lbfilter__metrics">
             {METRICS.map((m) => (
               <button

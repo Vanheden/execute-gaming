@@ -3146,8 +3146,8 @@ body.has-banner .nav {
    Playtime leaderboard
    =========================================================================== */
 .killfeed {
-  margin-bottom: 18px;
-  padding: 12px 16px;
+  margin-bottom: 0;
+  padding: 14px 16px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--surface);
@@ -3179,21 +3179,21 @@ body.has-banner .nav {
   color: var(--text-faint);
 }
 .weeklyhl__grid {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px;
 }
 .weeklyhl__card {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 10px;
+  padding: 10px 12px;
   border-radius: var(--radius-sm);
   background: var(--surface-2);
   border: 1px solid var(--border);
 }
 .weeklyhl__icon {
-  font-size: 1.1rem;
+  font-size: 1.2rem;
   line-height: 1;
   flex-shrink: 0;
 }
@@ -3217,8 +3217,6 @@ body.has-banner .nav {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  flex-shrink: 1;
-  min-width: 0;
 }
 .weeklyhl__name:hover {
   color: var(--c-cyan);
@@ -3365,34 +3363,34 @@ body.has-banner .nav {
   margin: 0;
   padding: 0;
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 600px;
+  overflow-y: auto;
 }
 .killfeed__item {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 6px;
-  padding: 5px 10px;
-  border-radius: 999px;
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
   background: var(--surface-2);
   border: 1px solid var(--border);
-  transition: border-color 0.15s ease, transform 0.15s ease;
+  transition: border-color 0.15s ease;
 }
 .killfeed__item:hover {
   border-color: color-mix(in srgb, var(--c-violet) 40%, var(--border));
-  transform: translateY(-1px);
 }
 .killfeed__icon {
   flex-shrink: 0;
-  font-size: 0.9rem;
-  line-height: 1;
+  font-size: 0.85rem;
+  line-height: 1.4;
 }
 .killfeed__text {
+  flex: 1;
   min-width: 0;
-  font-size: 0.8rem;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  font-size: 0.78rem;
+  line-height: 1.4;
 }
 .killfeed__name {
   font-weight: 700;
@@ -3416,9 +3414,10 @@ body.has-banner .nav {
 }
 .killfeed__time {
   flex-shrink: 0;
-  font-size: 0.68rem;
+  font-size: 0.66rem;
   color: var(--text-faint);
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .lb-layout {
