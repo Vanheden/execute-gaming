@@ -46,13 +46,14 @@ Ideas for growing the site, grouped by theme. Effort is a rough guide:
 
 ## 🎮 Servers & game data
 
-- **Playtime leaderboard** (L ⭐) — 🚧 *in progress.* Site side is built: a
-  `play_sessions` table, a secret-guarded ingest endpoint
-  (`POST /api/ingest/session`), a public `GET /api/leaderboard` (ranked by total
-  time, per-server + time-window filters, linked to member profiles), and a
-  `/leaderboard` page. **Remaining:** the in-game BepInEx mod that reports
-  sessions (see `mod/`), plus a future *points* layer (boss/PvP kills) on top of
-  the same sessions.
+- ~~**Playtime + points leaderboard**~~ (L ⭐) ✅ — `play_sessions` + `kill_events`
+  tables, secret-guarded ingest (`POST /api/ingest/session` + `/api/ingest/kill`),
+  a public `GET /api/leaderboard?metric=points|playtime|vblood|pvp` (per-server +
+  time-window filters, linked to member profiles), and a `/leaderboard` page with
+  metric tabs. Fed by the in-game BepInEx mod (`mod/`), which reports playtime,
+  V Blood boss kills and PvP kills. Points = weighted blend (playtime + V Bloods +
+  PvP), tunable in `server/playtime.js`. **Live-verify** the mod's kill hooks on
+  the game server (see mod CLAUDE.md — the VBlood/Death patches are the fragile bit).
 - ~~Live Discord widget~~ ✅ — shows who's online in Discord (needs the guild
   widget enabled in Discord → Server Settings → Widget).
 - **"Server is full / online" badges** surfaced higher on the page (S).
@@ -97,7 +98,8 @@ Ideas for growing the site, grouped by theme. Effort is a rough guide:
 
 Most of the roadmap is now built. What's left:
 
-1. **Playtime leaderboard** (L) — 🚧 site side done; finish the in-game BepInEx
-   mod (`mod/`) that reports sessions, then optionally add a points layer.
+1. ~~**Playtime + points leaderboard**~~ (L) ✅ — site + mod done (playtime, V Blood
+   & PvP kills, combined points). Remaining: live-verify the mod's kill hooks on the
+   game server after a restart (the DLL is deployed to `BepInEx/plugins/`).
 2. **"Server full / online" badges** higher on the page (S) — quick polish.
 3. **Donations / VIP** (M) — optional; the `supporter` badge is already there.

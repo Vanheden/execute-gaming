@@ -97,11 +97,16 @@ the live domain while developing — the same `.env` works on your machine and t
 - `stats.js` — background poller that snapshots each server's BattleMetrics
   player count (every `STATS_POLL_MINUTES`, default 5) into `server_stats`, plus
   `getHistory()`. Imports the shared `src/data/servers.js` for the server list.
-- `playtime.js` — the playtime **leaderboard**. `recordSession()` validates and
-  UPSERTs a play session (keyed by a mod-issued `sessionId`, so heartbeats and
-  the final disconnect are idempotent — no double counting); `getLeaderboard()`
-  aggregates total seconds per SteamID with per-server + time-window filters.
-  Data comes from the in-game BepInEx mod (`mod/`) via `POST /api/ingest/session`.
+- `playtime.js` — the **leaderboard**. `recordSession()` validates + UPSERTs a play
+  session (keyed by a mod-issued `sessionId`, so heartbeats and the final disconnect
+  are idempotent — no double counting); `recordKill()` records a V Blood/PvP kill
+  (keyed by a per-kill `eventId` via INSERT OR IGNORE — retries can't double-count).
+  `getLeaderboard({ metric, serverId, period })` returns one unified ranking across
+  playtime + kills: every row carries `seconds/vblood/pvp/points`, and `metric`
+  (`points|playtime|vblood|pvp`) picks the sort. `points` is a weighted blend
+  (`POINTS` weights: per hour / per V Blood / per PvP) recomputed from raw rows each
+  request, so tweaking the weights reweights all history instantly. Data comes from
+  the in-game BepInEx mod (`mod/`) via `POST /api/ingest/session` + `/api/ingest/kill`.
 
 ### Key routes
 
@@ -117,12 +122,14 @@ the live domain while developing — the same `.env` works on your machine and t
 - `POST /api/hit` — **public** analytics beacon (no PII)
 - `GET /api/servers/:id/history?hours=` — **public** player-count history
   (rendered by `components/PlayerHistoryChart.jsx`, a dependency-free SVG chart)
-- `GET /api/leaderboard?serverId=&period=all|30d|7d&limit=` — **public** playtime
-  leaderboard (ranked by total time; rows link to member profiles where the
-  SteamID matches a Steam login). Rendered by `components/Leaderboard.jsx`.
-- `POST /api/ingest/session` — session ingest from the in-game mod. **Not**
-  user-auth; guarded by a shared secret (`INGEST_SECRET`, header
-  `X-Ingest-Secret`) and **fails closed** (503) if the secret isn't set.
+- `GET /api/leaderboard?metric=points|playtime|vblood|pvp&serverId=&period=all|30d|7d&limit=`
+  — **public** leaderboard. Every row carries all metrics; `metric` (default
+  `points`) picks the ranking. Rows link to member profiles where the SteamID
+  matches a Steam login. Rendered by `components/Leaderboard.jsx` (metric tabs).
+- `POST /api/ingest/session` and `POST /api/ingest/kill` — ingest from the in-game
+  mod. **Not** user-auth; both guarded by a shared secret (`INGEST_SECRET`, header
+  `X-Ingest-Secret`) and **fail closed** (503) if the secret isn't set. `kill` body
+  is `{ eventId, serverId, steamId, charName, kind: vblood|pvp, victim, occurredAt }`.
 - `GET /api/news` (public), `POST/PUT/DELETE /api/news/:id` (admin)
 - `GET /api/events` (public), `POST/PUT/DELETE /api/events/:id` (admin)
 - `GET /api/suggestions` (public), `POST` (auth), `POST /:id/vote` (auth),

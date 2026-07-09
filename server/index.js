@@ -23,7 +23,13 @@ import {
   updateProfile,
 } from './store.js'
 import { startPolling, getHistory } from './stats.js'
-import { recordSession, getLeaderboard, LEADERBOARD_PERIODS } from './playtime.js'
+import {
+  recordSession,
+  recordKill,
+  getLeaderboard,
+  LEADERBOARD_PERIODS,
+  LEADERBOARD_METRICS,
+} from './playtime.js'
 import { fetchWidget } from './discord.js'
 import {
   badgesForUser,
@@ -223,13 +229,23 @@ app.post('/api/ingest/session', ensureIngestSecret, (req, res) => {
   res.status(204).end()
 })
 
-// Public leaderboard ranked by total playtime. ?serverId= (default all),
-// ?period=all|30d|7d, ?limit= (default 100). Rows are linked to member accounts
-// where the SteamID matches a Steam login, so entries can deep-link to profiles.
+// Ingest a single kill event (V Blood boss or PvP) from the mod. Same guard.
+app.post('/api/ingest/kill', ensureIngestSecret, (req, res) => {
+  const result = recordKill(req.body)
+  if (result.error) return res.status(400).json({ error: result.error })
+  res.status(204).end()
+})
+
+// Public leaderboard. ?metric=points|playtime|vblood|pvp (default points),
+// ?serverId= (default all), ?period=all|30d|7d, ?limit= (default 100). Every row
+// carries all metrics (seconds/vblood/pvp/points) so the client can show a
+// breakdown; only the ranked metric decides order. Rows are linked to member
+// accounts where the SteamID matches a Steam login, to deep-link to profiles.
 app.get('/api/leaderboard', (req, res) => {
   const serverId = req.query.serverId ? String(req.query.serverId) : null
   const period = LEADERBOARD_PERIODS.includes(req.query.period) ? req.query.period : 'all'
-  const rows = getLeaderboard({ serverId, period, limit: req.query.limit })
+  const metric = LEADERBOARD_METRICS.includes(req.query.metric) ? req.query.metric : 'points'
+  const rows = getLeaderboard({ serverId, period, metric, limit: req.query.limit })
   const entries = rows.map((r) => {
     const member = getUserByProvider('steam', r.steamId)
     const linked = member && !member.banned ? member : null
@@ -239,6 +255,9 @@ app.get('/api/leaderboard', (req, res) => {
       charName: r.charName || null,
       seconds: r.seconds,
       sessions: r.sessions,
+      vblood: r.vblood,
+      pvp: r.pvp,
+      points: r.points,
       lastSeen: r.lastSeen,
       // Only expose account info (never the raw id) when it's a real, unbanned member.
       member: linked
@@ -246,7 +265,7 @@ app.get('/api/leaderboard', (req, res) => {
         : null,
     }
   })
-  res.json({ entries, period, serverId })
+  res.json({ entries, period, serverId, metric })
 })
 
 // A stable, non-identifying public key for a user (never expose the raw id).

@@ -131,6 +131,24 @@ db.exec(`
   );
   CREATE INDEX IF NOT EXISTS idx_sessions_steam ON play_sessions(steamId);
   CREATE INDEX IF NOT EXISTS idx_sessions_server_started ON play_sessions(serverId, startedAt);
+
+  -- Discrete kill events ingested from the same in-game mod, keyed by a mod-issued
+  -- eventId so re-posts are idempotent (INSERT OR IGNORE — a kill is counted once).
+  -- kind is 'vblood' (a V Blood boss kill) or 'pvp' (killing another player).
+  -- Powers the V Blood / PvP / combined-points leaderboards.
+  CREATE TABLE IF NOT EXISTS kill_events (
+    eventId    TEXT PRIMARY KEY,
+    serverId   TEXT NOT NULL,
+    steamId    TEXT NOT NULL,
+    charName   TEXT,
+    kind       TEXT NOT NULL,
+    victim     TEXT,
+    occurredAt TEXT NOT NULL,
+    createdAt  TEXT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_kills_steam ON kill_events(steamId);
+  CREATE INDEX IF NOT EXISTS idx_kills_server_occurred ON kill_events(serverId, occurredAt);
+  CREATE INDEX IF NOT EXISTS idx_kills_kind ON kill_events(kind);
 `)
 
 // --- Lightweight column migrations (for DBs created before a column existed) -

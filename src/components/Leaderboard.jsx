@@ -10,6 +10,15 @@ function formatDuration(seconds) {
   return `${h}h ${m}m`
 }
 
+// The rankable metrics. `value` pulls the ranked number off a row; `render` turns
+// it into the big label shown on the right of each row.
+const METRICS = [
+  { id: 'points', label: 'Points', value: (e) => e.points, render: (e) => `${e.points.toLocaleString()} pts` },
+  { id: 'playtime', label: 'Playtime', value: (e) => e.seconds, render: (e) => formatDuration(e.seconds) },
+  { id: 'vblood', label: 'V Blood', value: (e) => e.vblood, render: (e) => `${e.vblood} V Blood${e.vblood === 1 ? '' : 's'}` },
+  { id: 'pvp', label: 'PvP kills', value: (e) => e.pvp, render: (e) => `${e.pvp} kill${e.pvp === 1 ? '' : 's'}` },
+]
+
 const PERIODS = [
   ['all', 'All time'],
   ['30d', 'Last 30 days'],
@@ -55,16 +64,38 @@ function Name({ e }) {
   return <span className="lb__name">{e.name}</span>
 }
 
+// Secondary line under the name. On the Points tab, show the full breakdown that
+// earned those points; on the single-metric tabs, a lighter context line.
+function Meta({ e, metric }) {
+  if (metric === 'points')
+    return (
+      <span className="lb__meta">
+        {formatDuration(e.seconds)} · {e.vblood} V Blood · {e.pvp} PvP
+      </span>
+    )
+  if (metric === 'playtime')
+    return (
+      <span className="lb__meta">
+        {e.sessions} session{e.sessions === 1 ? '' : 's'}
+      </span>
+    )
+  // vblood / pvp tabs: show total playtime as context.
+  return <span className="lb__meta">{formatDuration(e.seconds)} played</span>
+}
+
 export default function Leaderboard() {
   const [entries, setEntries] = useState(null)
+  const [metric, setMetric] = useState('points')
   const [period, setPeriod] = useState('all')
   const [serverId, setServerId] = useState('')
   const [error, setError] = useState(false)
 
+  const active = METRICS.find((m) => m.id === metric) || METRICS[0]
+
   useEffect(() => {
     setEntries(null)
     setError(false)
-    const params = new URLSearchParams({ period })
+    const params = new URLSearchParams({ metric, period })
     if (serverId) params.set('serverId', serverId)
     fetch(`/api/leaderboard?${params}`)
       .then((r) => (r.ok ? r.json() : Promise.reject()))
@@ -73,29 +104,42 @@ export default function Leaderboard() {
         setEntries([])
         setError(true)
       })
-  }, [period, serverId])
+  }, [metric, period, serverId])
 
   const total = entries?.length || 0
-  const maxSeconds = useMemo(() => entries?.[0]?.seconds || 0, [entries])
+  const maxValue = useMemo(() => (entries?.length ? active.value(entries[0]) : 0), [entries, active])
 
   return (
     <section className="section section--alt" id="leaderboard">
       <div className="container">
         <div className="section__head">
           <p className="section__eyebrow">Rise to the top</p>
-          <h2 className="section__title">Playtime leaderboard</h2>
+          <h2 className="section__title">Leaderboard</h2>
           <p className="section__lead">
             {entries === null
               ? 'Loading the ladder…'
               : error
                 ? 'The leaderboard is warming up — check back once sessions are tracked.'
                 : total === 0
-                  ? 'No tracked playtime yet. Hop on a server and start climbing!'
-                  : 'Ranked by total time spent on our V Rising servers.'}
+                  ? 'No tracked activity yet. Hop on a server and start climbing!'
+                  : metric === 'points'
+                    ? 'Ranked by points: playtime, V Blood kills and PvP kills combined.'
+                    : `Ranked by ${active.label.toLowerCase()} on our V Rising servers.`}
           </p>
         </div>
 
         <div className="lbfilter">
+          <div className="mfilter__tabs lbfilter__metrics">
+            {METRICS.map((m) => (
+              <button
+                key={m.id}
+                className={`mfilter__tab ${metric === m.id ? 'mfilter__tab--on' : ''}`}
+                onClick={() => setMetric(m.id)}
+              >
+                {m.label}
+              </button>
+            ))}
+          </div>
           <div className="mfilter__tabs">
             {SERVER_TABS.map(([val, label]) => (
               <button
@@ -128,15 +172,13 @@ export default function Leaderboard() {
                 <Avatar e={e} />
                 <div className="lb__info">
                   <Name e={e} />
-                  <span className="lb__meta">
-                    {e.sessions} session{e.sessions === 1 ? '' : 's'}
-                  </span>
+                  <Meta e={e} metric={metric} />
                 </div>
                 <div className="lb__time">
-                  <span className="lb__hours">{formatDuration(e.seconds)}</span>
+                  <span className="lb__hours">{active.render(e)}</span>
                   <span
                     className="lb__bar"
-                    style={{ '--pct': `${maxSeconds ? (e.seconds / maxSeconds) * 100 : 0}%` }}
+                    style={{ '--pct': `${maxValue ? (active.value(e) / maxValue) * 100 : 0}%` }}
                     aria-hidden="true"
                   />
                 </div>
