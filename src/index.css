@@ -2782,7 +2782,7 @@ body.has-banner .nav {
   font-weight: 700;
 }
 .lb__unit {
-  color: var(--accent);
+  color: color-mix(in srgb, var(--accent) 45%, #fff);
   font-weight: 600;
 }
 .lb__time {
