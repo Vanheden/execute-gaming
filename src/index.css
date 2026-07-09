@@ -3185,8 +3185,8 @@ body.has-banner .nav {
 }
 .weeklyhl__card {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  flex-direction: column;
+  gap: 2px;
   padding: 10px 12px;
   border-radius: var(--radius-sm);
   background: var(--surface-2);
@@ -3198,25 +3198,18 @@ body.has-banner .nav {
   flex-shrink: 0;
 }
 .weeklyhl__label {
-  flex: 1;
-  min-width: 0;
   font-size: 0.68rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--text-faint);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 .weeklyhl__name {
   font-weight: 700;
   color: var(--text);
   text-decoration: none;
   font-size: 0.82rem;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  word-break: break-word;
 }
 .weeklyhl__name:hover {
   color: var(--c-cyan);
@@ -3424,15 +3417,14 @@ body.has-banner .nav {
   display: flex;
   gap: 18px;
   align-items: flex-start;
+  justify-content: center;
 }
 .lb-sidebar {
   flex-shrink: 0;
   width: 280px;
-  position: sticky;
-  top: 90px;
 }
 .lb-main {
-  flex: 1;
+  flex: 0 1 760px;
   min-width: 0;
 }
 @media (max-width: 960px) {

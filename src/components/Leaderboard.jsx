@@ -215,8 +215,8 @@ export default function Leaderboard() {
             <KillFeed serverId={serverId} />
           </aside>
           <div className="lb-main">
-            <WeeklyHighlights />
             <SeasonChampions />
+            <WeeklyHighlights />
             <div className="lbfilter">
           <div className="mfilter__tabs lbfilter__metrics">
             {METRICS.map((m) => (
