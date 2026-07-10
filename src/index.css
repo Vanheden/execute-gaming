@@ -32,7 +32,22 @@
   --radius-sm: 10px;
   --maxw: 1120px;
   --font: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-display: 'Cinzel', 'Playfair Display', Georgia, 'Times New Roman', serif;
   --shadow: 0 18px 55px -18px rgba(124, 77, 255, 0.55);
+
+  /* Blood palette (vampire accents) */
+  --blood: #c1121f;
+  --blood-bright: #e63950;
+  --blood-deep: #6b0f1a;
+  --blood-line: #4a1f30;
+  --blood-glow: rgba(230, 57, 80, 0.45);
+  --poison: #7cf267;
+  --grad-blood: linear-gradient(120deg, #ff4d63, #a01423 75%);
+
+  /* Venom palette (poison-green accents) */
+  --venom-bright: #7cf267;
+  --venom-line: #1f4a2f;
+  --venom-glow: rgba(124, 242, 103, 0.4);
 }
 
 * {
@@ -3163,20 +3178,39 @@ body.has-banner .nav {
 }
 
 /* Weekly Highlights */
+/* Weekly highlights — vampire treatment, poison-green accent */
 .weeklyhl {
+  position: relative;
+  overflow: hidden;
   margin-bottom: 18px;
-  padding: 14px 16px;
-  border: 1px solid var(--border);
+  padding: 18px 18px 16px;
+  border: 1px solid var(--venom-line);
   border-radius: var(--radius);
-  background: var(--surface);
+  background:
+    radial-gradient(130% 150% at 88% -25%, rgba(124, 242, 103, 0.16), transparent 55%),
+    linear-gradient(180deg, #14231a, #101a16);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 24px 55px -34px var(--venom-glow);
+}
+/* Thin venom line bleeding across the top edge. */
+.weeklyhl::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--venom-bright), transparent);
+  opacity: 0.75;
 }
 .weeklyhl__title {
-  margin: 0 0 10px;
-  font-size: 0.82rem;
-  font-weight: 800;
+  margin: 0 0 14px;
+  font-family: var(--font-display);
+  font-size: 0.98rem;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--text-faint);
+  letter-spacing: 0.12em;
+  color: #9cf58a;
+  text-shadow: 0 0 18px rgba(124, 242, 103, 0.4);
 }
 .weeklyhl__grid {
   display: grid;
@@ -3184,59 +3218,98 @@ body.has-banner .nav {
   gap: 10px;
 }
 .weeklyhl__card {
+  position: relative;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding: 10px 12px;
+  padding: 12px 14px;
   border-radius: var(--radius-sm);
-  background: var(--surface-2);
-  border: 1px solid var(--border);
+  background: linear-gradient(180deg, rgba(30, 58, 38, 0.5), rgba(18, 30, 24, 0.5));
+  border: 1px solid var(--venom-line);
+  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.weeklyhl__card::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(124, 242, 103, 0.5), transparent);
+}
+.weeklyhl__card:hover {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--venom-bright) 45%, var(--venom-line));
+  box-shadow: 0 16px 30px -22px var(--venom-glow);
 }
 .weeklyhl__icon {
   font-size: 1.2rem;
   line-height: 1;
   flex-shrink: 0;
+  filter: drop-shadow(0 0 8px rgba(124, 242, 103, 0.35));
 }
 .weeklyhl__label {
+  font-family: var(--font-display);
   font-size: 0.68rem;
-  font-weight: 700;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--text-faint);
+  letter-spacing: 0.08em;
+  color: #86c47c;
 }
 .weeklyhl__name {
   font-weight: 700;
   color: var(--text);
   text-decoration: none;
-  font-size: 0.82rem;
+  font-size: 0.86rem;
   word-break: break-word;
 }
 .weeklyhl__name:hover {
-  color: var(--c-cyan);
+  color: var(--venom-bright);
 }
 .weeklyhl__value {
   flex-shrink: 0;
-  font-weight: 800;
-  color: var(--c-yellow);
-  font-size: 0.78rem;
+  font-family: var(--font-display);
+  font-weight: 700;
+  color: var(--venom-bright);
+  font-size: 0.85rem;
   font-variant-numeric: tabular-nums;
+  text-shadow: 0 0 16px rgba(124, 242, 103, 0.3);
 }
 
-/* Community milestones (leaderboard page) */
+/* Community milestones (leaderboard page) — vampire treatment */
 .milestones {
+  position: relative;
+  overflow: hidden;
   margin-bottom: 18px;
-  padding: 14px 16px;
-  border: 1px solid var(--border);
+  padding: 18px 18px 16px;
+  border: 1px solid var(--blood-line);
   border-radius: var(--radius);
-  background: var(--surface);
+  background:
+    radial-gradient(130% 150% at 88% -25%, rgba(230, 57, 80, 0.2), transparent 55%),
+    linear-gradient(180deg, #201230, #16101f);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 24px 55px -34px var(--blood-glow);
+}
+/* Thin blood line bleeding across the top edge. */
+.milestones::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--blood-bright), transparent);
+  opacity: 0.75;
 }
 .milestones__title {
-  margin: 0 0 12px;
-  font-size: 0.82rem;
-  font-weight: 800;
+  margin: 0 0 14px;
+  font-family: var(--font-display);
+  font-size: 0.98rem;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--text-faint);
+  letter-spacing: 0.12em;
+  color: #ff6273;
+  text-shadow: 0 0 18px rgba(230, 57, 80, 0.4);
 }
 .milestones__grid {
   display: grid;
@@ -3244,32 +3317,52 @@ body.has-banner .nav {
   gap: 10px;
 }
 .milestones__tile {
+  position: relative;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 3px;
-  padding: 14px 10px;
+  padding: 16px 10px;
   border-radius: var(--radius-sm);
-  background: var(--surface-2);
-  border: 1px solid var(--border);
+  background: linear-gradient(180deg, rgba(58, 24, 40, 0.55), rgba(30, 16, 28, 0.55));
+  border: 1px solid var(--blood-line);
   text-align: center;
+  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.milestones__tile::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(230, 57, 80, 0.55), transparent);
+}
+.milestones__tile:hover {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--blood-bright) 45%, var(--blood-line));
+  box-shadow: 0 16px 30px -22px var(--blood-glow);
 }
 .milestones__icon {
   font-size: 1.35rem;
   line-height: 1;
+  filter: drop-shadow(0 0 8px rgba(230, 57, 80, 0.35));
 }
 .milestones__num {
-  font-size: 1.5rem;
-  font-weight: 800;
-  color: var(--text);
+  font-family: var(--font-display);
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #ffe9ec;
   font-variant-numeric: tabular-nums;
   line-height: 1.1;
+  text-shadow: 0 0 22px rgba(230, 57, 80, 0.4);
 }
 .milestones__label {
-  font-size: 0.66rem;
+  font-size: 0.64rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
   color: var(--text-faint);
 }
 .milestones__extra {
@@ -3281,10 +3374,10 @@ body.has-banner .nav {
 .milestones__feud,
 .milestones__streaks {
   flex: 1 1 240px;
-  padding: 10px 12px;
+  padding: 12px 14px;
   border-radius: var(--radius-sm);
-  background: var(--surface-2);
-  border: 1px solid var(--border);
+  background: linear-gradient(180deg, rgba(58, 24, 40, 0.4), rgba(28, 15, 26, 0.4));
+  border: 1px solid var(--blood-line);
 }
 .milestones__feudicon {
   font-size: 1.1rem;
@@ -3292,17 +3385,18 @@ body.has-banner .nav {
 .milestones__feudlabel,
 .milestones__streakhead {
   display: block;
-  font-size: 0.66rem;
-  font-weight: 700;
+  font-family: var(--font-display);
+  font-size: 0.68rem;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--text-faint);
-  margin-bottom: 4px;
+  letter-spacing: 0.1em;
+  color: #d98a97;
+  margin-bottom: 6px;
 }
 .milestones__feudline {
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   color: var(--text-dim);
-  line-height: 1.4;
+  line-height: 1.5;
 }
 .milestones__feudname {
   font-weight: 700;
@@ -3310,7 +3404,10 @@ body.has-banner .nav {
   text-decoration: none;
 }
 .milestones__feudname:hover {
-  color: var(--offline);
+  color: var(--blood-bright);
+}
+.milestones__feudline strong {
+  color: var(--blood-bright);
 }
 .milestones__streaklist {
   list-style: none;
@@ -3318,13 +3415,13 @@ body.has-banner .nav {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 5px;
 }
 .milestones__streakrow {
   display: flex;
   justify-content: space-between;
   gap: 8px;
-  font-size: 0.85rem;
+  font-size: 0.88rem;
 }
 .milestones__streakname {
   font-weight: 700;
@@ -3333,41 +3430,46 @@ body.has-banner .nav {
   word-break: break-word;
 }
 .milestones__streakname:hover {
-  color: var(--c-yellow);
+  color: var(--c-orange);
 }
 .milestones__streakdays {
   flex-shrink: 0;
   font-weight: 800;
-  color: var(--c-yellow);
+  color: var(--c-orange);
   font-variant-numeric: tabular-nums;
 }
 
-/* Rivalries (profile pages) */
+/* Rivalries (profile pages) — vampire treatment */
 .rival__streak {
   display: flex;
   align-items: baseline;
-  gap: 8px;
-  padding: 10px 14px;
+  gap: 10px;
+  padding: 12px 16px;
   border-radius: var(--radius-sm);
-  background: var(--surface-2);
-  border: 1px solid var(--border);
+  background:
+    radial-gradient(120% 160% at 0% 0%, rgba(255, 159, 69, 0.14), transparent 60%),
+    linear-gradient(180deg, rgba(58, 24, 40, 0.5), rgba(28, 15, 26, 0.5));
+  border: 1px solid var(--blood-line);
   margin-bottom: 12px;
 }
 .rival__streakicon {
-  font-size: 1.2rem;
+  font-size: 1.3rem;
+  filter: drop-shadow(0 0 8px rgba(255, 159, 69, 0.5));
 }
 .rival__streaknum {
-  font-size: 1.5rem;
-  font-weight: 800;
-  color: var(--c-yellow);
+  font-family: var(--font-display);
+  font-size: 1.7rem;
+  font-weight: 700;
+  color: var(--c-orange);
   font-variant-numeric: tabular-nums;
+  text-shadow: 0 0 20px rgba(255, 159, 69, 0.4);
 }
 .rival__streaklabel {
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   font-weight: 700;
   color: var(--text-faint);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
 }
 .rival__grid {
   display: grid;
@@ -3375,32 +3477,45 @@ body.has-banner .nav {
   gap: 10px;
 }
 .rival__card {
+  position: relative;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  padding: 12px 14px;
+  gap: 4px;
+  padding: 14px 16px;
   border-radius: var(--radius-sm);
-  background: var(--surface-2);
-  border: 1px solid var(--border);
+  background: linear-gradient(180deg, rgba(45, 20, 34, 0.5), rgba(26, 15, 26, 0.5));
+  border: 1px solid var(--blood-line);
   border-left: 3px solid var(--rival, var(--accent));
 }
+.rival__card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(120% 130% at 100% 0%, var(--rival-glow, transparent), transparent 60%);
+  pointer-events: none;
+  opacity: 0.5;
+}
 .rival__card--nemesis {
-  --rival: var(--offline);
+  --rival: var(--blood-bright);
+  --rival-glow: rgba(230, 57, 80, 0.16);
 }
 .rival__card--prey {
-  --rival: var(--online);
+  --rival: var(--poison);
+  --rival-glow: rgba(124, 242, 103, 0.12);
 }
 .rival__role {
-  font-size: 0.66rem;
-  font-weight: 700;
+  font-family: var(--font-display);
+  font-size: 0.68rem;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--text-faint);
+  letter-spacing: 0.08em;
+  color: var(--rival, var(--text-faint));
 }
 .rival__name {
   font-weight: 800;
   color: var(--text);
-  font-size: 1rem;
+  font-size: 1.05rem;
   word-break: break-word;
 }
 .rival__name--link {
@@ -3414,7 +3529,7 @@ body.has-banner .nav {
   color: var(--text-dim);
 }
 .rival__score strong {
-  color: var(--text);
+  color: var(--rival, var(--text));
 }
 
 /* Player Search */
