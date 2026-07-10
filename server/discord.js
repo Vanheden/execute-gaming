@@ -116,6 +116,10 @@ export async function resolveRoles(roleIds, guildId, botToken) {
 // the live site in production.
 const BRAND = 'Execute-Gaming'
 const siteUrl = () => (process.env.PUBLIC_BASE_URL || 'http://localhost:5173').replace(/\/$/, '')
+// The bot's avatar (public/bot-avatar.png, served at the site root). Discord needs
+// a raster URL it can reach, so this only shows once the site is live at a public
+// PUBLIC_BASE_URL. Regenerate the PNG with `npm run bot-avatar`.
+const avatarUrl = () => `${siteUrl()}/bot-avatar.png`
 
 // Blood-red fallback; matches the site's --blood accent.
 function hexToInt(hex) {
@@ -143,7 +147,7 @@ export async function postWebhook(payload) {
     const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: BRAND, ...payload }),
+      body: JSON.stringify({ username: BRAND, avatar_url: avatarUrl(), ...payload }),
     })
     if (!res.ok) console.warn('[discord] webhook rejected:', res.status)
     return res.ok

@@ -28,6 +28,7 @@ npm run build      # production build → dist/
 npm start          # production: serves dist/ + API on one port (NODE_ENV=production)
 npm run backup     # snapshot server/data/users.db → server/data/backups (keeps 14)
 npm run og-image   # regenerate the social-preview PNG (public/og-image.png)
+npm run bot-avatar # regenerate the Discord webhook avatar (public/bot-avatar.png)
 ./deploy.sh        # on the server: pull, install, build, pm2 reload
 ```
 
