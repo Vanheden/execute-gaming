@@ -98,6 +98,9 @@ Ideas for growing the site, grouped by theme. Effort is a rough guide:
   palettes give the leaderboard panels a gothic V Rising look: Milestones + Rivalries
   in blood-red (crimson glow, blood-moon vignette, glowing stat numbers), Weekly
   Highlights in poison-green. Tokens live in `src/index.css` `:root`.
+- **Admin panel toggles** — admins can show/hide the Milestones, Weekly Highlights
+  and Season Champions panels from `/admin` → Settings (generic feature flags,
+  default ON, audit-logged), alongside the existing Live Kill Feed toggle.
 
 ---
 
@@ -179,7 +182,9 @@ Most of the roadmap is now built. What's left:
 Recently shipped: leaderboard pagination (20/page) + top-3 medal glyph fix;
 community milestones strip (global counters + hottest feud); rivalries/nemesis
 (head-to-head PvP records on profiles); play streaks (current/longest on profiles
-+ a top-streaks list); guest player profiles (`/p/:steamId`); leaderboard medals;
++ a top-streaks list); gothic vampire theme (Cinzel + blood/venom palettes);
+admin toggles for the milestones/highlights/champions panels; guest player
+profiles (`/p/:steamId`); leaderboard medals;
 9 game-stat auto-achievements; live kill feed (horizontal pills, server-filtered);
 season champions hall-of-fame; V Blood hunt tracker (`/hunt`); activity heatmap
 on both profile types; season reset admin panel with rolling backup; mod v0.2.3
