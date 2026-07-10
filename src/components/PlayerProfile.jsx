@@ -4,6 +4,7 @@ import { rankForPoints } from '../data/ranks.js'
 import { linkProps } from '../lib/router.js'
 import ActivityHeatmap from './ActivityHeatmap.jsx'
 import Rivalries from './Rivalries.jsx'
+import ServerSplit from './ServerSplit.jsx'
 
 function formatDuration(seconds) {
   const h = Math.floor(seconds / 3600)
@@ -183,6 +184,7 @@ export default function PlayerProfile({ steamId }) {
             {p.perServer?.length > 0 && (
               <section className="pubcard__section">
                 <h2 className="pubcard__label">By server</h2>
+                <ServerSplit entries={p.perServer} />
                 <div className="rankservers">
                   {p.perServer.map((s) => (
                     <ServerStat key={s.serverId} {...s} />

@@ -32,6 +32,7 @@ import {
   getLeaderboard,
   allTimePoints,
   topServers,
+  serverPlaytime,
   getPlayerStats,
   getPlayerTotals,
   getPlayerTotalsBatch,
@@ -707,11 +708,13 @@ function pointsForUser(userId) {
   if (!steamIds.length) return null
   const sum = (map) => steamIds.reduce((acc, id) => acc + (map[id] || 0), 0)
   const overall = sum(allTimePoints(steamIds))
+  const playtime = serverPlaytime(steamIds) // { serverId: seconds }
   const perServer = servers.map((s) => ({
     serverId: s.id,
     name: s.name,
     accent: s.accent,
     points: sum(allTimePoints(steamIds, s.id)),
+    seconds: playtime[s.id] || 0,
   }))
   return { overall, perServer }
 }

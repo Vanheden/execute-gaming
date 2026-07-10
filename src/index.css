@@ -2595,6 +2595,76 @@ body.has-banner .nav {
   text-transform: uppercase;
   color: var(--text-faint);
 }
+
+/* Playtime-share split: a stacked bar + legend showing how a player's time is
+   distributed across servers (e.g. "Easy PvE 60% · Duo PvP 40%"). */
+.srvsplit {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+.srvsplit__bar {
+  display: flex;
+  height: 10px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border);
+}
+.srvsplit__seg {
+  height: 100%;
+  min-width: 3px;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--srv) 90%, #000),
+    color-mix(in srgb, var(--srv) 70%, #fff)
+  );
+  box-shadow: inset 0 0 8px color-mix(in srgb, var(--srv) 40%, transparent);
+  transition: width 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.srvsplit__seg + .srvsplit__seg {
+  border-left: 1px solid rgba(0, 0, 0, 0.35);
+}
+.srvsplit__legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+}
+.srvsplit__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+}
+.srvsplit__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--srv, var(--c-cyan));
+  box-shadow: 0 0 7px color-mix(in srgb, var(--srv, var(--c-cyan)) 75%, transparent);
+}
+.srvsplit__name {
+  color: var(--text);
+  font-weight: 600;
+}
+.srvsplit__pct {
+  color: color-mix(in srgb, var(--srv, var(--c-cyan)) 82%, #fff);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.srvsplit__dur {
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+@media (prefers-reduced-motion: reduce) {
+  .srvsplit__seg {
+    transition: none;
+  }
+}
 .ranksrv {
   display: flex;
   align-items: center;

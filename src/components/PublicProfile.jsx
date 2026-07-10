@@ -5,6 +5,7 @@ import { linkProps } from '../lib/router.js'
 import Badges from './Badges.jsx'
 import ActivityHeatmap from './ActivityHeatmap.jsx'
 import Rivalries from './Rivalries.jsx'
+import ServerSplit from './ServerSplit.jsx'
 
 function serverName(id) {
   return servers.find((s) => s.id === id)?.name || id
@@ -68,6 +69,7 @@ function RankBadge({ points }) {
       {active.length > 0 && (
         <div className="rankservers">
           <span className="rankservers__label">By server</span>
+          <ServerSplit entries={points.perServer} />
           {active.map((s) => (
             <ServerRank key={s.serverId} name={s.name} accent={s.accent} points={s.points} />
           ))}

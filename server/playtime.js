@@ -520,6 +520,30 @@ export function topServers(steamIds, period = 'all') {
   return out
 }
 
+// Total playtime (seconds) per server, summed across the given SteamIDs, within
+// `period` and respecting season-reset floors. Returns a plain map
+// { serverId: seconds }. Used for the per-server playtime split on profiles (a
+// member may have several linked SteamIDs). Servers with no time are omitted.
+export function serverPlaytime(steamIds, period = 'all') {
+  const ids = [...new Set((steamIds || []).filter(Boolean))]
+  if (!ids.length) return {}
+  const days = PERIODS[period] ?? null
+  const since = days ? new Date(Date.now() - days * 864e5).toISOString() : '0'
+  const floor = resetFloorAnon('startedAt', Object.entries(getLeaderboardResets()))
+  const placeholders = ids.map(() => '?').join(',')
+
+  const rows = db
+    .prepare(
+      `SELECT serverId, SUM(seconds) AS seconds
+         FROM play_sessions
+        WHERE steamId IN (${placeholders}) AND startedAt >= ?${floor.sql}
+        GROUP BY serverId`,
+    )
+    .all(...ids, since, ...floor.params)
+
+  return Object.fromEntries(rows.filter((r) => r.seconds > 0).map((r) => [r.serverId, r.seconds]))
+}
+
 // --- Rank-up detection (for the Discord webhook) ---------------------------
 // Called after every session/kill ingest. Recomputes the player's GLOBAL all-time
 // rank tier and compares it to the highest tier we've recorded for them. The first
