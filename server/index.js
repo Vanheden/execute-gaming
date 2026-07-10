@@ -43,6 +43,7 @@ import {
   getRivalries,
   getPlayerStreak,
   getTopStreaks,
+  checkRankPromotion,
   searchPlayers,
   getLeaderboardResets,
   getLeaderboardResetsAdmin,
@@ -52,7 +53,13 @@ import {
   LEADERBOARD_PERIODS,
   LEADERBOARD_METRICS,
 } from './playtime.js'
-import { fetchWidget } from './discord.js'
+import {
+  fetchWidget,
+  announceNews,
+  announceEvent,
+  announceAnnouncement,
+  announceRankUp,
+} from './discord.js'
 import { vbloodName, VBLOOD_NAMES } from '../src/data/vbloods.js'
 import { servers } from '../src/data/servers.js'
 import {
@@ -282,6 +289,8 @@ app.put('/api/announcement', ensureAdmin, (req, res) => {
     detail: message ? { level, message } : null,
   })
   res.json({ announcement })
+  // Broadcast a freshly set banner to Discord (skip clears). Fire-and-forget.
+  if (announcement) announceAnnouncement(announcement)
 })
 
 // --- Kill feed toggle (public read, admin write) ---------------------------
@@ -335,10 +344,30 @@ function ensureIngestSecret(req, res, next) {
   next()
 }
 
+// After a session/kill lands, check whether it pushed the player into a new rank
+// tier and, if so, post a "rank up" to Discord. Fire-and-forget and fully guarded:
+// ingest must never fail because of a webhook. `steamId` is already validated by
+// recordSession/recordKill, so we only reach here on a successful ingest.
+function maybeAnnounceRankUp(steamId, charName) {
+  try {
+    const promo = checkRankPromotion(steamId)
+    if (!promo) return
+    const member = getUserByProvider('steam', steamId)
+    const linked = member && !member.banned ? member : null
+    const name = linked?.username || (charName ? String(charName).slice(0, 60) : null) || 'A vampire'
+    const base = (process.env.PUBLIC_BASE_URL || 'http://localhost:5173').replace(/\/$/, '')
+    const profileUrl = linked ? `${base}/u/${keyOf(linked.id)}` : `${base}/p/${steamId}`
+    announceRankUp({ name, tier: promo.tier, points: promo.points, profileUrl })
+  } catch (err) {
+    console.warn('[rankup] check failed:', err?.message || err)
+  }
+}
+
 app.post('/api/ingest/session', ensureIngestSecret, (req, res) => {
   const result = recordSession(req.body)
   if (result.error) return res.status(400).json({ error: result.error })
   res.status(204).end()
+  maybeAnnounceRankUp(req.body?.steamId, req.body?.charName)
 })
 
 // Ingest a single kill event (V Blood boss or PvP) from the mod. Same guard.
@@ -346,6 +375,7 @@ app.post('/api/ingest/kill', ensureIngestSecret, (req, res) => {
   const result = recordKill(req.body)
   if (result.error) return res.status(400).json({ error: result.error })
   res.status(204).end()
+  maybeAnnounceRankUp(req.body?.steamId, req.body?.charName)
 })
 
 // Public leaderboard. ?metric=points|playtime|vblood|pvp (default points),
@@ -770,7 +800,9 @@ app.post('/api/news', ensureAdmin, (req, res) => {
   const title = str(req.body?.title, 140)
   const body = str(req.body?.body, 8000)
   if (!title || !body) return res.status(400).json({ error: 'title and body required' })
-  res.json({ post: createNews({ title, body, authorId: req.user.id, authorName: req.user.username }) })
+  const post = createNews({ title, body, authorId: req.user.id, authorName: req.user.username })
+  res.json({ post })
+  announceNews(post) // fire-and-forget Discord webhook (no-op if unconfigured)
 })
 
 app.put('/api/news/:id', ensureAdmin, (req, res) => {
@@ -796,7 +828,9 @@ app.post('/api/events', ensureAdmin, (req, res) => {
   if (!title || !startsAt) return res.status(400).json({ error: 'title and startsAt required' })
   const description = req.body?.description ? str(req.body.description, 4000) : null
   const location = req.body?.location ? str(req.body.location, 140) : null
-  res.json({ event: createEvent({ title, description, startsAt, location }) })
+  const event = createEvent({ title, description, startsAt, location })
+  res.json({ event })
+  announceEvent(event) // fire-and-forget Discord webhook (no-op if unconfigured)
 })
 
 app.put('/api/events/:id', ensureAdmin, (req, res) => {

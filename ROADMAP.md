@@ -101,6 +101,11 @@ Ideas for growing the site, grouped by theme. Effort is a rough guide:
 - **Admin panel toggles** — admins can show/hide the Milestones, Weekly Highlights
   and Season Champions panels from `/admin` → Settings (generic feature flags,
   default ON, audit-logged), alongside the existing Live Kill Feed toggle.
+- **Discord announcements webhook** — news, events, the announcement banner and
+  player **rank-ups** are posted to a Discord channel as rich embeds via an incoming
+  webhook (`DISCORD_WEBHOOK_URL`, no bot needed). Fail-open: unset/broken webhook
+  posts nothing and never affects the request. Rank-ups are seeded silently per
+  player (a new `player_ranks` table) so enabling it never spams past promotions.
 
 ---
 
@@ -179,7 +184,8 @@ Most of the roadmap is now built. What's left:
    VPN/CORS "Unknown" (see Polish & infra).
 2. **Donations / VIP** (M) — optional; the `supporter` badge is already there.
 
-Recently shipped: leaderboard pagination (20/page) + top-3 medal glyph fix;
+Recently shipped: Discord announcements webhook (news/events/banner/rank-ups →
+channel embeds, fail-open); leaderboard pagination (20/page) + top-3 medal glyph fix;
 community milestones strip (global counters + hottest feud); rivalries/nemesis
 (head-to-head PvP records on profiles); play streaks (current/longest on profiles
 + a top-streaks list); gothic vampire theme (Cinzel + blood/venom palettes);

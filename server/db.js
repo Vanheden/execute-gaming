@@ -150,6 +150,16 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_kills_server_occurred ON kill_events(serverId, occurredAt);
   CREATE INDEX IF NOT EXISTS idx_kills_kind ON kill_events(kind);
 
+  -- Highest rank tier each player has reached (index into src/data/ranks.js).
+  -- Lets us fire a one-off Discord "rank up" webhook the moment a player crosses
+  -- into a new tier: the row is seeded silently on first ingest, then only bumped
+  -- upward, so deploying the feature never spams past promotions. See discord.js.
+  CREATE TABLE IF NOT EXISTS player_ranks (
+    steamId   TEXT PRIMARY KEY,
+    tierIndex INTEGER NOT NULL,
+    updatedAt TEXT NOT NULL
+  );
+
   -- Linked provider identities. One account (users.id) can own several — e.g. a
   -- Discord-primary member who also linked their Steam. Every account has at least
   -- its own (its provider+providerId → its id). Login and getUserByProvider resolve

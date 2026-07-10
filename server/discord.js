@@ -106,3 +106,119 @@ export async function resolveRoles(roleIds, guildId, botToken) {
   // Only keep the display fields the frontend needs.
   return resolved.map(({ id, name, color }) => ({ id, name, color }))
 }
+
+// --- Outbound announcements (incoming webhook) -----------------------------
+// Posts rich embeds to a Discord channel via an incoming webhook URL
+// (DISCORD_WEBHOOK_URL — Server Settings → Integrations → Webhooks). No bot
+// needed. Everything is FAIL-OPEN: a missing URL or a network error just means
+// nothing is posted; it never throws and never blocks the request that triggered
+// it (callers fire-and-forget these). Links use PUBLIC_BASE_URL so they point at
+// the live site in production.
+const BRAND = 'Execute-Gaming'
+const siteUrl = () => (process.env.PUBLIC_BASE_URL || 'http://localhost:5173').replace(/\/$/, '')
+
+// Blood-red fallback; matches the site's --blood accent.
+function hexToInt(hex) {
+  const n = parseInt(String(hex || '').replace('#', ''), 16)
+  return Number.isNaN(n) ? 0x8a0f2a : n
+}
+
+// Trim text to a Discord-friendly length (embeds allow more, but shorter reads better).
+function clip(text, max = 500) {
+  const s = String(text ?? '').trim()
+  return s.length > max ? s.slice(0, max - 1).trimEnd() + '…' : s
+}
+
+// Render an ISO timestamp as a Discord dynamic timestamp (localised per viewer).
+function discordTime(iso) {
+  const t = Date.parse(iso)
+  return Number.isNaN(t) ? String(iso || '') : `<t:${Math.floor(t / 1000)}:F>`
+}
+
+// Low-level POST. Returns true on 2xx, false otherwise — never throws.
+export async function postWebhook(payload) {
+  const url = process.env.DISCORD_WEBHOOK_URL
+  if (!url) return false
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: BRAND, ...payload }),
+    })
+    if (!res.ok) console.warn('[discord] webhook rejected:', res.status)
+    return res.ok
+  } catch (err) {
+    console.warn('[discord] webhook failed:', err?.message || err)
+    return false
+  }
+}
+
+export function announceNews({ title, body }) {
+  return postWebhook({
+    embeds: [
+      {
+        author: { name: '📣 News' },
+        title: clip(title, 240),
+        description: clip(body, 600),
+        url: `${siteUrl()}/#news`,
+        color: 0xe63950,
+        footer: { text: BRAND },
+        timestamp: new Date().toISOString(),
+      },
+    ],
+  })
+}
+
+export function announceEvent({ title, description, startsAt, location }) {
+  const fields = []
+  if (startsAt) fields.push({ name: 'When', value: discordTime(startsAt), inline: true })
+  if (location) fields.push({ name: 'Where', value: clip(location, 100), inline: true })
+  return postWebhook({
+    embeds: [
+      {
+        author: { name: '🗓️ New event' },
+        title: clip(title, 240),
+        description: description ? clip(description, 600) : undefined,
+        url: `${siteUrl()}/events`,
+        color: 0x7c4dff,
+        fields: fields.length ? fields : undefined,
+        footer: { text: BRAND },
+        timestamp: new Date().toISOString(),
+      },
+    ],
+  })
+}
+
+export function announceAnnouncement({ message, level }) {
+  const colors = { info: 0x33c9c9, warning: 0xf5b642, critical: 0xe63950 }
+  const labels = { info: '📢 Announcement', warning: '⚠️ Announcement', critical: '🚨 Announcement' }
+  return postWebhook({
+    embeds: [
+      {
+        author: { name: labels[level] || labels.info },
+        description: clip(message, 600),
+        url: siteUrl(),
+        color: colors[level] || colors.info,
+        footer: { text: BRAND },
+        timestamp: new Date().toISOString(),
+      },
+    ],
+  })
+}
+
+// `tier` is a RANKS entry ({ name, icon, color }); `profileUrl` deep-links the player.
+export function announceRankUp({ name, tier, points, profileUrl }) {
+  return postWebhook({
+    embeds: [
+      {
+        author: { name: '🩸 Rank up' },
+        title: `${tier.icon} ${clip(name, 80)} ascended to ${tier.name}`,
+        description: `A vampire climbs the ladder with **${Number(points).toLocaleString()}** points.`,
+        url: profileUrl || `${siteUrl()}/leaderboard`,
+        color: hexToInt(tier.color),
+        footer: { text: BRAND },
+        timestamp: new Date().toISOString(),
+      },
+    ],
+  })
+}

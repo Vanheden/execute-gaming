@@ -80,10 +80,18 @@ the live domain while developing — the same `.env` works on your machine and t
   custom `userProfile` that fetches `/users/@me`; verify also syncs guild roles.
 - `discord.js` — fetches the user's roles in the guild (OAuth), resolves role
   names/colours (optional bot token), and fetches the public **guild widget**
-  (`fetchWidget`, 60s cache) for the live "who's online" component.
+  (`fetchWidget`, 60s cache) for the live "who's online" component. Also the
+  **outbound announcements webhook**: `postWebhook()` + `announceNews/Event/
+  Announcement/RankUp()` post rich embeds to a Discord channel via
+  `DISCORD_WEBHOOK_URL` (an incoming webhook — no bot). Everything is **fail-open**
+  (missing URL or network error → returns false, never throws) and callers
+  fire-and-forget after sending their HTTP response, so a webhook never blocks or
+  breaks the request. Embed links use `PUBLIC_BASE_URL`. Triggered from the news/
+  events/announcement admin routes and from ingest (rank-ups, see below).
 - `db.js` — the shared `node:sqlite` connection and **all table schema**
   (users, news, events, suggestions, server_stats, settings, achievements,
-  audit_log, page_views) + idempotent column migrations.
+  audit_log, page_views, play_sessions, kill_events, player_ranks, user_identities)
+  + idempotent column migrations.
 - `store.js` — user CRUD + role logic + ban/note (`setBan`, `setNote`,
   `listUsersAdmin`). Auto-migrates from a legacy `users.json`. Public serialisers
   never leak `note`/`banReason`; those come only from admin endpoints.
@@ -132,6 +140,13 @@ the live domain while developing — the same `.env` works on your machine and t
   Favourite prey from PvP `kill_events` — note PvP `victim` is a *charName*, so nemeses
   resolve by killer SteamID while prey resolve name→latest SteamID), and
   `getPlayerStreak(steamId)` / `getTopStreaks()` (consecutive-day play streaks, UTC days).
+  Also `checkRankPromotion(steamId)` — recomputes the player's GLOBAL all-time rank
+  tier after each ingest and compares it to the highest tier stored in the
+  `player_ranks` table. First sighting seeds the current tier **silently** (returns
+  null, so enabling the Discord webhook never announces ranks players already held);
+  afterwards it only returns a promotion `{ from, to, tier, points }` on an upward
+  move (a season reset that lowers points lowers the stored tier silently). The
+  ingest routes call it fire-and-forget and hand any promotion to `announceRankUp()`.
 - `src/data/ranks.js` — **single source of truth** for the **rank ladder** ("Vampire
   Ascension": Fledgling → … → Dracula, 8 point-threshold tiers). `rankForPoints(points)`
   resolves a lifetime-points total to its tier + progress to the next. Rendered as a
@@ -195,6 +210,8 @@ the live domain while developing — the same `.env` works on your machine and t
   mod. **Not** user-auth; both guarded by a shared secret (`INGEST_SECRET`, header
   `X-Ingest-Secret`) and **fail closed** (503) if the secret isn't set. `kill` body
   is `{ eventId, serverId, steamId, charName, kind: vblood|pvp, victim, occurredAt }`.
+  After a successful ingest both routes fire-and-forget `checkRankPromotion(steamId)`
+  and, on a promotion, post a "rank up" embed to Discord (see `discord.js`).
 - `GET /api/news` (public), `POST/PUT/DELETE /api/news/:id` (admin)
 - `GET /api/events` (public), `POST/PUT/DELETE /api/events/:id` (admin)
 - `GET /api/suggestions` (public), `POST` (auth), `POST /:id/vote` (auth),
@@ -230,7 +247,9 @@ Copy `.env.example` → `.env`. Contains **real secrets — never commit it**
 (gitignored). Keys: `SESSION_SECRET`, `PUBLIC_BASE_URL`, `DISCORD_CLIENT_ID/
 SECRET`, `DISCORD_GUILD_ID`, `DISCORD_ADMIN_ROLE_IDS`, `DISCORD_ADMIN_USER_IDS`
 (pin admins by raw Discord user id), `DISCORD_BOT_TOKEN` (optional, for role
-names/colours), `STEAM_API_KEY`, `STATS_POLL_MINUTES` (optional, default 5),
+names/colours), `DISCORD_WEBHOOK_URL` (optional — posts news/events/banner/rank-up
+embeds to a Discord channel; blank = disabled), `STEAM_API_KEY`,
+`STATS_POLL_MINUTES` (optional, default 5),
 `INGEST_SECRET` (shared secret for the leaderboard mod's session ingest; leave
 blank to disable ingest — the endpoint then returns 503).
 In production also set `NODE_ENV=production` and `PUBLIC_BASE_URL=https://execute-gaming.se`.

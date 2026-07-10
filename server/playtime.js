@@ -9,6 +9,7 @@
 // ---------------------------------------------------------------------------
 import { db } from './db.js'
 import { servers } from '../src/data/servers.js'
+import { rankForPoints, RANKS } from '../src/data/ranks.js'
 
 const SERVER_IDS = new Set(servers.map((s) => s.id))
 // A single session can't sensibly exceed a few days; cap to reject garbage.
@@ -479,6 +480,39 @@ export function allTimePoints(steamIds, serverId = null) {
       ...floorK.params,
     )
   return Object.fromEntries(rows.map((r) => [r.steamId, r.points]))
+}
+
+// --- Rank-up detection (for the Discord webhook) ---------------------------
+// Called after every session/kill ingest. Recomputes the player's GLOBAL all-time
+// rank tier and compares it to the highest tier we've recorded for them. The first
+// time we ever see a SteamID we seed its current tier *silently* (returns null), so
+// enabling this feature never announces ranks players already held. Afterwards we
+// only fire when the tier actually increases; a season reset that lowers points
+// just lowers the stored tier silently (no "rank up"). Returns
+// `{ from, to, tier, points }` on a genuine promotion, otherwise null.
+const rankRowStmt = db.prepare('SELECT tierIndex FROM player_ranks WHERE steamId = ?')
+const rankUpsertStmt = db.prepare(
+  `INSERT INTO player_ranks (steamId, tierIndex, updatedAt) VALUES (?, ?, ?)
+   ON CONFLICT(steamId) DO UPDATE SET tierIndex = excluded.tierIndex, updatedAt = excluded.updatedAt`,
+)
+
+export function checkRankPromotion(steamId) {
+  if (!steamId || !/^\d{5,20}$/.test(steamId)) return null
+  const points = allTimePoints([steamId], null)[steamId] ?? 0
+  const { index } = rankForPoints(points)
+  const prev = rankRowStmt.get(steamId)
+
+  // First sighting: remember where they stand, announce nothing.
+  if (!prev) {
+    rankUpsertStmt.run(steamId, index, new Date().toISOString())
+    return null
+  }
+  if (index === prev.tierIndex) return null
+
+  // Persist the new position either way; only an upward move is a "promotion".
+  rankUpsertStmt.run(steamId, index, new Date().toISOString())
+  if (index < prev.tierIndex) return null
+  return { from: prev.tierIndex, to: index, tier: RANKS[index], points }
 }
 
 export const LEADERBOARD_PERIODS = Object.keys(PERIODS)
