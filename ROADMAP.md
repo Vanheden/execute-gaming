@@ -192,8 +192,16 @@ Ideas for growing the site, grouped by theme. Effort is a rough guide:
 
 Most of the roadmap is now built. What's left:
 
-1. **Donations / VIP** (M) — optional; the `supporter` badge is already there.
-2. **Scheduled weekly recap** (M) — a cron-posted Discord digest (top 3, most active,
+1. **Reigning Champion card** (S) — **NEXT / in progress.** A spotlight card at the very
+   top of the `/leaderboard` page featuring the current #1 (by Points): large avatar,
+   name, rank pill, key stats (points/playtime/V Bloods/PvP) and a blood-moon glow, so
+   the ladder has a clear hero. Reuse the leaderboard's existing top row (`entries[0]`
+   for the active server/period) — no new endpoint needed; it's a new component
+   (`components/ChampionCard.jsx`) rendered above the panels in `Leaderboard.jsx`, gated
+   like the other panels (feature flag `champion`? — or always on). Follow the gothic
+   theme (blood/venom tokens, Cinzel display font) and add a skeleton while loading.
+2. **Donations / VIP** (M) — optional; the `supporter` badge is already there.
+3. **Scheduled weekly recap** (M) — a cron-posted Discord digest (top 3, most active,
    hottest feud), building on the announcements webhook + `getGlobalStats`/`getTopStreaks`.
 
 Recently shipped: motion & finish pass (skeleton loaders, milestone count-up,
