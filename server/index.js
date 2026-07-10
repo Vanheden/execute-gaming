@@ -83,6 +83,9 @@ import {
   setAnnouncement,
   isKillFeedEnabled,
   setKillFeedEnabled,
+  getFeatureFlags,
+  setFeatureEnabled,
+  FEATURE_KEYS,
 } from './content.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -289,6 +292,19 @@ app.put('/api/killfeed/enabled', ensureAdmin, (req, res) => {
   setKillFeedEnabled(enabled)
   logAudit({ actor: req.user, action: 'killfeed.toggle', detail: { enabled } })
   res.json({ enabled })
+})
+
+// --- Leaderboard panel toggles (public read, admin write) ------------------
+// Milestones / weekly-highlights / season-champions visibility. Default ON.
+app.get('/api/features', (req, res) => res.json(getFeatureFlags()))
+
+app.put('/api/features', ensureAdmin, (req, res) => {
+  const feature = String(req.body?.feature || '')
+  if (!FEATURE_KEYS.includes(feature)) return res.status(400).json({ error: 'unknown feature' })
+  const enabled = req.body?.enabled === true
+  const features = setFeatureEnabled(feature, enabled)
+  logAudit({ actor: req.user, action: 'feature.toggle', detail: { feature, enabled } })
+  res.json({ features })
 })
 
 // --- Analytics beacon (public, no PII) -------------------------------------

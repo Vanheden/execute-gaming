@@ -180,8 +180,17 @@ export default function Leaderboard() {
   const [serverId, setServerId] = useState('')
   const [error, setError] = useState(false)
   const [page, setPage] = useState(0)
+  // Admin-controlled panel visibility (default all on until we hear otherwise).
+  const [features, setFeatures] = useState({ milestones: true, highlights: true, champions: true })
 
   const active = METRICS.find((m) => m.id === metric) || METRICS[0]
+
+  useEffect(() => {
+    fetch('/api/features')
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((f) => setFeatures((prev) => ({ ...prev, ...f })))
+      .catch(() => {})
+  }, [])
 
   useEffect(() => {
     setEntries(null)
@@ -230,9 +239,9 @@ export default function Leaderboard() {
             <KillFeed serverId={serverId} />
           </aside>
           <div className="lb-main">
-            <Milestones />
-            <SeasonChampions />
-            <WeeklyHighlights />
+            {features.milestones && <Milestones />}
+            {features.champions && <SeasonChampions />}
+            {features.highlights && <WeeklyHighlights />}
             <div className="lbfilter">
           <div className="mfilter__tabs lbfilter__metrics">
             {METRICS.map((m) => (

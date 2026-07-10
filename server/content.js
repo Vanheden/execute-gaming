@@ -169,3 +169,33 @@ export function setKillFeedEnabled(enabled) {
   ).run(JSON.stringify(value))
   return value
 }
+
+// --- Leaderboard panel toggles ---------------------------------------------
+// Admin-controlled visibility for the milestones, weekly-highlights and season-
+// champions panels on the leaderboard. Unlike the kill feed these default to ON
+// (a missing/invalid setting means visible), so panels stay up unless disabled.
+export const FEATURE_KEYS = ['milestones', 'highlights', 'champions']
+
+export function isFeatureEnabled(key) {
+  const row = db.prepare('SELECT value FROM settings WHERE key = ?').get(`feature_${key}`)
+  if (!row?.value) return true
+  try {
+    return JSON.parse(row.value).enabled !== false
+  } catch {
+    return true
+  }
+}
+
+export function getFeatureFlags() {
+  return Object.fromEntries(FEATURE_KEYS.map((k) => [k, isFeatureEnabled(k)]))
+}
+
+export function setFeatureEnabled(key, enabled) {
+  if (!FEATURE_KEYS.includes(key)) return null
+  const value = { enabled: !!enabled, updatedAt: now() }
+  db.prepare(
+    `INSERT INTO settings (key, value) VALUES (?, ?)
+     ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+  ).run(`feature_${key}`, JSON.stringify(value))
+  return getFeatureFlags()
+}

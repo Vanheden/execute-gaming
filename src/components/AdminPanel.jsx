@@ -249,6 +249,7 @@ const ACTION_LABEL = {
   'leaderboard.reset.clear': 'cleared the leaderboard season reset for',
   'leaderboard.reset.restore': 'restored the leaderboard season for',
   'killfeed.toggle': 'toggled the kill feed',
+  'feature.toggle': 'toggled a leaderboard panel',
 }
 
 function AuditTab() {
@@ -466,14 +467,44 @@ function AnalyticsTab() {
 }
 
 // --- Settings sub-tab -------------------------------------------------------
+// The leaderboard panels an admin can show/hide. Kill feed is stored separately
+// (defaults OFF); the other three are feature flags (default ON).
+const PANELS = [
+  { key: 'milestones', name: 'Community Milestones', desc: 'The stat strip at the top of the leaderboard' },
+  { key: 'highlights', name: "This Week's Highlights", desc: 'Weekly top players per category' },
+  { key: 'champions', name: 'Season Champions', desc: 'Hall of fame for completed seasons' },
+]
+
+function ToggleRow({ name, enabled, busy, onToggle }) {
+  return (
+    <div className="srrow">
+      <div className="srrow__info">
+        <span className="srrow__name">{name}</span>
+        <span className="srrow__muted">
+          {enabled ? 'Visible on the leaderboard' : 'Hidden — disabled by admin'}
+        </span>
+      </div>
+      <div className="srrow__actions">
+        <button className={`btn btn--sm ${enabled ? 'btn--danger' : ''}`} disabled={busy} onClick={onToggle}>
+          {enabled ? 'Disable' : 'Enable'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
 function SettingsTab() {
   const [kfEnabled, setKfEnabled] = useState(null)
+  const [features, setFeatures] = useState(null)
   const [busy, setBusy] = useState(false)
 
   useEffect(() => {
     apiGet('/api/killfeed/enabled')
       .then((d) => setKfEnabled(d.enabled))
       .catch(() => setKfEnabled(false))
+    apiGet('/api/features')
+      .then((f) => setFeatures(f))
+      .catch(() => setFeatures({}))
   }, [])
 
   async function toggleKillFeed() {
@@ -487,22 +518,36 @@ function SettingsTab() {
     }
   }
 
-  if (kfEnabled === null) return <p className="empty">Loading settings…</p>
+  async function togglePanel(key) {
+    if (!features) return
+    setBusy(true)
+    try {
+      const { features: next } = await apiSend('PUT', '/api/features', {
+        feature: key,
+        enabled: !features[key],
+      })
+      setFeatures(next)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  if (kfEnabled === null || features === null) return <p className="empty">Loading settings…</p>
 
   return (
     <div className="amtab">
-      <div className="srrow">
-        <div className="srrow__info">
-          <span className="srrow__name">Live Kill Feed</span>
-          <span className="srrow__muted">
-            {kfEnabled ? 'Visible on the leaderboard' : 'Hidden — disabled by admin'}
-          </span>
-        </div>
-        <div className="srrow__actions">
-          <button className={`btn btn--sm ${kfEnabled ? 'btn--danger' : ''}`} disabled={busy} onClick={toggleKillFeed}>
-            {kfEnabled ? 'Disable' : 'Enable'}
-          </button>
-        </div>
+      <h3 className="amtab__heading">Leaderboard panels</h3>
+      <div className="srlist">
+        {PANELS.map((p) => (
+          <ToggleRow
+            key={p.key}
+            name={p.name}
+            enabled={features[p.key] !== false}
+            busy={busy}
+            onToggle={() => togglePanel(p.key)}
+          />
+        ))}
+        <ToggleRow name="Live Kill Feed" enabled={kfEnabled} busy={busy} onToggle={toggleKillFeed} />
       </div>
     </div>
   )

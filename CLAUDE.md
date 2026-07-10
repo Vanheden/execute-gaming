@@ -176,6 +176,10 @@ the live domain while developing — the same `.env` works on your machine and t
 - `GET /api/player/:steamId/rivalries` — **public** Nemesis + Favourite prey + play
   streak for a player. Keyed by SteamID so members (`/u/:key`) and guests
   (`/p/:steamId`) share the same `<Rivalries>` component.
+- `GET /api/features` (public) / `PUT /api/features` (admin) — leaderboard panel
+  visibility toggles (`milestones`/`highlights`/`champions`, **default ON**). The
+  `<Leaderboard>` hides a panel when its flag is off; admins toggle them in
+  `/admin` → Settings. Kill feed has its own `/api/killfeed/enabled` (default OFF).
 - `GET /api/discord/widget` — **public** live guild widget (who's online)
 - `POST /api/hit` — **public** analytics beacon (no PII)
 - `GET /api/servers/:id/history?hours=` — **public** player-count history

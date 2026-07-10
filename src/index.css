@@ -2767,6 +2767,12 @@ body.has-banner .nav {
   font-size: 0.86rem;
   margin: 10px 0 14px;
 }
+.amtab__heading {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-dim);
+  margin: 4px 0 6px;
+}
 .amlist {
   display: flex;
   flex-direction: column;
