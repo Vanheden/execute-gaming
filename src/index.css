@@ -4012,13 +4012,8 @@ body.has-banner .nav {
 .lb__latest::before {
   content: '🩸 ';
 }
-/* Home-server tag (all-servers view): a small accent-tinted pill under the meta. */
-.lb__tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 3px;
-}
+/* Home-server tag (all-servers view): a small accent-tinted pill shown to the
+   left of the points/metric value in each row. */
 .lb__server {
   display: inline-flex;
   align-items: center;
@@ -4052,6 +4047,14 @@ body.has-banner .nav {
   align-items: flex-end;
   gap: 6px;
   min-width: 96px;
+}
+/* Points/metric value with the home-server tag sitting to its left. */
+.lb__valrow {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  width: 100%;
 }
 .lb__hours {
   font-family: ui-monospace, monospace;

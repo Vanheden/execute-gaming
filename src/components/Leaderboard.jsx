@@ -341,14 +341,12 @@ export default function Leaderboard() {
                     </div>
                     <Meta e={e} metric={metric} />
                     <LatestKill e={e} />
-                    {e.homeServer && (
-                      <div className="lb__tags">
-                        <HomeServer home={e.homeServer} />
-                      </div>
-                    )}
                   </div>
                   <div className="lb__time">
-                    <span className="lb__hours">{active.render(e)}</span>
+                    <div className="lb__valrow">
+                      {e.homeServer && <HomeServer home={e.homeServer} />}
+                      <span className="lb__hours">{active.render(e)}</span>
+                    </div>
                     <span
                       className="lb__bar"
                       style={{ '--pct': `${maxValue ? (active.value(e) / maxValue) * 100 : 0}%` }}
