@@ -196,7 +196,13 @@ Most of the roadmap is now built. What's left:
 2. **Scheduled weekly recap** (M) — a cron-posted Discord digest (top 3, most active,
    hottest feud), building on the announcements webhook + `getGlobalStats`/`getTopStreaks`.
 
-Recently shipped: **Reigning Champion card** (`components/ChampionCard.jsx`) — a hero
+Recently shipped: **per-server home tag + playtime split** — each leaderboard row
+(in the "All servers" view) shows the server that player has logged the most time on,
+as an accent-tinted tag beside their points value (`topServers()` in
+`server/playtime.js` → `entry.homeServer`); both profile pages gain a stacked-bar
+"By server" playtime split (e.g. "Easy PvE 60% · Duo PvP 40%") via the reusable
+`components/ServerSplit.jsx` + `serverPlaytime()` helper; **Reigning Champion card**
+(`components/ChampionCard.jsx`) — a hero
 spotlight at the top of `/leaderboard` featuring the reigning all-time Points #1 with a
 large avatar, rank pill, key stats (points count-up / playtime / V Bloods / PvP) and a
 blood-moon glow; self-contained (fetches the points/all-time ladder itself so it stays

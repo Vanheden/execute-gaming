@@ -372,12 +372,20 @@ V Rising game server, not from this repo. It lives in `../mod/` (sibling of
   `.lb-main`), `<Milestones>` (community-wide counters + hottest feud + top streaks),
   `<SeasonChampions>`, `<WeeklyHighlights>`, `<KillFeed>`, and the ranked list itself (paginated 20/page,
   rank/medals global across pages). In the "All servers" view each row shows a
-  **home-server tag** (the server that player has logged the most time on + its % share
-  when split across servers), resolved server-side by `topServers()` in `server/playtime.js`
-  and attached as `entry.homeServer = { id, share }` by the `/api/leaderboard` route
-  (only when no single server is selected). `<Rivalries>` (Nemesis + prey + streak) is shared by
+  **home-server tag** beside its points/metric value (the server that player has logged
+  the most time on + its % share when split across servers), resolved server-side by
+  `topServers()` in `server/playtime.js` and attached as `entry.homeServer = { id, share }`
+  by the `/api/leaderboard` route (only when no single server is selected). `<Rivalries>`
+  (Nemesis + prey + streak) is shared by
   both profile types. Emoji medals must be indexed from an array, not a string — emoji
   are surrogate pairs, so `'🥇🥈🥉'[i]` returns half a code point (renders as tofu).
+- Both profile pages (member `/u/:key` → `components/PublicProfile.jsx`, guest
+  `/p/:steamId` → `components/PlayerProfile.jsx`) show a **per-server playtime split**
+  (stacked bar + legend, e.g. "Easy PvE 60% · Duo PvP 40%") via the reusable
+  `components/ServerSplit.jsx`. It needs `seconds` per server: player profiles get it from
+  `getPlayerStats().perServer`; the member profile's `pointsForUser()` fills it via the
+  `serverPlaytime(steamIds, period)` helper in `server/playtime.js` (sums a member's
+  linked SteamIDs, respects period + reset floors).
 - **Theme:** a Cinzel gothic display font (`--font-display`, loaded in `index.html`)
   and blood/venom palette tokens in `:root` (`--blood-*`, `--venom-*`) give the
   leaderboard panels a gothic V Rising look. Reuse those tokens for new panels.
