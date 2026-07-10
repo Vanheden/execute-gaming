@@ -81,6 +81,16 @@ Ideas for growing the site, grouped by theme. Effort is a rough guide:
   rolling one-step backup (`previous` cutoff). Admin can reset, restore previous,
   or clear a reset per server. Standalone `/admin` route with `useAuth()` access
   control.
+- **Community milestones** — a stat strip atop the leaderboard: total hours played,
+  V Bloods felled, PvP kills and vampires tracked, plus the **hottest PvP feud**
+  ("X has slain Y 3×"). Backed by `getGlobalStats()` + `getHottestFeud()`.
+- **Rivalries / Nemesis** — each profile shows the player's **Nemesis** (who killed
+  them most, with a head-to-head record) and **Favourite prey** (who they killed
+  most), derived from PvP `kill_events`. Backed by `getRivalries()`; shown on both
+  `/p/:steamId` (guest) and `/u/:key` (member) profiles.
+- **Play streaks** — consecutive-day play streaks (current + longest) shown on
+  profiles and a "longest active streaks" list in the milestones strip. Backed by
+  `getPlayerStreak()` / `getTopStreaks()`.
 
 ---
 
@@ -159,7 +169,10 @@ Most of the roadmap is now built. What's left:
    VPN/CORS "Unknown" (see Polish & infra).
 2. **Donations / VIP** (M) — optional; the `supporter` badge is already there.
 
-Recently shipped: guest player profiles (`/p/:steamId`); leaderboard medals;
+Recently shipped: leaderboard pagination (20/page) + top-3 medal glyph fix;
+community milestones strip (global counters + hottest feud); rivalries/nemesis
+(head-to-head PvP records on profiles); play streaks (current/longest on profiles
++ a top-streaks list); guest player profiles (`/p/:steamId`); leaderboard medals;
 9 game-stat auto-achievements; live kill feed (horizontal pills, server-filtered);
 season champions hall-of-fame; V Blood hunt tracker (`/hunt`); activity heatmap
 on both profile types; season reset admin panel with rolling backup; mod v0.2.3

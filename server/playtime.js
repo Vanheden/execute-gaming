@@ -916,6 +916,242 @@ export function searchPlayers(query, limit = 20) {
   )
 }
 
+// --- Global milestones -----------------------------------------------------
+// Community-wide totals for the "milestones" strip on the leaderboard page.
+// Respects season-reset floors so wiped activity drops out. Returns
+// { seconds, sessions, players, vblood, pvp, distinctBosses }.
+export function getGlobalStats() {
+  const resetEntries = Object.entries(getLeaderboardResets())
+  const floorS = resetFloorAnon('startedAt', resetEntries)
+  const floorK = resetFloorAnon('occurredAt', resetEntries)
+
+  const p = db
+    .prepare(
+      `SELECT COALESCE(SUM(seconds), 0) AS seconds, COUNT(*) AS sessions,
+              COUNT(DISTINCT steamId) AS players
+         FROM play_sessions WHERE 1=1${floorS.sql}`,
+    )
+    .get(...floorS.params)
+  const k = db
+    .prepare(
+      `SELECT SUM(CASE WHEN kind = 'vblood' THEN 1 ELSE 0 END) AS vblood,
+              SUM(CASE WHEN kind = 'pvp' THEN 1 ELSE 0 END)    AS pvp,
+              COUNT(DISTINCT CASE WHEN kind = 'vblood' AND victim IS NOT NULL
+                                  THEN victim END)              AS distinctBosses
+         FROM kill_events WHERE 1=1${floorK.sql}`,
+    )
+    .get(...floorK.params)
+
+  return {
+    seconds: p.seconds || 0,
+    sessions: p.sessions || 0,
+    players: p.players || 0,
+    vblood: k.vblood || 0,
+    pvp: k.pvp || 0,
+    distinctBosses: k.distinctBosses || 0,
+  }
+}
+
+// --- Rivalries (from PvP kills) ---------------------------------------------
+// PvP kill events store the killer's steamId and the victim's *charName*. So a
+// player's "nemeses" (deaths where they're the victim) resolve to real killer
+// steamIds directly, while their "prey" (kills where they're the killer) are
+// grouped by the victim's name and resolved to a steamId for linking.
+
+// Every charName a steamId has ever used (to match them as a PvP victim).
+function namesForSteamId(steamId) {
+  return db
+    .prepare(
+      `SELECT DISTINCT charName FROM (
+         SELECT charName FROM play_sessions WHERE steamId = ? AND charName IS NOT NULL
+         UNION SELECT charName FROM kill_events WHERE steamId = ? AND charName IS NOT NULL
+       )`,
+    )
+    .all(steamId, steamId)
+    .map((r) => r.charName)
+}
+
+// Most-recent steamId that used a given charName (for linking prey to a profile).
+function steamIdForName(name) {
+  const row = db
+    .prepare(
+      `SELECT steamId FROM (
+         SELECT steamId, startedAt AS t FROM play_sessions WHERE charName = ?
+         UNION ALL SELECT steamId, occurredAt AS t FROM kill_events WHERE charName = ?
+       ) ORDER BY t DESC LIMIT 1`,
+    )
+    .get(name, name)
+  return row?.steamId || null
+}
+
+// Top nemeses + prey for a player. Each nemesis carries `kills` (times they killed
+// you) and `revenge` (times you killed them back) for a head-to-head record.
+export function getRivalries(steamId, limit = 5) {
+  if (!steamId || !/^\d{5,20}$/.test(steamId)) return { nemeses: [], prey: [] }
+  const cap = Math.min(Math.max(Number(limit) || 5, 1), 20)
+  const floorK = resetFloorAnon('occurredAt', Object.entries(getLeaderboardResets()))
+
+  const myNames = namesForSteamId(steamId)
+
+  // Nemeses: PvP deaths where I'm the victim, grouped by the killer's steamId.
+  let nemeses = []
+  if (myNames.length) {
+    const ph = myNames.map(() => '?').join(',')
+    const rows = db
+      .prepare(
+        `SELECT steamId AS steamId, MAX(charName) AS charName, COUNT(*) AS kills
+           FROM kill_events
+          WHERE kind = 'pvp' AND steamId != ? AND victim IN (${ph})${floorK.sql}
+          GROUP BY steamId ORDER BY kills DESC, MAX(occurredAt) DESC LIMIT ?`,
+      )
+      .all(steamId, ...myNames, ...floorK.params, cap)
+
+    nemeses = rows.map((n) => {
+      // Head-to-head: how many times I killed this nemesis back.
+      const theirNames = namesForSteamId(n.steamId)
+      let revenge = 0
+      if (theirNames.length) {
+        const ph2 = theirNames.map(() => '?').join(',')
+        revenge = db
+          .prepare(
+            `SELECT COUNT(*) AS c FROM kill_events
+              WHERE kind = 'pvp' AND steamId = ? AND victim IN (${ph2})${floorK.sql}`,
+          )
+          .get(steamId, ...theirNames, ...floorK.params).c
+      }
+      return { steamId: n.steamId, charName: n.charName, kills: n.kills, revenge }
+    })
+  }
+
+  // Prey: PvP kills where I'm the killer, grouped by the victim's name.
+  const preyRows = db
+    .prepare(
+      `SELECT victim AS name, COUNT(*) AS kills, MAX(occurredAt) AS last
+         FROM kill_events
+        WHERE kind = 'pvp' AND steamId = ? AND victim IS NOT NULL${floorK.sql}
+        GROUP BY victim ORDER BY kills DESC, last DESC LIMIT ?`,
+    )
+    .all(steamId, ...floorK.params, cap)
+
+  const prey = preyRows.map((r) => ({
+    steamId: steamIdForName(r.name),
+    charName: r.name,
+    kills: r.kills,
+  }))
+
+  return { nemeses, prey }
+}
+
+// The single most one-sided PvP rivalry across all players, for the milestones
+// strip. Returns { killer, victim, kills } or null (needs at least 2 kills).
+export function getHottestFeud() {
+  const floorK = resetFloorAnon('occurredAt', Object.entries(getLeaderboardResets()))
+  const row = db
+    .prepare(
+      `SELECT steamId, victim, COUNT(*) AS kills, MAX(occurredAt) AS last
+         FROM kill_events
+        WHERE kind = 'pvp' AND victim IS NOT NULL${floorK.sql}
+        GROUP BY steamId, victim ORDER BY kills DESC, last DESC LIMIT 1`,
+    )
+    .get(...floorK.params)
+  if (!row || row.kills < 2) return null
+
+  const killerName =
+    db
+      .prepare(
+        `SELECT charName FROM (
+           SELECT charName, startedAt AS t FROM play_sessions
+             WHERE steamId = ? AND charName IS NOT NULL
+           UNION ALL SELECT charName, occurredAt AS t FROM kill_events
+             WHERE steamId = ? AND charName IS NOT NULL
+         ) ORDER BY t DESC LIMIT 1`,
+      )
+      .get(row.steamId, row.steamId)?.charName || null
+
+  return {
+    killer: { steamId: row.steamId, charName: killerName },
+    victim: { steamId: steamIdForName(row.victim), charName: row.victim },
+    kills: row.kills,
+  }
+}
+
+// --- Play streaks ----------------------------------------------------------
+// Consecutive-day play streaks derived from the (UTC) dates a player had sessions.
+
+// Whole-day difference between two 'YYYY-MM-DD' dates (b - a), in UTC.
+function dayDiff(a, b) {
+  return Math.round((Date.parse(`${b}T00:00:00Z`) - Date.parse(`${a}T00:00:00Z`)) / 864e5)
+}
+
+// Current + longest streak from an ascending list of distinct 'YYYY-MM-DD' dates.
+// "Current" only counts if the last active day is today or yesterday (UTC), so a
+// streak isn't considered broken until a full day passes with no play.
+function streakFromDates(dates) {
+  if (!dates.length) return { current: 0, longest: 0 }
+  let longest = 1
+  let run = 1
+  for (let i = 1; i < dates.length; i++) {
+    run = dayDiff(dates[i - 1], dates[i]) === 1 ? run + 1 : 1
+    if (run > longest) longest = run
+  }
+  const today = new Date().toISOString().slice(0, 10)
+  let current = 0
+  if (dayDiff(dates[dates.length - 1], today) <= 1) {
+    current = 1
+    for (let i = dates.length - 1; i > 0; i--) {
+      if (dayDiff(dates[i - 1], dates[i]) === 1) current++
+      else break
+    }
+  }
+  return { current, longest }
+}
+
+// Current + longest play streak for one player. Respects season-reset floors.
+export function getPlayerStreak(steamId) {
+  if (!steamId || !/^\d{5,20}$/.test(steamId)) return { current: 0, longest: 0 }
+  const floorS = resetFloorAnon('startedAt', Object.entries(getLeaderboardResets()))
+  const rows = db
+    .prepare(
+      `SELECT DISTINCT DATE(startedAt) AS d FROM play_sessions
+        WHERE steamId = ?${floorS.sql} ORDER BY d ASC`,
+    )
+    .all(steamId, ...floorS.params)
+  return streakFromDates(rows.map((r) => r.d))
+}
+
+// Leaderboard of active play streaks. Returns players with a live streak (or a
+// longest > 1), sorted by current streak then longest. Respects season resets.
+export function getTopStreaks(limit = 5) {
+  const cap = Math.min(Math.max(Number(limit) || 5, 1), 50)
+  const floorS = resetFloorAnon('startedAt', Object.entries(getLeaderboardResets()))
+  const rows = db
+    .prepare(
+      `SELECT steamId, DATE(startedAt) AS d, MAX(charName) AS charName
+         FROM play_sessions WHERE 1=1${floorS.sql}
+        GROUP BY steamId, DATE(startedAt) ORDER BY steamId, d ASC`,
+    )
+    .all(...floorS.params)
+
+  const byPlayer = new Map()
+  for (const r of rows) {
+    let e = byPlayer.get(r.steamId)
+    if (!e) {
+      e = { dates: [], charName: null }
+      byPlayer.set(r.steamId, e)
+    }
+    e.dates.push(r.d)
+    if (r.charName) e.charName = r.charName
+  }
+
+  const out = []
+  for (const [steamId, e] of byPlayer) {
+    const s = streakFromDates(e.dates)
+    if (s.current > 0 || s.longest > 1) out.push({ steamId, charName: e.charName, ...s })
+  }
+  out.sort((a, b) => b.current - a.current || b.longest - a.longest)
+  return out.slice(0, cap)
+}
+
 // --- helpers ---------------------------------------------------------------
 function str(v, max) {
   if (typeof v !== 'string') return null

@@ -38,6 +38,11 @@ import {
   getVBloodHuntProgress,
   getPlayerActivity,
   getWeeklyHighlights,
+  getGlobalStats,
+  getHottestFeud,
+  getRivalries,
+  getPlayerStreak,
+  getTopStreaks,
   searchPlayers,
   getLeaderboardResets,
   getLeaderboardResetsAdmin,
@@ -456,6 +461,58 @@ app.get('/api/weekly-highlights', (req, res) => {
       topPoints: resolve(h.topPoints),
     },
   })
+})
+
+// Community milestones + hottest PvP feud + top play streaks for the leaderboard.
+app.get('/api/global-stats', (req, res) => {
+  const linkFor = (steamId) => {
+    if (!steamId) return null
+    const m = getUserByProvider('steam', steamId)
+    return m && !m.banned ? { key: keyOf(m.id), username: m.username } : null
+  }
+
+  const feud = getHottestFeud()
+  const hottestFeud = feud
+    ? {
+        killer: { ...feud.killer, member: linkFor(feud.killer.steamId) },
+        victim: { ...feud.victim, member: linkFor(feud.victim.steamId) },
+        kills: feud.kills,
+      }
+    : null
+
+  const topStreaks = getTopStreaks(5).map((s) => {
+    const member = linkFor(s.steamId)
+    return {
+      steamId: s.steamId,
+      charName: member?.username || s.charName || 'Unknown vampire',
+      current: s.current,
+      longest: s.longest,
+      member,
+    }
+  })
+
+  res.json({ stats: getGlobalStats(), hottestFeud, topStreaks })
+})
+
+// Rivalries (nemeses + prey) and play streak for a player — used on both profile
+// types. Keyed by SteamID so registered members and guests share the same view.
+app.get('/api/player/:steamId/rivalries', (req, res) => {
+  const { nemeses, prey } = getRivalries(req.params.steamId)
+  const streak = getPlayerStreak(req.params.steamId)
+  const resolve = (list) =>
+    list.map((e) => {
+      const m = e.steamId ? getUserByProvider('steam', e.steamId) : null
+      const linked = m && !m.banned ? m : null
+      const out = {
+        steamId: e.steamId,
+        charName: linked?.username || e.charName || 'Unknown vampire',
+        kills: e.kills,
+        member: linked ? { key: keyOf(linked.id) } : null,
+      }
+      if (e.revenge != null) out.revenge = e.revenge
+      return out
+    })
+  res.json({ nemeses: resolve(nemeses), prey: resolve(prey), streak })
 })
 
 // Global player search — search all tracked players (registered + guests) by name.

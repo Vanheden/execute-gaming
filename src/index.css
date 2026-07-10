@@ -3222,6 +3222,201 @@ body.has-banner .nav {
   font-variant-numeric: tabular-nums;
 }
 
+/* Community milestones (leaderboard page) */
+.milestones {
+  margin-bottom: 18px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.milestones__title {
+  margin: 0 0 12px;
+  font-size: 0.82rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-faint);
+}
+.milestones__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px;
+}
+.milestones__tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 14px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  text-align: center;
+}
+.milestones__icon {
+  font-size: 1.35rem;
+  line-height: 1;
+}
+.milestones__num {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+.milestones__label {
+  font-size: 0.66rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-faint);
+}
+.milestones__extra {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
+}
+.milestones__feud,
+.milestones__streaks {
+  flex: 1 1 240px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+.milestones__feudicon {
+  font-size: 1.1rem;
+}
+.milestones__feudlabel,
+.milestones__streakhead {
+  display: block;
+  font-size: 0.66rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-faint);
+  margin-bottom: 4px;
+}
+.milestones__feudline {
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  line-height: 1.4;
+}
+.milestones__feudname {
+  font-weight: 700;
+  color: var(--text);
+  text-decoration: none;
+}
+.milestones__feudname:hover {
+  color: var(--offline);
+}
+.milestones__streaklist {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.milestones__streakrow {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.85rem;
+}
+.milestones__streakname {
+  font-weight: 700;
+  color: var(--text);
+  text-decoration: none;
+  word-break: break-word;
+}
+.milestones__streakname:hover {
+  color: var(--c-yellow);
+}
+.milestones__streakdays {
+  flex-shrink: 0;
+  font-weight: 800;
+  color: var(--c-yellow);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Rivalries (profile pages) */
+.rival__streak {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  margin-bottom: 12px;
+}
+.rival__streakicon {
+  font-size: 1.2rem;
+}
+.rival__streaknum {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--c-yellow);
+  font-variant-numeric: tabular-nums;
+}
+.rival__streaklabel {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.rival__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 10px;
+}
+.rival__card {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--rival, var(--accent));
+}
+.rival__card--nemesis {
+  --rival: var(--offline);
+}
+.rival__card--prey {
+  --rival: var(--online);
+}
+.rival__role {
+  font-size: 0.66rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-faint);
+}
+.rival__name {
+  font-weight: 800;
+  color: var(--text);
+  font-size: 1rem;
+  word-break: break-word;
+}
+.rival__name--link {
+  text-decoration: none;
+}
+.rival__name--link:hover {
+  color: var(--rival, var(--accent));
+}
+.rival__score {
+  font-size: 0.82rem;
+  color: var(--text-dim);
+}
+.rival__score strong {
+  color: var(--text);
+}
+
 /* Player Search */
 .psearch__input {
   width: 100%;

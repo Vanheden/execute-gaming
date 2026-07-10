@@ -5,6 +5,7 @@ import { linkProps } from '../lib/router.js'
 import KillFeed from './KillFeed.jsx'
 import SeasonChampions from './SeasonChampions.jsx'
 import WeeklyHighlights from './WeeklyHighlights.jsx'
+import Milestones from './Milestones.jsx'
 
 // Human-readable playtime, e.g. 5400s → "1h 30m".
 function formatDuration(seconds) {
@@ -229,6 +230,7 @@ export default function Leaderboard() {
             <KillFeed serverId={serverId} />
           </aside>
           <div className="lb-main">
+            <Milestones />
             <SeasonChampions />
             <WeeklyHighlights />
             <div className="lbfilter">

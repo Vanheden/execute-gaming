@@ -4,6 +4,7 @@ import { rankForPoints } from '../data/ranks.js'
 import { linkProps } from '../lib/router.js'
 import Badges from './Badges.jsx'
 import ActivityHeatmap from './ActivityHeatmap.jsx'
+import Rivalries from './Rivalries.jsx'
 
 function serverName(id) {
   return servers.find((s) => s.id === id)?.name || id
@@ -153,6 +154,8 @@ export default function PublicProfile({ profileKey }) {
             </div>
 
             {m.points && typeof m.points.overall === 'number' && <RankBadge points={m.points} />}
+
+            {m.steamId && <Rivalries steamId={m.steamId} />}
 
             {m.steamId && <ActivityHeatmap steamId={m.steamId} />}
 
