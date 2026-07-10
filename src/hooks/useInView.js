@@ -1,16 +1,21 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
 // Returns [ref, inView]. `inView` flips true once the element scrolls into the
 // viewport, then the observer disconnects (one-shot — for reveals & count-ups).
-// Falls back to true when IntersectionObserver is unavailable, so content is
-// never left hidden.
+//
+// `ref` is a CALLBACK ref on purpose: the target may mount later than the hook
+// (e.g. a panel that shows a skeleton first, then swaps in the real element). A
+// plain useRef would be observed only on the initial mount and miss that swap,
+// leaving `inView` stuck false. Tracking the node in state re-runs the observer
+// whenever the element actually attaches. Falls back to true when
+// IntersectionObserver is unavailable, so content is never left hidden.
 export function useInView({ threshold = 0.15, rootMargin = '0px 0px -8% 0px' } = {}) {
-  const ref = useRef(null)
+  const [node, setNode] = useState(null)
+  const ref = useCallback((el) => setNode(el), [])
   const [inView, setInView] = useState(false)
 
   useEffect(() => {
-    const el = ref.current
-    if (!el) return
+    if (!node) return
     if (typeof IntersectionObserver === 'undefined') {
       setInView(true)
       return
@@ -24,9 +29,9 @@ export function useInView({ threshold = 0.15, rootMargin = '0px 0px -8% 0px' } =
       },
       { threshold, rootMargin },
     )
-    obs.observe(el)
+    obs.observe(node)
     return () => obs.disconnect()
-  }, [threshold, rootMargin])
+  }, [node, threshold, rootMargin])
 
   return [ref, inView]
 }
