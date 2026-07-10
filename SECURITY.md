@@ -12,6 +12,10 @@ minimal deps" ethos.
   sees the real protocol/IP.
 - Session cookies are `httpOnly`, `sameSite=lax`, and `secure` in production
   (see `server/index.js`). The signing secret comes from `SESSION_SECRET`.
+- **Fail-fast on insecure config:** in production the server **refuses to boot**
+  (`process.exit(1)`) if `SESSION_SECRET` is unset or still the default — a
+  forgeable session secret would let anyone impersonate any account, including an
+  admin. A missing `INGEST_SECRET` only warns (ingest already fails closed).
 
 ### HTTP headers
 Set on every response (`server/index.js`), no dependency needed:
@@ -29,6 +33,17 @@ A dependency-free, in-memory per-IP sliding window on **mutating** requests
 (POST/PUT/PATCH/DELETE): `RATE_MAX` per `RATE_WINDOW_MS` (default 60/minute).
 Blunts brute-force and spam without a shared store; resets on restart, which is
 fine at this scale. GETs are unaffected.
+
+### Bot protection (CAPTCHA)
+- **Cloudflare Turnstile** guards the two abuse-prone entry points: **login**
+  (`GET /auth/discord|steam`, verified in `ensureLoginCaptcha` before the OAuth
+  round-trip) and **suggestion posting** (`POST /api/suggestions`). The widget
+  token is verified server-side against Cloudflare's siteverify (`server/turnstile.js`).
+- Enabled only when **both** `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` are
+  set; otherwise it's skipped entirely (so local dev is unaffected). The public
+  site key is served to the browser via `/api/config`; the secret never leaves
+  the server. Tokens are single-use — the frontend requests a fresh challenge
+  after each submit.
 
 ### Input handling
 - JSON body cap of 64 kB (`express.json({ limit })`).

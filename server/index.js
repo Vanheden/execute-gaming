@@ -76,6 +76,7 @@ import {
   catalogWithCounts,
   GRANTABLE,
 } from './achievements.js'
+import { turnstileEnabled, turnstileSiteKey, verifyTurnstile } from './turnstile.js'
 import { logAudit, listAudit } from './audit.js'
 import { recordHit, summary as analyticsSummary } from './analytics.js'
 import {
@@ -110,6 +111,25 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 const app = express()
 const PORT = process.env.PORT || 3001
 const isProd = process.env.NODE_ENV === 'production'
+
+// --- Fail fast on insecure production config -------------------------------
+// A default/missing SESSION_SECRET means anyone can forge a session cookie and
+// impersonate any account (including an admin), so refuse to boot with it in
+// production. INGEST_SECRET being unset is safe (ingest fails closed / stays
+// disabled), so that's only a warning. Dev keeps running with the fallbacks.
+if (isProd) {
+  if (!process.env.SESSION_SECRET || process.env.SESSION_SECRET === 'dev-secret-change-me') {
+    console.error(
+      '[boot] Refusing to start: SESSION_SECRET is unset or still the default.\n' +
+        '       Set a long random string in .env — otherwise session cookies are forgeable.',
+    )
+    process.exit(1)
+  }
+  if (!process.env.INGEST_SECRET) {
+    console.warn('[boot] INGEST_SECRET is unset — leaderboard ingest is disabled (endpoints return 503).')
+  }
+}
+
 // Where to send the browser back to after login (the frontend). In dev we always
 // use the local Vite server, so a production PUBLIC_BASE_URL in .env doesn't
 // bounce you to the live domain while developing.
@@ -242,21 +262,39 @@ function startLink(provider) {
 
 // --- Discord ---------------------------------------------------------------
 if (enabledProviders.discord) {
-  app.get('/auth/discord', passport.authenticate('discord'))
+  app.get('/auth/discord', ensureLoginCaptcha, passport.authenticate('discord'))
   app.get('/auth/discord/link', startLink('discord'))
   app.get('/auth/discord/callback', providerCallback('discord'))
 }
 
 // --- Steam -----------------------------------------------------------------
 if (enabledProviders.steam) {
-  app.get('/auth/steam', passport.authenticate('steam'))
+  app.get('/auth/steam', ensureLoginCaptcha, passport.authenticate('steam'))
   app.get('/auth/steam/link', startLink('steam'))
   app.get('/auth/steam/callback', providerCallback('steam'))
 }
 
 // --- API -------------------------------------------------------------------
-// Which providers are configured (so the UI can enable/disable buttons).
-app.get('/api/config', (req, res) => res.json({ providers: enabledProviders }))
+// Which providers are configured (so the UI can enable/disable buttons), plus the
+// public Turnstile site key when CAPTCHA is enabled (safe to expose; the secret
+// key never leaves the server).
+app.get('/api/config', (req, res) =>
+  res.json({
+    providers: enabledProviders,
+    turnstile: { enabled: turnstileEnabled(), siteKey: turnstileSiteKey() },
+  }),
+)
+
+// CAPTCHA gate for the primary login redirects. The frontend appends ?ts=<token>
+// from the Turnstile widget; verify it before starting the OAuth round-trip. No-op
+// when Turnstile isn't configured. The account *link* flow is not gated — that user
+// is already authenticated.
+async function ensureLoginCaptcha(req, res, next) {
+  if (!turnstileEnabled()) return next()
+  const ok = await verifyTurnstile(req.query.ts, req.ip)
+  if (!ok) return res.redirect(`${FRONTEND}/?login=captcha`)
+  next()
+}
 
 // The currently logged-in user (or null), decorated with earned badges and the
 // list of linked provider identities (so the profile can show link status).
@@ -923,7 +961,10 @@ app.get('/api/suggestions', (req, res) => {
   res.json({ suggestions: listSuggestions(req.user?.id || '') })
 })
 
-app.post('/api/suggestions', ensureAuth, (req, res) => {
+app.post('/api/suggestions', ensureAuth, async (req, res) => {
+  if (!(await verifyTurnstile(req.body?.turnstileToken, req.ip))) {
+    return res.status(403).json({ error: 'captcha failed' })
+  }
   const title = str(req.body?.title, 140)
   if (!title) return res.status(400).json({ error: 'title required' })
   const body = req.body?.body ? str(req.body.body, 2000) : null

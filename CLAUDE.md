@@ -68,7 +68,12 @@ the live domain while developing — the same `.env` works on your machine and t
 - `services/serverStatus.js` + `hooks/useServerStatus.js` — live status. V Rising
   uses BattleMetrics (`battlemetricsId`); anything without one falls back to mock.
 - `auth/AuthContext.jsx` — `useAuth()` exposes `{ user, loading, providers,
-  logout }`. Fetches `/api/me` and `/api/config` on load.
+  turnstile, logout }`. Fetches `/api/me` and `/api/config` on load (`turnstile`
+  is `{ enabled, siteKey }` for the CAPTCHA widget).
+- `components/Turnstile.jsx` — reusable Cloudflare Turnstile widget (loads the CF
+  script once, renders nothing when CAPTCHA is disabled). Used by `LoginModal` and
+  `Suggestions`. Reports its token via `onVerify(token|null)`; bump `resetSignal`
+  to force a fresh challenge after a token is consumed.
 - `components/` — Navbar, Hero, Servers/ServerCard, Community, Members, Rules,
   Footer, LoginModal, ProfileModal.
 
@@ -113,6 +118,11 @@ the live domain while developing — the same `.env` works on your machine and t
   site-wide announcement banner (stored in a key/value `settings` table).
 - `achievements.js` — grant/revoke stored badges + compute auto ones; imports
   the shared catalog from `src/data/achievements.js`.
+- `turnstile.js` — Cloudflare Turnstile (CAPTCHA) verification. `verifyTurnstile()`
+  checks a widget token against Cloudflare's siteverify; **fail-open when unconfigured**
+  (returns true if the keys aren't set, like the OAuth/webhook integrations) so dev
+  works without keys. Enabled only when both `TURNSTILE_SITE_KEY` + `TURNSTILE_SECRET_KEY`
+  are set. Guards login (`ensureLoginCaptcha`) and `POST /api/suggestions`.
 - `audit.js` — `logAudit()` / `listAudit()` for the admin action log.
 - `analytics.js` — privacy-friendly page-view counter (`recordHit`, `summary`);
   no cookies/IPs/PII, aggregate counts only.
@@ -179,7 +189,10 @@ the live domain while developing — the same `.env` works on your machine and t
 - `GET /api/me` — current user (+ `key`, `rank`, `badges`, `identities`) or null
 - `POST /api/me/unlink` — unlink a connected provider (not your sign-in one)
 - `PUT /api/me/profile` — update your own bio + favourite server (auth)
-- `GET /api/config` — which providers are enabled
+- `GET /api/config` — which providers are enabled + `turnstile: { enabled, siteKey }`
+  (public CAPTCHA site key). When CAPTCHA is on, `GET /auth/discord|steam` require a
+  valid `?ts=` Turnstile token (`ensureLoginCaptcha`) and `POST /api/suggestions`
+  requires `turnstileToken` in the body — both no-ops when Turnstile is unconfigured.
 - `GET /api/announcement` (public), `PUT /api/announcement` (admin) — site banner
 - `GET /api/members` — **public** roster (hashed key, safe fields, badges; banned hidden)
 - `GET /api/profile/:key` — **public** single profile for `/u/:key` pages
@@ -270,8 +283,12 @@ names/colours), `DISCORD_WEBHOOK_URL` (optional — posts news/events/banner/ran
 embeds to a Discord channel; blank = disabled), `STEAM_API_KEY`,
 `STATS_POLL_MINUTES` (optional, default 5),
 `INGEST_SECRET` (shared secret for the leaderboard mod's session ingest; leave
-blank to disable ingest — the endpoint then returns 503).
+blank to disable ingest — the endpoint then returns 503),
+`TURNSTILE_SITE_KEY` + `TURNSTILE_SECRET_KEY` (optional Cloudflare Turnstile CAPTCHA
+on login + suggestions; **both** must be set to enable it, else it's skipped).
 In production also set `NODE_ENV=production` and `PUBLIC_BASE_URL=https://execute-gaming.se`.
+**In production the server refuses to boot** if `SESSION_SECRET` is unset or the
+default (forgeable cookies) — set a long random string.
 
 ## Deployment
 

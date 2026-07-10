@@ -1,5 +1,6 @@
-import { useEffect } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useAuth } from '../auth/AuthContext.jsx'
+import Turnstile from './Turnstile.jsx'
 
 const DiscordIcon = () => (
   <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true">
@@ -14,7 +15,9 @@ const SteamIcon = () => (
 )
 
 export default function LoginModal({ open, onClose }) {
-  const { providers } = useAuth()
+  const { providers, turnstile } = useAuth()
+  const [token, setToken] = useState(null)
+  const onVerify = useCallback((t) => setToken(t), [])
 
   useEffect(() => {
     if (!open) return
@@ -23,9 +26,19 @@ export default function LoginModal({ open, onClose }) {
     return () => window.removeEventListener('keydown', onKey)
   }, [open, onClose])
 
+  // Reset the challenge each time the modal reopens so a stale token isn't reused.
+  useEffect(() => {
+    if (!open) setToken(null)
+  }, [open])
+
   if (!open) return null
 
   const noneEnabled = !providers.discord && !providers.steam
+  // When Turnstile is on, the OAuth links stay disabled until the widget yields a
+  // token, which we pass to the backend as ?ts= for server-side verification.
+  const gated = turnstile?.enabled
+  const ready = !gated || !!token
+  const authHref = (base) => (ready ? (gated ? `${base}?ts=${encodeURIComponent(token)}` : base) : undefined)
 
   return (
     <div className="modal" onClick={onClose} role="dialog" aria-modal="true">
@@ -39,22 +52,28 @@ export default function LoginModal({ open, onClose }) {
 
         <div className="modal__providers">
           <a
-            className={`oauth oauth--discord ${providers.discord ? '' : 'oauth--disabled'}`}
-            href={providers.discord ? '/auth/discord' : undefined}
-            aria-disabled={!providers.discord}
+            className={`oauth oauth--discord ${providers.discord && ready ? '' : 'oauth--disabled'}`}
+            href={providers.discord ? authHref('/auth/discord') : undefined}
+            aria-disabled={!providers.discord || !ready}
           >
             <DiscordIcon />
             Continue with Discord
           </a>
           <a
-            className={`oauth oauth--steam ${providers.steam ? '' : 'oauth--disabled'}`}
-            href={providers.steam ? '/auth/steam' : undefined}
-            aria-disabled={!providers.steam}
+            className={`oauth oauth--steam ${providers.steam && ready ? '' : 'oauth--disabled'}`}
+            href={providers.steam ? authHref('/auth/steam') : undefined}
+            aria-disabled={!providers.steam || !ready}
           >
             <SteamIcon />
             Continue with Steam
           </a>
         </div>
+
+        {gated && (
+          <div className="modal__captcha">
+            <Turnstile onVerify={onVerify} />
+          </div>
+        )}
 
         {noneEnabled && (
           <p className="modal__note">

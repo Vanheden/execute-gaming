@@ -6,6 +6,7 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
   const [providers, setProviders] = useState({ discord: false, steam: false })
+  const [turnstile, setTurnstile] = useState({ enabled: false, siteKey: null })
   const [notice, setNotice] = useState(null)
 
   async function refresh() {
@@ -28,6 +29,7 @@ export function AuthProvider({ children }) {
       if (status === 'banned') setNotice("You're banned from this community.")
       else if (status === 'failed') setNotice('Login failed — please try again.')
       else if (status === 'required') setNotice('Please sign in first.')
+      else if (status === 'captcha') setNotice('Captcha check failed — please try again.')
       dirty = true
     }
     if (params.has('linked')) {
@@ -45,7 +47,10 @@ export function AuthProvider({ children }) {
       refresh(),
       fetch('/api/config')
         .then((r) => (r.ok ? r.json() : { providers: {} }))
-        .then((d) => setProviders(d.providers || {}))
+        .then((d) => {
+          setProviders(d.providers || {})
+          setTurnstile(d.turnstile || { enabled: false, siteKey: null })
+        })
         .catch(() => {}),
     ]).finally(() => setLoading(false))
   }, [])
@@ -60,7 +65,7 @@ export function AuthProvider({ children }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, loading, providers, logout, refresh, notice, clearNotice: () => setNotice(null) }}
+      value={{ user, loading, providers, turnstile, logout, refresh, notice, clearNotice: () => setNotice(null) }}
     >
       {children}
     </AuthContext.Provider>

@@ -1141,6 +1141,17 @@ body.has-banner .nav {
   display: grid;
   gap: 12px;
 }
+/* Cloudflare Turnstile widget wrappers — centre the challenge box and give it a
+   little breathing room in the login modal and the suggestion form. */
+.modal__captcha {
+  display: flex;
+  justify-content: center;
+  margin-top: 14px;
+  min-height: 65px;
+}
+.sugg__form .turnstile {
+  margin-top: 4px;
+}
 .oauth {
   display: flex;
   align-items: center;

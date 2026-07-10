@@ -1,18 +1,23 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useAuth } from '../auth/AuthContext.jsx'
 import { apiGet, apiSend } from '../lib/api.js'
 import { useConfirm } from './ConfirmProvider.jsx'
+import Turnstile from './Turnstile.jsx'
 
 const STATUSES = ['open', 'planned', 'done', 'declined']
 
 export default function Suggestions() {
-  const { user } = useAuth()
+  const { user, turnstile } = useAuth()
   const { confirm } = useConfirm()
   const isAdmin = user?.role === 'admin'
   const [items, setItems] = useState(null)
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
   const [busy, setBusy] = useState(false)
+  const [token, setToken] = useState(null)
+  const [captchaReset, setCaptchaReset] = useState(0)
+  const onVerify = useCallback((t) => setToken(t), [])
+  const gated = turnstile?.enabled
 
   function load() {
     apiGet('/api/suggestions').then((d) => setItems(d.suggestions)).catch(() => setItems([]))
@@ -22,9 +27,14 @@ export default function Suggestions() {
   async function submit(e) {
     e.preventDefault()
     if (!title.trim()) return
+    if (gated && !token) return
     setBusy(true)
     try {
-      const { suggestion } = await apiSend('POST', '/api/suggestions', { title, body })
+      const { suggestion } = await apiSend('POST', '/api/suggestions', {
+        title,
+        body,
+        turnstileToken: token,
+      })
       setItems((s) => [{ ...suggestion, votes: 0, hasVoted: false }, ...s])
       setTitle('')
       setBody('')
@@ -32,6 +42,11 @@ export default function Suggestions() {
       /* ignore */
     } finally {
       setBusy(false)
+      // The token is single-use once the server verifies it — get a fresh one.
+      if (gated) {
+        setToken(null)
+        setCaptchaReset((n) => n + 1)
+      }
     }
   }
 
@@ -102,8 +117,11 @@ export default function Suggestions() {
               rows={2}
               maxLength={2000}
             />
+            {gated && <Turnstile onVerify={onVerify} resetSignal={captchaReset} />}
             <div className="cform__actions">
-              <button className="btn btn--sm" disabled={busy}>{busy ? 'Posting…' : 'Post suggestion'}</button>
+              <button className="btn btn--sm" disabled={busy || (gated && !token)}>
+                {busy ? 'Posting…' : 'Post suggestion'}
+              </button>
             </div>
           </form>
         ) : (
