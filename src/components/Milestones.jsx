@@ -1,20 +1,58 @@
 import { useEffect, useState } from 'react'
 import { linkProps } from '../lib/router.js'
+import { useInView, prefersReducedMotion } from '../hooks/useInView.js'
 
 // Community-wide totals + the hottest PvP feud + top play streaks. Rendered at the
 // top of the leaderboard page. Everything is aggregate/public — no PII.
 
-function formatHours(seconds) {
-  const h = Math.round(seconds / 3600)
-  return h.toLocaleString()
+const TILES = [
+  { key: 'seconds', icon: '⏳', label: 'Hours played', value: (s) => Math.round(s.seconds / 3600) },
+  { key: 'vblood', icon: '🩸', label: 'V Bloods felled', value: (s) => s.vblood },
+  { key: 'pvp', icon: '⚔️', label: 'PvP kills', value: (s) => s.pvp },
+  { key: 'players', icon: '🧛', label: 'Vampires tracked', value: (s) => s.players },
+]
+
+// Counts up from 0 to `end` (easeOutCubic) the first time it scrolls into view.
+// Honours reduced-motion by jumping straight to the value.
+function CountUp({ end, run }) {
+  const [n, setN] = useState(0)
+  useEffect(() => {
+    if (!run) return
+    if (prefersReducedMotion() || end <= 0) {
+      setN(end)
+      return
+    }
+    let raf
+    const start = performance.now()
+    const dur = 1100
+    const tick = (t) => {
+      const p = Math.min(1, (t - start) / dur)
+      setN(Math.round(end * (1 - Math.pow(1 - p, 3))))
+      if (p < 1) raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [end, run])
+  return n.toLocaleString()
 }
 
-const TILES = [
-  { key: 'seconds', icon: '⏳', label: 'Hours played', fmt: (s) => formatHours(s.seconds) },
-  { key: 'vblood', icon: '🩸', label: 'V Bloods felled', fmt: (s) => s.vblood.toLocaleString() },
-  { key: 'pvp', icon: '⚔️', label: 'PvP kills', fmt: (s) => s.pvp.toLocaleString() },
-  { key: 'players', icon: '🧛', label: 'Vampires tracked', fmt: (s) => s.players.toLocaleString() },
-]
+// Placeholder strip shown while the stats are loading, so the panel doesn't pop in.
+function MilestonesSkeleton() {
+  return (
+    <div className="milestones milestones--skel" aria-hidden="true">
+      <h3 className="milestones__title">🏰 Community milestones</h3>
+      <div className="milestones__grid">
+        {TILES.map((t) => (
+          <div className="milestones__tile" key={t.key}>
+            <span className="milestones__icon">{t.icon}</span>
+            <span className="sk milestones__num" />
+            <span className="sk milestones__label" />
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
 
 // A player name that links to their profile (member → /u/:key, guest → /p/:steamId).
 function PlayerLink({ p, className }) {
@@ -28,27 +66,33 @@ function PlayerLink({ p, className }) {
 
 export default function Milestones() {
   const [data, setData] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [ref, inView] = useInView()
 
   useEffect(() => {
     fetch('/api/global-stats')
       .then((r) => (r.ok ? r.json() : Promise.reject()))
-      .then(setData)
+      .then((d) => setData(d))
       .catch(() => setData(null))
+      .finally(() => setLoading(false))
   }, [])
 
+  if (loading) return <MilestonesSkeleton />
   if (!data?.stats) return null
   const { stats, hottestFeud, topStreaks } = data
   // Nothing tracked yet → don't render an empty strip.
   if (!stats.sessions && !stats.vblood && !stats.pvp) return null
 
   return (
-    <div className="milestones">
+    <div className="milestones" ref={ref}>
       <h3 className="milestones__title">🏰 Community milestones</h3>
       <div className="milestones__grid">
         {TILES.map((t) => (
           <div className="milestones__tile" key={t.key}>
             <span className="milestones__icon">{t.icon}</span>
-            <span className="milestones__num">{t.fmt(stats)}</span>
+            <span className="milestones__num">
+              <CountUp end={t.value(stats)} run={inView} />
+            </span>
             <span className="milestones__label">{t.label}</span>
           </div>
         ))}

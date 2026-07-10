@@ -102,6 +102,28 @@ function Avatar({ e }) {
   )
 }
 
+// Shimmer placeholder rows shown while the ladder loads (mirrors the real row
+// layout so there's no jump when data arrives).
+function LeaderboardSkeleton() {
+  return (
+    <ol className="lb lb--skel" aria-hidden="true">
+      {Array.from({ length: 8 }).map((_, i) => (
+        <li className="lb__row" key={i}>
+          <span className="sk sk--rank" />
+          <span className="sk sk--avatar" />
+          <div className="lb__info">
+            <span className="sk sk--line" style={{ width: '38%' }} />
+            <span className="sk sk--line sk--sm" style={{ width: '60%' }} />
+          </div>
+          <div className="lb__time">
+            <span className="sk sk--line" style={{ width: '58px' }} />
+          </div>
+        </li>
+      ))}
+    </ol>
+  )
+}
+
 // Coloured rank pill derived from the player's all-time points (persistent across
 // the period/server filters). See src/data/ranks.js for the ladder.
 function Rank({ e }) {
@@ -277,6 +299,8 @@ export default function Leaderboard() {
             ))}
           </div>
         </div>
+
+        {entries === null && <LeaderboardSkeleton />}
 
         {entries && total > 0 && (
           <ol className="lb">

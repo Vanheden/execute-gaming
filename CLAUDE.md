@@ -376,5 +376,11 @@ V Rising game server, not from this repo. It lives in `../mod/` (sibling of
 - **Theme:** a Cinzel gothic display font (`--font-display`, loaded in `index.html`)
   and blood/venom palette tokens in `:root` (`--blood-*`, `--venom-*`) give the
   leaderboard panels a gothic V Rising look. Reuse those tokens for new panels.
+- **Motion/finish primitives** (all `prefers-reduced-motion`-safe): `hooks/useInView.js`
+  (`useInView()` one-shot IntersectionObserver + `prefersReducedMotion()`),
+  `components/Reveal.jsx` (wrap a section to fade/rise it in on scroll), and CSS
+  helpers `.sk`/`.sk--*` (shimmer skeleton placeholders — mirror the real layout so
+  there's no jump) and `.reveal`. Prefer a skeleton over a bare "Loading…" string for
+  new data panels, and reuse `useInView` for any scroll-triggered animation.
 
 See `ROADMAP.md` for planned features.

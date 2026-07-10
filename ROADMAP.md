@@ -113,6 +113,12 @@ Ideas for growing the site, grouped by theme. Effort is a rough guide:
 - **Server-side status proxy** — live V Rising server status is now fetched from
   BattleMetrics **server-side** (`GET /api/servers/:id/status`, 30s cache) instead of
   from the browser, so a visitor's VPN/adblock/CORS can no longer blank the card.
+- **Motion & finish pass** — shimmer **skeleton loaders** for the leaderboard list +
+  community-milestones strip (no more bare "Loading…" text), **count-up** animation on
+  the milestone numbers when they scroll into view, **scroll-reveal** fades for the home
+  sections, and micro-interactions (leaderboard bars grow on paint, rank pills glow on
+  hover, the gold champion medal shines). All honour `prefers-reduced-motion`. Shared
+  primitives: `hooks/useInView.js`, `components/Reveal.jsx`, `.sk`/`.reveal` in CSS.
 
 ---
 
@@ -190,7 +196,9 @@ Most of the roadmap is now built. What's left:
 2. **Scheduled weekly recap** (M) — a cron-posted Discord digest (top 3, most active,
    hottest feud), building on the announcements webhook + `getGlobalStats`/`getTopStreaks`.
 
-Recently shipped: Discord webhook expanded (suggestions/season resets/community
+Recently shipped: motion & finish pass (skeleton loaders, milestone count-up,
+scroll-reveal, micro-interactions — all reduced-motion safe); Discord webhook
+expanded (suggestions/season resets/community
 milestones + per-category admin mute + test post + bot avatar); server-side
 BattleMetrics status proxy (no more client-side VPN/CORS "Unknown"); Discord
 announcements webhook (news/events/banner/rank-ups → channel embeds, fail-open);

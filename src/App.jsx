@@ -17,6 +17,7 @@ import Footer from './components/Footer.jsx'
 import PublicProfile from './components/PublicProfile.jsx'
 import PlayerProfile from './components/PlayerProfile.jsx'
 import AdminPanel from './components/AdminPanel.jsx'
+import Reveal from './components/Reveal.jsx'
 import { usePath } from './lib/router.js'
 import { useAuth } from './auth/AuthContext.jsx'
 
@@ -112,10 +113,18 @@ export default function App() {
   return (
     <Layout>
       <Hero />
-      <Servers />
-      <News />
-      <Community />
-      <Rules />
+      <Reveal>
+        <Servers />
+      </Reveal>
+      <Reveal>
+        <News />
+      </Reveal>
+      <Reveal>
+        <Community />
+      </Reveal>
+      <Reveal>
+        <Rules />
+      </Reveal>
     </Layout>
   )
 }

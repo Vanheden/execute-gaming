@@ -4170,3 +4170,138 @@ body.has-banner .nav {
   font-size: 0.68rem;
   color: var(--text-faint);
 }
+
+/* =========================================================================
+   Polish pass — skeleton loaders, scroll-reveal, and micro-interactions.
+   Everything degrades under prefers-reduced-motion (no shimmer, no reveal,
+   no bar-grow). See the matching hooks/components in src/.
+   ========================================================================= */
+
+/* --- Skeleton loaders ---------------------------------------------------- */
+.sk {
+  position: relative;
+  overflow: hidden;
+  display: block;
+  background: var(--surface-2);
+  border-radius: 7px;
+}
+.sk::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--blood-bright) 14%, transparent),
+    transparent
+  );
+  animation: skShimmer 1.4s ease-in-out infinite;
+}
+@keyframes skShimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+.sk--rank {
+  width: 22px;
+  height: 20px;
+  flex-shrink: 0;
+  margin: 0 9px;
+}
+.sk--avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.sk--line {
+  height: 12px;
+}
+.sk--sm {
+  height: 9px;
+  margin-top: 7px;
+  opacity: 0.7;
+}
+.lb--skel .lb__info {
+  flex: 1 1 auto;
+}
+.lb--skel .lb__row {
+  cursor: default;
+}
+.milestones--skel .milestones__num {
+  width: 66%;
+  height: 24px;
+  margin: 2px auto;
+}
+.milestones--skel .milestones__label {
+  width: 80%;
+  height: 9px;
+}
+
+/* --- Scroll reveal ------------------------------------------------------- */
+.reveal {
+  opacity: 0;
+  transform: translateY(18px);
+  transition: opacity 0.6s ease, transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: opacity, transform;
+}
+.reveal--in {
+  opacity: 1;
+  transform: none;
+}
+
+/* --- Micro-interactions -------------------------------------------------- */
+/* Rank pill picks up a coloured glow when its row is hovered. */
+.lb__rankpill {
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+.lb__row:hover .lb__rankpill {
+  box-shadow: 0 0 15px -2px color-mix(in srgb, var(--rank, var(--c-violet)) 65%, transparent);
+}
+
+/* Leaderboard bars grow from zero on first paint. The fill already has the
+   correct width (var(--pct)); we just scale it in. */
+.lb__bar::after {
+  transform-origin: left center;
+  animation: barGrow 0.75s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes barGrow {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+/* The gold champion medal breathes a soft shine. */
+.lb__rank--1 .lb__medal {
+  animation: medalShine 2.8s ease-in-out infinite;
+}
+@keyframes medalShine {
+  0%,
+  100% {
+    filter: drop-shadow(0 1px 4px color-mix(in srgb, currentColor 50%, transparent)) brightness(1);
+  }
+  50% {
+    filter: drop-shadow(0 1px 8px color-mix(in srgb, currentColor 80%, transparent)) brightness(1.28);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sk::after {
+    animation: none;
+  }
+  .reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+  .lb__bar::after {
+    animation: none;
+  }
+  .lb__rank--1 .lb__medal {
+    animation: none;
+  }
+}
