@@ -3663,6 +3663,39 @@ body.has-banner .nav {
   }
 }
 
+/* Leaderboard pagination (20 players per page) */
+.lb-pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 20px;
+}
+.lb-pager__btn {
+  padding: 8px 18px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text);
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, opacity 0.15s ease;
+}
+.lb-pager__btn:hover:not(:disabled) {
+  background: var(--grad-cta);
+  color: #fff;
+}
+.lb-pager__btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.lb-pager__status {
+  color: var(--text-dim);
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
 /* ===========================================================================
    V Blood Hunt Tracker
    =========================================================================== */

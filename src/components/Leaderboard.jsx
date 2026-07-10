@@ -67,6 +67,13 @@ const PERIODS = [
   ['7d', 'Last 7 days'],
 ]
 
+// How many players to show per leaderboard page.
+const PAGE_SIZE = 20
+
+// Top-3 medals. Must be a real array — emoji are surrogate pairs, so indexing a
+// plain string ('🥇🥈🥉'[i]) returns half a code point and renders as tofu.
+const MEDALS = ['🥇', '🥈', '🥉']
+
 // Server filter tabs: "All servers" + one per configured server.
 const SERVER_TABS = [['', 'All servers'], ...servers.map((s) => [s.id, s.name])]
 
@@ -171,12 +178,14 @@ export default function Leaderboard() {
   const [period, setPeriod] = useState('all')
   const [serverId, setServerId] = useState('')
   const [error, setError] = useState(false)
+  const [page, setPage] = useState(0)
 
   const active = METRICS.find((m) => m.id === metric) || METRICS[0]
 
   useEffect(() => {
     setEntries(null)
     setError(false)
+    setPage(0)
     const params = new URLSearchParams({ metric, period })
     if (serverId) params.set('serverId', serverId)
     fetch(`/api/leaderboard?${params}`)
@@ -190,6 +199,11 @@ export default function Leaderboard() {
 
   const total = entries?.length || 0
   const maxValue = useMemo(() => (entries?.length ? active.value(entries[0]) : 0), [entries, active])
+
+  // Show at most PAGE_SIZE players per page; rank numbers stay global.
+  const pageCount = Math.ceil(total / PAGE_SIZE)
+  const start = page * PAGE_SIZE
+  const pageEntries = entries ? entries.slice(start, start + PAGE_SIZE) : []
 
   return (
     <section className="section section--alt" id="leaderboard">
@@ -255,31 +269,56 @@ export default function Leaderboard() {
 
         {entries && total > 0 && (
           <ol className="lb">
-            {entries.map((e, i) => (
-              <li className={`lb__row ${i < 3 ? `lb__row--top lb__row--${i + 1}` : ''}`} key={e.steamId}>
-                <span className={`lb__rank lb__rank--${i + 1}`}>
-                  {i < 3 ? <span className="lb__medal">{'🥇🥈🥉'[i]}</span> : `#${i + 1}`}
-                </span>
-                <Avatar e={e} />
-                <div className="lb__info">
-                  <div className="lb__nameline">
-                    <Name e={e} />
-                    <Rank e={e} />
+            {pageEntries.map((e, i) => {
+              const rank = start + i // global position across all pages
+              return (
+                <li className={`lb__row ${rank < 3 ? `lb__row--top lb__row--${rank + 1}` : ''}`} key={e.steamId}>
+                  <span className={`lb__rank lb__rank--${rank + 1}`}>
+                    {rank < 3 ? <span className="lb__medal">{MEDALS[rank]}</span> : `#${rank + 1}`}
+                  </span>
+                  <Avatar e={e} />
+                  <div className="lb__info">
+                    <div className="lb__nameline">
+                      <Name e={e} />
+                      <Rank e={e} />
+                    </div>
+                    <Meta e={e} metric={metric} />
+                    <LatestKill e={e} />
                   </div>
-                  <Meta e={e} metric={metric} />
-                  <LatestKill e={e} />
-                </div>
-                <div className="lb__time">
-                  <span className="lb__hours">{active.render(e)}</span>
-                  <span
-                    className="lb__bar"
-                    style={{ '--pct': `${maxValue ? (active.value(e) / maxValue) * 100 : 0}%` }}
-                    aria-hidden="true"
-                  />
-                </div>
-              </li>
-            ))}
+                  <div className="lb__time">
+                    <span className="lb__hours">{active.render(e)}</span>
+                    <span
+                      className="lb__bar"
+                      style={{ '--pct': `${maxValue ? (active.value(e) / maxValue) * 100 : 0}%` }}
+                      aria-hidden="true"
+                    />
+                  </div>
+                </li>
+              )
+            })}
           </ol>
+        )}
+
+        {entries && pageCount > 1 && (
+          <div className="lb-pager">
+            <button
+              className="lb-pager__btn"
+              onClick={() => setPage((p) => Math.max(0, p - 1))}
+              disabled={page === 0}
+            >
+              ← Prev
+            </button>
+            <span className="lb-pager__status">
+              Page {page + 1} of {pageCount}
+            </span>
+            <button
+              className="lb-pager__btn"
+              onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
+              disabled={page >= pageCount - 1}
+            >
+              Next →
+            </button>
+          </div>
         )}
           </div>
         </div>
