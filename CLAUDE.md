@@ -368,8 +368,9 @@ V Rising game server, not from this repo. It lives in `../mod/` (sibling of
 - Keep all persistence behind `server/store.js`.
 - User-facing copy is in **English**.
 - The `/leaderboard` page (`components/Leaderboard.jsx`) composes several widgets:
-  `<Milestones>` (community-wide counters + hottest feud + top streaks), `<SeasonChampions>`,
-  `<WeeklyHighlights>`, `<KillFeed>`, and the ranked list itself (paginated 20/page,
+  `<ChampionCard>` (hero spotlight of the reigning all-time Points #1, at the top of
+  `.lb-main`), `<Milestones>` (community-wide counters + hottest feud + top streaks),
+  `<SeasonChampions>`, `<WeeklyHighlights>`, `<KillFeed>`, and the ranked list itself (paginated 20/page,
   rank/medals global across pages). `<Rivalries>` (Nemesis + prey + streak) is shared by
   both profile types. Emoji medals must be indexed from an array, not a string — emoji
   are surrogate pairs, so `'🥇🥈🥉'[i]` returns half a code point (renders as tofu).

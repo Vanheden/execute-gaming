@@ -3,6 +3,7 @@ import { servers } from '../data/servers.js'
 import { rankForPoints } from '../data/ranks.js'
 import { linkProps } from '../lib/router.js'
 import KillFeed from './KillFeed.jsx'
+import ChampionCard from './ChampionCard.jsx'
 import SeasonChampions from './SeasonChampions.jsx'
 import WeeklyHighlights from './WeeklyHighlights.jsx'
 import Milestones from './Milestones.jsx'
@@ -261,6 +262,7 @@ export default function Leaderboard() {
             <KillFeed serverId={serverId} />
           </aside>
           <div className="lb-main">
+            <ChampionCard />
             {features.milestones && <Milestones />}
             {features.champions && <SeasonChampions />}
             {features.highlights && <WeeklyHighlights />}

@@ -4305,3 +4305,259 @@ body.has-banner .nav {
     animation: none;
   }
 }
+
+/* ==========================================================================
+   Reigning Champion card — the hero spotlight atop the leaderboard.
+   ========================================================================== */
+.champ {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  margin-bottom: 18px;
+  padding: 22px 24px;
+  border: 1px solid color-mix(in srgb, var(--rank, var(--blood-bright)) 40%, var(--blood-line));
+  border-radius: var(--radius);
+  background:
+    radial-gradient(120% 160% at 82% -35%, color-mix(in srgb, var(--rank, var(--blood-bright)) 26%, transparent), transparent 58%),
+    radial-gradient(90% 140% at 10% 120%, rgba(230, 57, 80, 0.14), transparent 60%),
+    linear-gradient(180deg, #241333, #16101f);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 30px 70px -40px var(--blood-glow);
+  opacity: 0;
+  transform: translateY(14px);
+  transition: opacity 0.6s ease, transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.champ--seen {
+  opacity: 1;
+  transform: none;
+}
+/* Golden crown-lit line bleeding across the top edge. */
+.champ::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--rank, var(--blood-bright)), transparent);
+  opacity: 0.8;
+}
+/* Slow-drifting blood-moon glow behind the avatar. */
+.champ__glow {
+  position: absolute;
+  top: -40%;
+  left: -10%;
+  width: 240px;
+  height: 240px;
+  border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--rank, var(--blood-bright)) 40%, transparent), transparent 70%);
+  filter: blur(10px);
+  pointer-events: none;
+  animation: champGlow 7s ease-in-out infinite;
+}
+@keyframes champGlow {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.9;
+    transform: scale(1.08);
+  }
+}
+.champ__crown {
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  font-size: 1.25rem;
+  filter: drop-shadow(0 0 10px rgba(245, 182, 66, 0.6));
+  animation: champCrown 4s ease-in-out infinite;
+}
+@keyframes champCrown {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-4deg);
+  }
+  50% {
+    transform: translateY(-3px) rotate(4deg);
+  }
+}
+.champ__avatarwrap {
+  position: relative;
+  flex-shrink: 0;
+  display: inline-flex;
+  line-height: 0;
+  text-decoration: none;
+}
+.champ__avatar {
+  width: 92px;
+  height: 92px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid color-mix(in srgb, var(--rank, var(--blood-bright)) 70%, transparent);
+  box-shadow: 0 0 26px -4px color-mix(in srgb, var(--rank, var(--blood-glow)) 75%, transparent);
+}
+.champ__avatar--ph {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  background: linear-gradient(135deg, #b3122b, #6a0d18);
+  border: 2px solid color-mix(in srgb, var(--rank, var(--blood-bright)) 70%, transparent);
+}
+.champ__bat {
+  width: 52px;
+  height: 52px;
+}
+/* Pulsing rank-coloured halo around the avatar. */
+.champ__ring {
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  border: 1px solid color-mix(in srgb, var(--rank, var(--blood-bright)) 55%, transparent);
+  animation: champRing 3.2s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes champRing {
+  0%,
+  100% {
+    opacity: 0.5;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.15;
+    transform: scale(1.12);
+  }
+}
+.champ__body {
+  position: relative;
+  min-width: 0;
+  flex: 1;
+}
+.champ__eyebrow {
+  margin: 0 0 4px;
+  font-family: var(--font-display);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.22em;
+  color: color-mix(in srgb, var(--rank, #ff6273) 80%, #ffd0d6);
+  text-shadow: 0 0 16px color-mix(in srgb, var(--rank, var(--blood-glow)) 60%, transparent);
+}
+.champ__nameline {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.champ__name {
+  font-family: var(--font-display);
+  font-size: 1.7rem;
+  font-weight: 700;
+  line-height: 1.1;
+  color: #fff;
+  text-decoration: none;
+  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.champ__name:hover {
+  color: var(--c-cyan);
+}
+.champ__rank {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+  padding: 3px 11px 3px 8px;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  line-height: 1.5;
+  white-space: nowrap;
+  color: var(--rank, var(--blood-bright));
+  background: color-mix(in srgb, var(--rank, var(--blood-bright)) 22%, transparent);
+  border: 1px solid color-mix(in srgb, var(--rank, var(--blood-bright)) 60%, transparent);
+}
+.champ__rankicon {
+  font-size: 0.9em;
+}
+.champ__stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+.champ__stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(180deg, rgba(58, 24, 40, 0.5), rgba(30, 16, 28, 0.5));
+  border: 1px solid var(--blood-line);
+}
+.champ__statnum {
+  font-family: var(--font-display);
+  font-size: 1.45rem;
+  font-weight: 700;
+  line-height: 1.1;
+  color: #ffe9ec;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 0 20px rgba(230, 57, 80, 0.35);
+}
+.champ__stat--pts .champ__statnum {
+  color: #fff;
+}
+.champ__stat--vb .champ__statnum {
+  color: var(--blood-bright);
+}
+.champ__stat--pvp .champ__statnum {
+  color: #ff9db0;
+}
+.champ__unit {
+  margin-left: 2px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--muted, #b9a7cf);
+}
+.champ__statlabel {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted, #b9a7cf);
+}
+
+@media (max-width: 560px) {
+  .champ {
+    flex-direction: column;
+    text-align: center;
+    gap: 16px;
+    padding: 20px 16px;
+  }
+  .champ__nameline {
+    justify-content: center;
+  }
+  .champ__stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .champ {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+  .champ__glow,
+  .champ__crown,
+  .champ__ring {
+    animation: none;
+  }
+}
