@@ -515,6 +515,71 @@ export function checkRankPromotion(steamId) {
   return { from: prev.tierIndex, to: index, tier: RANKS[index], points }
 }
 
+// --- Community milestone detection (for the Discord webhook) ---------------
+// Watches the cumulative community totals (from getGlobalStats) and returns the
+// round thresholds newly crossed since we last checked. Like ranks, each metric
+// is seeded SILENTLY on first run (so enabling the webhook never announces a
+// milestone already passed), and we store a high-water mark so a season reset
+// that lowers the running total never re-announces the same milestone.
+const MILESTONES = {
+  hours: {
+    thresholds: [100, 500, 1000, 2500, 5000, 10000, 25000, 50000, 100000, 250000],
+    emoji: '⏳',
+    label: (v) => `${v.toLocaleString()} hours played together`,
+  },
+  vblood: {
+    thresholds: [100, 500, 1000, 2500, 5000, 10000, 25000, 50000, 100000],
+    emoji: '🩸',
+    label: (v) => `${v.toLocaleString()} V Bloods felled`,
+  },
+  pvp: {
+    thresholds: [100, 500, 1000, 2500, 5000, 10000, 25000, 50000, 100000],
+    emoji: '⚔️',
+    label: (v) => `${v.toLocaleString()} PvP kills landed`,
+  },
+}
+const msReadStmt = db.prepare('SELECT value FROM settings WHERE key = ?')
+const msWriteStmt = db.prepare(
+  `INSERT INTO settings (key, value) VALUES (?, ?)
+   ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+)
+
+function highestCrossed(thresholds, value) {
+  let hit = 0
+  for (const t of thresholds) if (value >= t) hit = t
+  return hit
+}
+
+export function checkMilestones() {
+  const stats = getGlobalStats()
+  const values = {
+    hours: Math.floor((stats.seconds || 0) / 3600),
+    vblood: stats.vblood || 0,
+    pvp: stats.pvp || 0,
+  }
+  const crossed = []
+  for (const [metric, cfg] of Object.entries(MILESTONES)) {
+    const current = highestCrossed(cfg.thresholds, values[metric])
+    const key = `milestone_${metric}`
+    const row = msReadStmt.get(key)
+    if (!row?.value) {
+      msWriteStmt.run(key, JSON.stringify(current)) // seed silently
+      continue
+    }
+    let prev = 0
+    try {
+      prev = JSON.parse(row.value)
+    } catch {
+      prev = 0
+    }
+    if (current > prev) {
+      msWriteStmt.run(key, JSON.stringify(current))
+      crossed.push({ metric, value: current, label: cfg.label(current), emoji: cfg.emoji })
+    }
+  }
+  return crossed
+}
+
 export const LEADERBOARD_PERIODS = Object.keys(PERIODS)
 export const LEADERBOARD_METRICS = Object.keys(METRICS)
 

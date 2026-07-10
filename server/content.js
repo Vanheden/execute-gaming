@@ -199,3 +199,33 @@ export function setFeatureEnabled(key, enabled) {
   ).run(`feature_${key}`, JSON.stringify(value))
   return getFeatureFlags()
 }
+
+// --- Discord webhook per-category toggles ----------------------------------
+// The whole webhook is gated by the DISCORD_WEBHOOK_URL env var; these let an
+// admin mute individual categories even when the URL is set. Stored under
+// webhook_<key>, default ON (a missing/invalid setting means enabled).
+export const WEBHOOK_KEYS = ['news', 'events', 'announcement', 'rankup', 'suggestion', 'season', 'milestone']
+
+export function isWebhookEnabled(key) {
+  const row = db.prepare('SELECT value FROM settings WHERE key = ?').get(`webhook_${key}`)
+  if (!row?.value) return true
+  try {
+    return JSON.parse(row.value).enabled !== false
+  } catch {
+    return true
+  }
+}
+
+export function getWebhookFlags() {
+  return Object.fromEntries(WEBHOOK_KEYS.map((k) => [k, isWebhookEnabled(k)]))
+}
+
+export function setWebhookEnabled(key, enabled) {
+  if (!WEBHOOK_KEYS.includes(key)) return null
+  const value = { enabled: !!enabled, updatedAt: now() }
+  db.prepare(
+    `INSERT INTO settings (key, value) VALUES (?, ?)
+     ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+  ).run(`webhook_${key}`, JSON.stringify(value))
+  return getWebhookFlags()
+}

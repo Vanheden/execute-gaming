@@ -25,7 +25,7 @@ import {
   setNote,
   updateProfile,
 } from './store.js'
-import { startPolling, getHistory } from './stats.js'
+import { startPolling, getHistory, getLiveStatus } from './stats.js'
 import {
   recordSession,
   recordKill,
@@ -44,6 +44,7 @@ import {
   getPlayerStreak,
   getTopStreaks,
   checkRankPromotion,
+  checkMilestones,
   searchPlayers,
   getLeaderboardResets,
   getLeaderboardResetsAdmin,
@@ -59,6 +60,10 @@ import {
   announceEvent,
   announceAnnouncement,
   announceRankUp,
+  announceSuggestion,
+  announceSeason,
+  announceMilestone,
+  announceTest,
 } from './discord.js'
 import { vbloodName, VBLOOD_NAMES } from '../src/data/vbloods.js'
 import { servers } from '../src/data/servers.js'
@@ -93,6 +98,10 @@ import {
   getFeatureFlags,
   setFeatureEnabled,
   FEATURE_KEYS,
+  getWebhookFlags,
+  setWebhookEnabled,
+  isWebhookEnabled,
+  WEBHOOK_KEYS,
 } from './content.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -290,7 +299,7 @@ app.put('/api/announcement', ensureAdmin, (req, res) => {
   })
   res.json({ announcement })
   // Broadcast a freshly set banner to Discord (skip clears). Fire-and-forget.
-  if (announcement) announceAnnouncement(announcement)
+  if (announcement && isWebhookEnabled('announcement')) announceAnnouncement(announcement)
 })
 
 // --- Kill feed toggle (public read, admin write) ---------------------------
@@ -316,6 +325,34 @@ app.put('/api/features', ensureAdmin, (req, res) => {
   res.json({ features })
 })
 
+// --- Discord webhook admin (status, per-category toggles, test) ------------
+// The whole webhook is gated by the DISCORD_WEBHOOK_URL env var; `configured`
+// tells the admin panel whether it's set. Category toggles let an admin mute a
+// single kind of post even when the URL is present.
+app.get('/api/webhook', ensureAdmin, (req, res) => {
+  res.json({ configured: !!process.env.DISCORD_WEBHOOK_URL, flags: getWebhookFlags() })
+})
+
+app.put('/api/webhook', ensureAdmin, (req, res) => {
+  const key = String(req.body?.key || '')
+  if (!WEBHOOK_KEYS.includes(key)) return res.status(400).json({ error: 'unknown category' })
+  const enabled = req.body?.enabled === true
+  const flags = setWebhookEnabled(key, enabled)
+  logAudit({ actor: req.user, action: 'webhook.toggle', detail: { key, enabled } })
+  res.json({ flags })
+})
+
+// Fire a test post so an admin can confirm the channel + avatar without waiting
+// for real content. Returns whether Discord accepted it.
+app.post('/api/webhook/test', ensureAdmin, async (req, res) => {
+  if (!process.env.DISCORD_WEBHOOK_URL) {
+    return res.status(400).json({ error: 'No webhook URL configured (set DISCORD_WEBHOOK_URL).' })
+  }
+  const ok = await announceTest({ by: req.user.username })
+  logAudit({ actor: req.user, action: 'webhook.test', detail: { ok } })
+  res.json({ ok })
+})
+
 // --- Analytics beacon (public, no PII) -------------------------------------
 app.post('/api/hit', (req, res) => {
   recordHit(req.body?.path)
@@ -326,6 +363,14 @@ app.post('/api/hit', (req, res) => {
 app.get('/api/servers/:id/history', (req, res) => {
   const hours = Math.min(Math.max(Number(req.query.hours) || 24, 1), 168)
   res.json({ points: getHistory(req.params.id, hours) })
+})
+
+// Live status for a server (public), proxied server-side from BattleMetrics so a
+// visitor's VPN/adblock/CORS can't blank the card. 30s server-side cache.
+app.get('/api/servers/:id/status', async (req, res) => {
+  const status = await getLiveStatus(req.params.id)
+  if (!status) return res.status(404).json({ error: 'unknown server' })
+  res.json({ status })
 })
 
 // --- Playtime leaderboard --------------------------------------------------
@@ -344,22 +389,28 @@ function ensureIngestSecret(req, res, next) {
   next()
 }
 
-// After a session/kill lands, check whether it pushed the player into a new rank
-// tier and, if so, post a "rank up" to Discord. Fire-and-forget and fully guarded:
-// ingest must never fail because of a webhook. `steamId` is already validated by
-// recordSession/recordKill, so we only reach here on a successful ingest.
-function maybeAnnounceRankUp(steamId, charName) {
+// After a session/kill lands, post any Discord-worthy consequences: a player
+// crossing into a new rank tier, and the community crossing a cumulative
+// milestone. Fire-and-forget and fully guarded — ingest must never fail because
+// of a webhook. `steamId` is already validated by recordSession/recordKill.
+function afterIngest(steamId, charName) {
   try {
     const promo = checkRankPromotion(steamId)
-    if (!promo) return
-    const member = getUserByProvider('steam', steamId)
-    const linked = member && !member.banned ? member : null
-    const name = linked?.username || (charName ? String(charName).slice(0, 60) : null) || 'A vampire'
-    const base = (process.env.PUBLIC_BASE_URL || 'http://localhost:5173').replace(/\/$/, '')
-    const profileUrl = linked ? `${base}/u/${keyOf(linked.id)}` : `${base}/p/${steamId}`
-    announceRankUp({ name, tier: promo.tier, points: promo.points, profileUrl })
+    if (promo && isWebhookEnabled('rankup')) {
+      const member = getUserByProvider('steam', steamId)
+      const linked = member && !member.banned ? member : null
+      const name = linked?.username || (charName ? String(charName).slice(0, 60) : null) || 'A vampire'
+      const base = (process.env.PUBLIC_BASE_URL || 'http://localhost:5173').replace(/\/$/, '')
+      const profileUrl = linked ? `${base}/u/${keyOf(linked.id)}` : `${base}/p/${steamId}`
+      announceRankUp({ name, tier: promo.tier, points: promo.points, profileUrl })
+    }
+    if (isWebhookEnabled('milestone')) {
+      for (const m of checkMilestones()) announceMilestone(m)
+    } else {
+      checkMilestones() // keep the high-water mark current even while muted
+    }
   } catch (err) {
-    console.warn('[rankup] check failed:', err?.message || err)
+    console.warn('[ingest] post-effects failed:', err?.message || err)
   }
 }
 
@@ -367,7 +418,7 @@ app.post('/api/ingest/session', ensureIngestSecret, (req, res) => {
   const result = recordSession(req.body)
   if (result.error) return res.status(400).json({ error: result.error })
   res.status(204).end()
-  maybeAnnounceRankUp(req.body?.steamId, req.body?.charName)
+  afterIngest(req.body?.steamId, req.body?.charName)
 })
 
 // Ingest a single kill event (V Blood boss or PvP) from the mod. Same guard.
@@ -375,7 +426,7 @@ app.post('/api/ingest/kill', ensureIngestSecret, (req, res) => {
   const result = recordKill(req.body)
   if (result.error) return res.status(400).json({ error: result.error })
   res.status(204).end()
-  maybeAnnounceRankUp(req.body?.steamId, req.body?.charName)
+  afterIngest(req.body?.steamId, req.body?.charName)
 })
 
 // Public leaderboard. ?metric=points|playtime|vblood|pvp (default points),
@@ -802,7 +853,7 @@ app.post('/api/news', ensureAdmin, (req, res) => {
   if (!title || !body) return res.status(400).json({ error: 'title and body required' })
   const post = createNews({ title, body, authorId: req.user.id, authorName: req.user.username })
   res.json({ post })
-  announceNews(post) // fire-and-forget Discord webhook (no-op if unconfigured)
+  if (isWebhookEnabled('news')) announceNews(post) // fire-and-forget (no-op if unconfigured)
 })
 
 app.put('/api/news/:id', ensureAdmin, (req, res) => {
@@ -830,7 +881,7 @@ app.post('/api/events', ensureAdmin, (req, res) => {
   const location = req.body?.location ? str(req.body.location, 140) : null
   const event = createEvent({ title, description, startsAt, location })
   res.json({ event })
-  announceEvent(event) // fire-and-forget Discord webhook (no-op if unconfigured)
+  if (isWebhookEnabled('events')) announceEvent(event) // fire-and-forget (no-op if unconfigured)
 })
 
 app.put('/api/events/:id', ensureAdmin, (req, res) => {
@@ -877,6 +928,10 @@ app.patch('/api/suggestions/:id/status', ensureAdmin, (req, res) => {
   const suggestion = setSuggestionStatus(Number(req.params.id), status)
   if (!suggestion) return res.status(404).json({ error: 'not found' })
   res.json({ suggestion })
+  // Celebrate notable status changes in Discord (planned / shipped). Fire-and-forget.
+  if ((status === 'planned' || status === 'done') && isWebhookEnabled('suggestion')) {
+    announceSuggestion({ title: suggestion.title, status })
+  }
 })
 
 // Author or admin can delete a suggestion.
@@ -998,6 +1053,10 @@ app.post('/api/admin/leaderboard/reset', ensureAdmin, (req, res) => {
     detail: { serverId, at },
   })
   res.json({ resets: result.resets })
+  // A fresh cutoff means a new season — announce it (skip plain clears). Fire-and-forget.
+  if (at && isWebhookEnabled('season')) {
+    announceSeason({ serverName: servers.find((s) => s.id === serverId)?.name })
+  }
 })
 
 // Restore a server's cutoff to its previous value (undo a re-reset).

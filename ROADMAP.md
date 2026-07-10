@@ -101,11 +101,18 @@ Ideas for growing the site, grouped by theme. Effort is a rough guide:
 - **Admin panel toggles** — admins can show/hide the Milestones, Weekly Highlights
   and Season Champions panels from `/admin` → Settings (generic feature flags,
   default ON, audit-logged), alongside the existing Live Kill Feed toggle.
-- **Discord announcements webhook** — news, events, the announcement banner and
-  player **rank-ups** are posted to a Discord channel as rich embeds via an incoming
-  webhook (`DISCORD_WEBHOOK_URL`, no bot needed). Fail-open: unset/broken webhook
-  posts nothing and never affects the request. Rank-ups are seeded silently per
-  player (a new `player_ranks` table) so enabling it never spams past promotions.
+- **Discord announcements webhook** — news, events, the announcement banner,
+  player **rank-ups**, **suggestion** updates (planned/shipped), **season resets**
+  and **community milestones** are posted to a Discord channel as rich embeds via
+  an incoming webhook (`DISCORD_WEBHOOK_URL`, no bot needed). Fail-open: unset/broken
+  webhook posts nothing and never affects the request. The bot posts under the name
+  "Execute-Gaming" with a generated bat avatar (`npm run bot-avatar`). Rank-ups and
+  milestones are seeded silently (a new `player_ranks` table + `milestone_*` settings)
+  so enabling it never spams past events. Admins can **mute each category** and fire a
+  **test post** from `/admin` → Settings.
+- **Server-side status proxy** — live V Rising server status is now fetched from
+  BattleMetrics **server-side** (`GET /api/servers/:id/status`, 30s cache) instead of
+  from the browser, so a visitor's VPN/adblock/CORS can no longer blank the card.
 
 ---
 
@@ -168,11 +175,10 @@ Ideas for growing the site, grouped by theme. Effort is a rough guide:
   (custom Discord profile fetch); behaviour unchanged.
 - ~~Analytics~~ ✅ — self-hosted, privacy-friendly page-view counts (no cookies,
   no PII, no third parties) in the admin panel.
-- **Proxy live server status through the backend** (S) — today `serverStatus.js`
-  calls BattleMetrics **from the browser**, so a visitor's VPN/adblock/firewall
-  blocking `api.battlemetrics.com` makes the card show "Unknown". Move the call
-  server-side (fetch + short cache, expose `GET /api/servers/:id/status`) so every
-  visitor sees the count regardless of their network, and CORS stops mattering.
+- ~~**Proxy live server status through the backend**~~ ✅ — `GET /api/servers/:id/status`
+  fetches BattleMetrics server-side (30s cache, `getLiveStatus` in `server/stats.js`);
+  `serverStatus.js` now calls that same-origin proxy, so a visitor's VPN/adblock/CORS
+  no longer blanks the card.
 
 ---
 
@@ -180,12 +186,15 @@ Ideas for growing the site, grouped by theme. Effort is a rough guide:
 
 Most of the roadmap is now built. What's left:
 
-1. **Proxy BattleMetrics status server-side** (S) — kills the client-side
-   VPN/CORS "Unknown" (see Polish & infra).
-2. **Donations / VIP** (M) — optional; the `supporter` badge is already there.
+1. **Donations / VIP** (M) — optional; the `supporter` badge is already there.
+2. **Scheduled weekly recap** (M) — a cron-posted Discord digest (top 3, most active,
+   hottest feud), building on the announcements webhook + `getGlobalStats`/`getTopStreaks`.
 
-Recently shipped: Discord announcements webhook (news/events/banner/rank-ups →
-channel embeds, fail-open); leaderboard pagination (20/page) + top-3 medal glyph fix;
+Recently shipped: Discord webhook expanded (suggestions/season resets/community
+milestones + per-category admin mute + test post + bot avatar); server-side
+BattleMetrics status proxy (no more client-side VPN/CORS "Unknown"); Discord
+announcements webhook (news/events/banner/rank-ups → channel embeds, fail-open);
+leaderboard pagination (20/page) + top-3 medal glyph fix;
 community milestones strip (global counters + hottest feud); rivalries/nemesis
 (head-to-head PvP records on profiles); play streaks (current/longest on profiles
 + a top-streaks list); gothic vampire theme (Cinzel + blood/venom palettes);

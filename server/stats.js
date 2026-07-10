@@ -59,6 +59,43 @@ export function getHistory(serverId, hours = 24) {
     .all(serverId, since)
 }
 
+// --- Live status proxy ------------------------------------------------------
+// Fetches one server's current status BattleMetrics server-side, so the browser
+// never has to reach api.battlemetrics.com directly (a visitor's VPN/adblock/CORS
+// used to make the card show "Unknown"). Cached briefly to stay under rate limits.
+const statusCache = new Map() // serverId -> { at, data }
+const STATUS_TTL = 30 * 1000
+
+export async function getLiveStatus(serverId) {
+  const server = servers.find((s) => s.id === serverId)
+  if (!server) return null
+  if (!server.battlemetricsId) return { state: 'unknown', players: 0, maxPlayers: server.maxPlayers }
+
+  const cached = statusCache.get(serverId)
+  if (cached && Date.now() - cached.at < STATUS_TTL) return cached.data
+
+  try {
+    const res = await fetch(`https://api.battlemetrics.com/servers/${server.battlemetricsId}`, {
+      headers: { 'User-Agent': UA, Accept: 'application/json' },
+    })
+    if (!res.ok) throw new Error(`status ${res.status}`)
+    const { data } = await res.json()
+    const a = data?.attributes ?? {}
+    const out = {
+      state: a.status === 'online' ? 'online' : 'offline',
+      players: a.players ?? 0,
+      maxPlayers: a.maxPlayers ?? server.maxPlayers,
+      map: a.details?.map || undefined,
+    }
+    statusCache.set(serverId, { at: Date.now(), data: out })
+    return out
+  } catch {
+    // Network error or non-OK (rate-limited / down): serve stale if we have it.
+    if (cached) return cached.data
+    return { state: 'unknown', players: 0, maxPlayers: server.maxPlayers }
+  }
+}
+
 export function startPolling() {
   pollAll() // once at startup
   const timer = setInterval(pollAll, POLL_MINUTES * 60 * 1000)

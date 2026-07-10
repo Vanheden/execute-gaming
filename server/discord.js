@@ -226,3 +226,77 @@ export function announceRankUp({ name, tier, points, profileUrl }) {
     ],
   })
 }
+
+// A suggestion moved to a notable status (planned / done). `status` is the raw
+// value; we map it to friendly copy.
+export function announceSuggestion({ title, status }) {
+  const meta = {
+    planned: { label: '📋 Suggestion planned', color: 0x33c9c9, verb: 'is now planned' },
+    done: { label: '✅ Suggestion shipped', color: 0x3ee089, verb: 'has been shipped' },
+  }[status]
+  if (!meta) return Promise.resolve(false)
+  return postWebhook({
+    embeds: [
+      {
+        author: { name: meta.label },
+        title: clip(title, 240),
+        description: `Your idea ${meta.verb}. Thanks for helping shape the community!`,
+        url: `${siteUrl()}/suggestions`,
+        color: meta.color,
+        footer: { text: BRAND },
+        timestamp: new Date().toISOString(),
+      },
+    ],
+  })
+}
+
+// A leaderboard season was reset for a server — a fresh race begins.
+export function announceSeason({ serverName }) {
+  return postWebhook({
+    embeds: [
+      {
+        author: { name: '⚔️ New season' },
+        title: `A new season has begun${serverName ? ` on ${clip(serverName, 80)}` : ''}`,
+        description: 'The leaderboard is wiped clean — every vampire starts from zero. Climb!',
+        url: `${siteUrl()}/leaderboard`,
+        color: 0x8b5cff,
+        footer: { text: BRAND },
+        timestamp: new Date().toISOString(),
+      },
+    ],
+  })
+}
+
+// The community crossed a round cumulative total. `metric` describes it.
+export function announceMilestone({ label, emoji }) {
+  return postWebhook({
+    embeds: [
+      {
+        author: { name: `${emoji || '🏆'} Community milestone` },
+        title: label,
+        description: 'Reached together, across every server. Onwards!',
+        url: `${siteUrl()}/leaderboard`,
+        color: 0xf5b642,
+        footer: { text: BRAND },
+        timestamp: new Date().toISOString(),
+      },
+    ],
+  })
+}
+
+// A test post an admin can fire from the panel to confirm the webhook works.
+export function announceTest({ by } = {}) {
+  return postWebhook({
+    embeds: [
+      {
+        author: { name: '🦇 Webhook test' },
+        title: 'Announcements are wired up',
+        description: `If you can read this, ${BRAND} can post to this channel.${by ? `\nTriggered by **${clip(by, 80)}**.` : ''}`,
+        url: siteUrl(),
+        color: 0xe63950,
+        footer: { text: BRAND },
+        timestamp: new Date().toISOString(),
+      },
+    ],
+  })
+}

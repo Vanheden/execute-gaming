@@ -87,8 +87,12 @@ the live domain while developing — the same `.env` works on your machine and t
   `DISCORD_WEBHOOK_URL` (an incoming webhook — no bot). Everything is **fail-open**
   (missing URL or network error → returns false, never throws) and callers
   fire-and-forget after sending their HTTP response, so a webhook never blocks or
-  breaks the request. Embed links use `PUBLIC_BASE_URL`. Triggered from the news/
-  events/announcement admin routes and from ingest (rank-ups, see below).
+  breaks the request. Embed links use `PUBLIC_BASE_URL`; the bot posts as
+  "Execute-Gaming" with `/bot-avatar.png` (generate via `npm run bot-avatar`).
+  Categories: news, events, announcement, rank-ups, suggestion updates (planned/
+  shipped), season resets and community milestones — each gated by a per-category
+  toggle (`webhook_<key>` in `content.js`, default ON) so an admin can mute one kind.
+  `announceTest()` backs the `/admin` "Send test message" button.
 - `db.js` — the shared `node:sqlite` connection and **all table schema**
   (users, news, events, suggestions, server_stats, settings, achievements,
   audit_log, page_views, play_sessions, kill_events, player_ranks, user_identities)
@@ -115,6 +119,10 @@ the live domain while developing — the same `.env` works on your machine and t
 - `stats.js` — background poller that snapshots each server's BattleMetrics
   player count (every `STATS_POLL_MINUTES`, default 5) into `server_stats`, plus
   `getHistory()`. Imports the shared `src/data/servers.js` for the server list.
+  Also `getLiveStatus(serverId)` — the **server-side status proxy** behind
+  `GET /api/servers/:id/status` (30s cache): fetches BattleMetrics on the server so
+  the browser never calls it directly (a visitor's VPN/adblock/CORS used to blank the
+  card). `serverStatus.js` on the frontend now calls this same-origin proxy.
 - `playtime.js` — the **leaderboard**. `recordSession()` validates + UPSERTs a play
   session (keyed by a mod-issued `sessionId`, so heartbeats and the final disconnect
   are idempotent — no double counting); `recordKill()` records a V Blood/PvP kill
@@ -148,6 +156,10 @@ the live domain while developing — the same `.env` works on your machine and t
   afterwards it only returns a promotion `{ from, to, tier, points }` on an upward
   move (a season reset that lowers points lowers the stored tier silently). The
   ingest routes call it fire-and-forget and hand any promotion to `announceRankUp()`.
+  Also `checkMilestones()` — watches cumulative community totals (`getGlobalStats`)
+  and returns round thresholds (hours/V Bloods/PvP kills) newly crossed since last
+  check; like ranks it seeds silently (`milestone_*` settings, high-water mark) so a
+  season reset never re-announces. Ingest hands crossings to `announceMilestone()`.
 - `src/data/ranks.js` — **single source of truth** for the **rank ladder** ("Vampire
   Ascension": Fledgling → … → Dracula, 8 point-threshold tiers). `rankForPoints(points)`
   resolves a lifetime-points total to its tier + progress to the next. Rendered as a
@@ -196,6 +208,12 @@ the live domain while developing — the same `.env` works on your machine and t
   visibility toggles (`milestones`/`highlights`/`champions`, **default ON**). The
   `<Leaderboard>` hides a panel when its flag is off; admins toggle them in
   `/admin` → Settings. Kill feed has its own `/api/killfeed/enabled` (default OFF).
+- `GET /api/servers/:id/status` — **public** live status for one server, proxied
+  server-side from BattleMetrics (30s cache) so the browser never calls it directly.
+- `GET /api/webhook` (admin) — Discord webhook status (`configured`) + per-category
+  flags. `PUT /api/webhook` (admin) toggles one category. `POST /api/webhook/test`
+  (admin) fires a test embed (400 if `DISCORD_WEBHOOK_URL` unset). Wired into
+  `/admin` → Settings.
 - `GET /api/discord/widget` — **public** live guild widget (who's online)
 - `POST /api/hit` — **public** analytics beacon (no PII)
 - `GET /api/servers/:id/history?hours=` — **public** player-count history
@@ -336,11 +354,12 @@ V Rising game server, not from this repo. It lives in `../mod/` (sibling of
   but correct secret = auth passes and the site is healthy, so the gap is upstream
   (mod not running / wrong `Url` / can't reach the host). The usual cause is the
   game-server mod `.cfg`, not the site.
-- **Live server status is fetched client-side** (`src/services/serverStatus.js`
-  calls BattleMetrics directly from the browser). A visitor whose VPN/adblock/
-  firewall blocks `api.battlemetrics.com` makes `fetch` throw → the card shows
-  **"Unknown"** (an HTTP error like 404 shows "offline" instead). It's their
-  network, not the site. Roadmap has a server-side proxy to remove this dependency.
+- **Live server status is proxied server-side** — `src/services/serverStatus.js`
+  calls our own `GET /api/servers/:id/status` (same-origin), which fetches
+  BattleMetrics on the server (`getLiveStatus` in `server/stats.js`, 30s cache). So a
+  visitor's VPN/adblock/CORS no longer blanks the card. If the **server** can't reach
+  BattleMetrics the proxy serves the last cached value, else `state: 'unknown'`.
+  Servers without a `battlemetricsId` (e.g. CS 1.6) still use the client-side mock.
 
 ## Conventions
 

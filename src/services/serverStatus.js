@@ -32,33 +32,29 @@
  */
 export async function fetchServerStatus(server) {
   if (server.battlemetricsId) {
-    return fetchViaBattleMetrics(server)
+    return fetchViaProxy(server)
   }
   // No battlemetricsId (e.g. CS 1.6) → fall back to mock for now.
   return fetchMock(server)
 }
 
 // ---------------------------------------------------------------------------
-// BattleMetrics — used for the V Rising servers.
-// Public endpoint, no auth: https://www.battlemetrics.com/developers/documentation
+// Same-origin proxy — used for the V Rising servers.
+// The backend fetches BattleMetrics server-side (see server/stats.js) and caches
+// it. Going through our own API means a visitor's VPN/adblock/firewall blocking
+// api.battlemetrics.com can no longer blank the card, and CORS stops mattering.
 // ---------------------------------------------------------------------------
-async function fetchViaBattleMetrics(server) {
-  const url = `https://api.battlemetrics.com/servers/${server.battlemetricsId}`
+async function fetchViaProxy(server) {
   try {
-    const res = await fetch(url, { headers: { Accept: 'application/json' } })
+    const res = await fetch(`/api/servers/${encodeURIComponent(server.id)}/status`, {
+      headers: { Accept: 'application/json' },
+    })
     if (!res.ok) {
       return { state: 'offline', players: 0, maxPlayers: server.maxPlayers }
     }
-    const { data } = await res.json()
-    const a = data?.attributes ?? {}
-    return {
-      state: a.status === 'online' ? 'online' : 'offline',
-      players: a.players ?? 0,
-      maxPlayers: a.maxPlayers ?? server.maxPlayers,
-      map: a.details?.map || undefined,
-    }
+    const { status } = await res.json()
+    return status || { state: 'unknown', players: 0, maxPlayers: server.maxPlayers }
   } catch {
-    // Network/CORS error — show "unknown" rather than a fake number.
     return { state: 'unknown', players: 0, maxPlayers: server.maxPlayers }
   }
 }

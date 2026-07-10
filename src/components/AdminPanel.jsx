@@ -250,6 +250,8 @@ const ACTION_LABEL = {
   'leaderboard.reset.restore': 'restored the leaderboard season for',
   'killfeed.toggle': 'toggled the kill feed',
   'feature.toggle': 'toggled a leaderboard panel',
+  'webhook.toggle': 'toggled a Discord announcement category',
+  'webhook.test': 'sent a Discord webhook test',
 }
 
 function AuditTab() {
@@ -475,14 +477,12 @@ const PANELS = [
   { key: 'champions', name: 'Season Champions', desc: 'Hall of fame for completed seasons' },
 ]
 
-function ToggleRow({ name, enabled, busy, onToggle }) {
+function ToggleRow({ name, enabled, busy, onToggle, onText = 'Visible on the leaderboard', offText = 'Hidden — disabled by admin' }) {
   return (
     <div className="srrow">
       <div className="srrow__info">
         <span className="srrow__name">{name}</span>
-        <span className="srrow__muted">
-          {enabled ? 'Visible on the leaderboard' : 'Hidden — disabled by admin'}
-        </span>
+        <span className="srrow__muted">{enabled ? onText : offText}</span>
       </div>
       <div className="srrow__actions">
         <button className={`btn btn--sm ${enabled ? 'btn--danger' : ''}`} disabled={busy} onClick={onToggle}>
@@ -493,10 +493,23 @@ function ToggleRow({ name, enabled, busy, onToggle }) {
   )
 }
 
+// Discord webhook categories, in the order they appear in the panel.
+const WEBHOOKS = [
+  { key: 'news', name: 'News posts' },
+  { key: 'events', name: 'New events' },
+  { key: 'announcement', name: 'Announcement banner' },
+  { key: 'rankup', name: 'Player rank-ups' },
+  { key: 'suggestion', name: 'Suggestion updates' },
+  { key: 'season', name: 'Season resets' },
+  { key: 'milestone', name: 'Community milestones' },
+]
+
 function SettingsTab() {
   const [kfEnabled, setKfEnabled] = useState(null)
   const [features, setFeatures] = useState(null)
+  const [webhook, setWebhook] = useState(null) // { configured, flags }
   const [busy, setBusy] = useState(false)
+  const [testState, setTestState] = useState(null) // null | 'sending' | 'ok' | 'fail'
 
   useEffect(() => {
     apiGet('/api/killfeed/enabled')
@@ -505,6 +518,9 @@ function SettingsTab() {
     apiGet('/api/features')
       .then((f) => setFeatures(f))
       .catch(() => setFeatures({}))
+    apiGet('/api/webhook')
+      .then((w) => setWebhook(w))
+      .catch(() => setWebhook({ configured: false, flags: {} }))
   }, [])
 
   async function toggleKillFeed() {
@@ -532,7 +548,30 @@ function SettingsTab() {
     }
   }
 
-  if (kfEnabled === null || features === null) return <p className="empty">Loading settings…</p>
+  async function toggleWebhook(key) {
+    if (!webhook) return
+    setBusy(true)
+    try {
+      const { flags } = await apiSend('PUT', '/api/webhook', { key, enabled: webhook.flags[key] === false })
+      setWebhook((w) => ({ ...w, flags }))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function sendTest() {
+    setTestState('sending')
+    try {
+      const { ok } = await apiSend('POST', '/api/webhook/test', {})
+      setTestState(ok ? 'ok' : 'fail')
+    } catch {
+      setTestState('fail')
+    }
+    setTimeout(() => setTestState(null), 4000)
+  }
+
+  if (kfEnabled === null || features === null || webhook === null)
+    return <p className="empty">Loading settings…</p>
 
   return (
     <div className="amtab">
@@ -548,6 +587,39 @@ function SettingsTab() {
           />
         ))}
         <ToggleRow name="Live Kill Feed" enabled={kfEnabled} busy={busy} onToggle={toggleKillFeed} />
+      </div>
+
+      <h3 className="amtab__heading">Discord announcements</h3>
+      {webhook.configured ? (
+        <p className="amtab__count">
+          Posting to your Discord channel is <strong>active</strong>. Mute any category below; each is
+          posted only when enabled.
+        </p>
+      ) : (
+        <p className="amtab__count">
+          No webhook connected. Set <code>DISCORD_WEBHOOK_URL</code> in the server's <code>.env</code> to
+          post announcements to a channel. Toggles below take effect once it's set.
+        </p>
+      )}
+      <div className="srlist">
+        {WEBHOOKS.map((w) => (
+          <ToggleRow
+            key={w.key}
+            name={w.name}
+            enabled={webhook.flags[w.key] !== false}
+            busy={busy}
+            onToggle={() => toggleWebhook(w.key)}
+            onText="Posted to Discord"
+            offText="Muted — not posted"
+          />
+        ))}
+      </div>
+      <div className="amrow__actions" style={{ marginTop: 12 }}>
+        <button className="btn btn--sm" disabled={!webhook.configured || testState === 'sending'} onClick={sendTest}>
+          {testState === 'sending' ? 'Sending…' : 'Send test message'}
+        </button>
+        {testState === 'ok' && <span className="srrow__muted">✅ Sent — check the channel.</span>}
+        {testState === 'fail' && <span className="srrow__muted">⚠️ Discord rejected it — check the URL.</span>}
       </div>
     </div>
   )
