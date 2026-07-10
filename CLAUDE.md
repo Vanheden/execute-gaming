@@ -371,7 +371,11 @@ V Rising game server, not from this repo. It lives in `../mod/` (sibling of
   `<ChampionCard>` (hero spotlight of the reigning all-time Points #1, at the top of
   `.lb-main`), `<Milestones>` (community-wide counters + hottest feud + top streaks),
   `<SeasonChampions>`, `<WeeklyHighlights>`, `<KillFeed>`, and the ranked list itself (paginated 20/page,
-  rank/medals global across pages). `<Rivalries>` (Nemesis + prey + streak) is shared by
+  rank/medals global across pages). In the "All servers" view each row shows a
+  **home-server tag** (the server that player has logged the most time on + its % share
+  when split across servers), resolved server-side by `topServers()` in `server/playtime.js`
+  and attached as `entry.homeServer = { id, share }` by the `/api/leaderboard` route
+  (only when no single server is selected). `<Rivalries>` (Nemesis + prey + streak) is shared by
   both profile types. Emoji medals must be indexed from an array, not a string — emoji
   are surrogate pairs, so `'🥇🥈🥉'[i]` returns half a code point (renders as tofu).
 - **Theme:** a Cinzel gothic display font (`--font-display`, loaded in `index.html`)

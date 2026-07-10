@@ -482,6 +482,44 @@ export function allTimePoints(steamIds, serverId = null) {
   return Object.fromEntries(rows.map((r) => [r.steamId, r.points]))
 }
 
+// Per-player "home server": the server each SteamID has logged the most playtime
+// on, within the given `period` and respecting season-reset floors. Returns a map
+// { steamId: { serverId, seconds, total, servers } } where `seconds` is the time on
+// the home server, `total` is across all servers, and `servers` is how many
+// distinct servers they've played. Only meaningful for the all-servers view (when a
+// single server is selected every player's home is trivially that server). Players
+// with no sessions in-window are omitted.
+export function topServers(steamIds, period = 'all') {
+  const ids = [...new Set((steamIds || []).filter(Boolean))]
+  if (!ids.length) return {}
+  const days = PERIODS[period] ?? null
+  const since = days ? new Date(Date.now() - days * 864e5).toISOString() : '0'
+  const floor = resetFloorAnon('startedAt', Object.entries(getLeaderboardResets()))
+  const placeholders = ids.map(() => '?').join(',')
+
+  const rows = db
+    .prepare(
+      `SELECT steamId, serverId, SUM(seconds) AS seconds
+         FROM play_sessions
+        WHERE steamId IN (${placeholders}) AND startedAt >= ?${floor.sql}
+        GROUP BY steamId, serverId`,
+    )
+    .all(...ids, since, ...floor.params)
+
+  // Reduce to the top server per player (plus totals) in one pass.
+  const out = {}
+  for (const r of rows) {
+    const cur = out[r.steamId] || (out[r.steamId] = { serverId: null, seconds: 0, total: 0, servers: 0 })
+    cur.total += r.seconds
+    cur.servers += 1
+    if (r.seconds > cur.seconds) {
+      cur.seconds = r.seconds
+      cur.serverId = r.serverId
+    }
+  }
+  return out
+}
+
 // --- Rank-up detection (for the Discord webhook) ---------------------------
 // Called after every session/kill ingest. Recomputes the player's GLOBAL all-time
 // rank tier and compares it to the highest tier we've recorded for them. The first

@@ -79,6 +79,26 @@ const MEDALS = ['🥇', '🥈', '🥉']
 // Server filter tabs: "All servers" + one per configured server.
 const SERVER_TABS = [['', 'All servers'], ...servers.map((s) => [s.id, s.name])]
 
+// Quick lookup by id + a short label (drops the "V Rising — " prefix, e.g.
+// "V Rising — Duo PvP" → "Duo PvP") for the compact home-server tag.
+const SERVER_BY_ID = Object.fromEntries(servers.map((s) => [s.id, s]))
+const shortServerName = (name) => name.replace(/^.*—\s*/, '')
+
+// Compact tag showing the server a player has logged the most time on (all-servers
+// view only). Tinted with that server's accent; the share % appears when they've
+// split time across more than one server.
+function HomeServer({ home }) {
+  const s = home && SERVER_BY_ID[home.id]
+  if (!s) return null
+  return (
+    <span className="lb__server" style={{ '--srv': s.accent }} title={`Most active on ${s.name}`}>
+      <span className="lb__serverdot" aria-hidden="true" />
+      {shortServerName(s.name)}
+      {home.share < 100 && <span className="lb__servershare">{home.share}%</span>}
+    </span>
+  )
+}
+
 // Bat silhouette — the placeholder for players without a linked avatar.
 function Bat() {
   return (
@@ -321,6 +341,11 @@ export default function Leaderboard() {
                     </div>
                     <Meta e={e} metric={metric} />
                     <LatestKill e={e} />
+                    {e.homeServer && (
+                      <div className="lb__tags">
+                        <HomeServer home={e.homeServer} />
+                      </div>
+                    )}
                   </div>
                   <div className="lb__time">
                     <span className="lb__hours">{active.render(e)}</span>

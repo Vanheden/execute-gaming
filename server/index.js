@@ -31,6 +31,7 @@ import {
   recordKill,
   getLeaderboard,
   allTimePoints,
+  topServers,
   getPlayerStats,
   getPlayerTotals,
   getPlayerTotalsBatch,
@@ -443,6 +444,10 @@ app.get('/api/leaderboard', (req, res) => {
   // filter: "All servers" → global rank, a specific server → that server's rank.
   // Resolve each row's lifetime points in one batch and attach it for the rank badge.
   const lifetime = allTimePoints(rows.map((r) => r.steamId), serverId)
+  // In the "All servers" view, resolve each player's home server (where they've
+  // logged the most time in-window). Skipped when a single server is selected —
+  // there the home server is trivially that one.
+  const homes = serverId ? {} : topServers(rows.map((r) => r.steamId), period)
   const entries = rows.map((r) => {
     const member = getUserByProvider('steam', r.steamId)
     const linked = member && !member.banned ? member : null
@@ -461,6 +466,16 @@ app.get('/api/leaderboard', (req, res) => {
       pvp: r.pvp,
       points: r.points,
       allTimePoints: lifetime[r.steamId] ?? r.points,
+      // Home server (all-servers view only): { id, share } — the server this player
+      // has spent the most time on, plus that server's % of their total playtime.
+      homeServer: homes[r.steamId]?.serverId
+        ? {
+            id: homes[r.steamId].serverId,
+            share: homes[r.steamId].total
+              ? Math.round((homes[r.steamId].seconds / homes[r.steamId].total) * 100)
+              : 100,
+          }
+        : null,
       latestVBlood,
       lastSeen: r.lastSeen,
       // Only expose account info (never the raw id) when it's a real, unbanned member.
