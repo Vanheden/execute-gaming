@@ -91,6 +91,13 @@ Ideas for growing the site, grouped by theme. Effort is a rough guide:
 - **Play streaks** — consecutive-day play streaks (current + longest) shown on
   profiles and a "longest active streaks" list in the milestones strip. Backed by
   `getPlayerStreak()` / `getTopStreaks()`.
+- **Leaderboard pagination** — the ladder shows 20 players per page with Prev/Next
+  controls; rank numbers and medals stay global across pages. (Also fixed the top-3
+  medal emoji rendering as tofu — `'🥇🥈🥉'[i]` split a surrogate pair.)
+- **Vampire theme** — a Cinzel gothic display font + blood-red / poison-green
+  palettes give the leaderboard panels a gothic V Rising look: Milestones + Rivalries
+  in blood-red (crimson glow, blood-moon vignette, glowing stat numbers), Weekly
+  Highlights in poison-green. Tokens live in `src/index.css` `:root`.
 
 ---
 

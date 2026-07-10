@@ -127,7 +127,11 @@ the live domain while developing — the same `.env` works on your machine and t
   auto-achievement checks), `getRecentKills(serverId, limit)` (live kill feed),
   `getVBloodHuntProgress(serverId)` (boss kill matrix for `/hunt`), `getPlayerActivity(
   steamId, days)` (daily playtime for activity heatmap), `getSeasonChampions(serverId)`
-  (top-1 per completed season for the hall-of-fame panel).
+  (top-1 per completed season for the hall-of-fame panel), `getGlobalStats()` +
+  `getHottestFeud()` (community-milestones strip), `getRivalries(steamId)` (Nemesis +
+  Favourite prey from PvP `kill_events` — note PvP `victim` is a *charName*, so nemeses
+  resolve by killer SteamID while prey resolve name→latest SteamID), and
+  `getPlayerStreak(steamId)` / `getTopStreaks()` (consecutive-day play streaks, UTC days).
 - `src/data/ranks.js` — **single source of truth** for the **rank ladder** ("Vampire
   Ascension": Fledgling → … → Dracula, 8 point-threshold tiers). `rankForPoints(points)`
   resolves a lifetime-points total to its tier + progress to the next. Rendered as a
@@ -166,6 +170,12 @@ the live domain while developing — the same `.env` works on your machine and t
   kill sets, sorted by kill count).
 - `GET /api/season-champions` — **public** top-1 player per completed season per
   server (between consecutive resets).
+- `GET /api/global-stats` — **public** community milestones (total hours/V Bloods/PvP
+  kills/players) + hottest PvP feud + top play streaks (for the leaderboard's
+  `<Milestones>` strip).
+- `GET /api/player/:steamId/rivalries` — **public** Nemesis + Favourite prey + play
+  streak for a player. Keyed by SteamID so members (`/u/:key`) and guests
+  (`/p/:steamId`) share the same `<Rivalries>` component.
 - `GET /api/discord/widget` — **public** live guild widget (who's online)
 - `POST /api/hit` — **public** analytics beacon (no PII)
 - `GET /api/servers/:id/history?hours=` — **public** player-count history
@@ -314,5 +324,14 @@ V Rising game server, not from this repo. It lives in `../mod/` (sibling of
 - Keep content/config in `src/data/servers.js`, styles in `src/index.css`.
 - Keep all persistence behind `server/store.js`.
 - User-facing copy is in **English**.
+- The `/leaderboard` page (`components/Leaderboard.jsx`) composes several widgets:
+  `<Milestones>` (community-wide counters + hottest feud + top streaks), `<SeasonChampions>`,
+  `<WeeklyHighlights>`, `<KillFeed>`, and the ranked list itself (paginated 20/page,
+  rank/medals global across pages). `<Rivalries>` (Nemesis + prey + streak) is shared by
+  both profile types. Emoji medals must be indexed from an array, not a string — emoji
+  are surrogate pairs, so `'🥇🥈🥉'[i]` returns half a code point (renders as tofu).
+- **Theme:** a Cinzel gothic display font (`--font-display`, loaded in `index.html`)
+  and blood/venom palette tokens in `:root` (`--blood-*`, `--venom-*`) give the
+  leaderboard panels a gothic V Rising look. Reuse those tokens for new panels.
 
 See `ROADMAP.md` for planned features.
