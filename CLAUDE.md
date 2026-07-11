@@ -50,8 +50,10 @@ the live domain while developing — the same `.env` works on your machine and t
   promise-based `confirm()`/`prompt()` rendered as styled modals (no native popups).
 - `App.jsx` composes the home page (Hero → Servers → News → Community → Rules)
   and does tiny client-side routing via a `PAGES` map: `/events`, `/members`,
-  `/achievements`, `/suggestions`, `/clans` render that one section as a standalone
-  page, `/u/:key` renders `<PublicProfile>`, `/p/:steamId` `<PlayerProfile>`,
+  `/rules`, `/achievements`, `/suggestions`, `/clans` render that one section as a
+  standalone page (`/rules` = the full Duo PvP ruleset, `components/RulesPage.jsx` —
+  distinct from the short home `Rules` teaser), `/u/:key` renders `<PublicProfile>`,
+  `/p/:steamId` `<PlayerProfile>`,
   `/c/:clanGuid` `<ClanProfile>`, everything else is the home page. It also
   fires the privacy-friendly page-view beacon (`POST /api/hit`).
 - `components/Hero.jsx` layers a self-drawn SVG scene (`public/hero-bg.svg`:

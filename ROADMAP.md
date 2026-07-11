@@ -31,6 +31,10 @@ Ideas for growing the site, grouped by theme. Effort is a rough guide:
 - **Security hardening** — headers, write rate-limiting, banned-login block
 - **Dedicated pages** — Events, Members, Achievements & Suggestions each on their
   own route (`/events`, `/members`, …) instead of one long scrolling home page
+- **Server rules page** (`/rules`) — the full Duo PvP ruleset: core rules as numbered
+  cards, a quick-reference "gist" strip, FFA zones (conduct + zone list) and raiding
+  rules (raid window, no counter-raiding, offline raiding). Linked from the nav and a
+  CTA on the home rules teaser (`components/RulesPage.jsx`)
 - **Styled dialogs** — custom confirm/prompt modals replace native browser popups
 - **Atmospheric hero** — self-drawn V Rising scene (blood moon, castle, embers)
 - **Playtime + points leaderboard** — playtime, V Blood & PvP kills and a combined
