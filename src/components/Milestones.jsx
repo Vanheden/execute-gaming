@@ -79,7 +79,7 @@ export default function Milestones() {
 
   if (loading) return <MilestonesSkeleton />
   if (!data?.stats) return null
-  const { stats, hottestFeud, topStreaks } = data
+  const { stats, hottestFeud, hottestClanWar, topStreaks } = data
   // Nothing tracked yet → don't render an empty strip.
   if (!stats.sessions && !stats.vblood && !stats.pvp) return null
 
@@ -109,6 +109,24 @@ export default function Milestones() {
               <PlayerLink p={hottestFeud.victim} className="milestones__feudname" />
               {' '}
               <strong>{hottestFeud.kills}×</strong>
+            </span>
+          </div>
+        )}
+
+        {hottestClanWar && (hottestClanWar.a.kills > 0 || hottestClanWar.b.kills > 0) && (
+          <div className="milestones__feud">
+            <span className="milestones__feudicon">⚔️</span>
+            <span className="milestones__feudlabel">Clan war</span>
+            <span className="milestones__feudline">
+              <a className="milestones__feudname" {...linkProps(`/c/${hottestClanWar.a.clanGuid}`)}>
+                {hottestClanWar.a.clanName}
+              </a>{' '}
+              <strong>
+                {hottestClanWar.a.kills}–{hottestClanWar.b.kills}
+              </strong>{' '}
+              <a className="milestones__feudname" {...linkProps(`/c/${hottestClanWar.b.clanGuid}`)}>
+                {hottestClanWar.b.clanName}
+              </a>
             </span>
           </div>
         )}

@@ -17,14 +17,26 @@ const MAX_SECONDS = 7 * 24 * 3600
 
 const upsertStmt = db.prepare(
   `INSERT INTO play_sessions
-     (sessionId, serverId, steamId, charName, startedAt, endedAt, seconds, updatedAt)
-   VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+     (sessionId, serverId, steamId, charName, clanGuid, clanName, startedAt, endedAt, seconds, updatedAt)
+   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
    ON CONFLICT(sessionId) DO UPDATE SET
      charName  = excluded.charName,
+     clanGuid  = excluded.clanGuid,
+     clanName  = excluded.clanName,
      endedAt   = excluded.endedAt,
      seconds   = excluded.seconds,
      updatedAt = excluded.updatedAt`,
 )
+
+// A clan GUID is only meaningful paired with a non-empty name; treat blank/absent
+// as "no clan" (clanless players and pre-clan-feature mod versions send neither).
+// Returns [guid|null, name|null] — both null unless both are present.
+function clanPair(guidRaw, nameRaw) {
+  const name = nameRaw ? str(nameRaw, 60) : null
+  const guid = guidRaw ? str(guidRaw, 60) : null
+  if (!name || !guid) return [null, null]
+  return [guid, name]
+}
 
 // Validate + record one session upsert from the mod. Returns { ok } or
 // { error } with a reason the route turns into a 400.
@@ -50,12 +62,15 @@ export function recordSession(body) {
   seconds = Math.min(Math.floor(seconds), MAX_SECONDS)
 
   const charName = body?.charName ? str(body.charName, 60) : null
+  const [clanGuid, clanName] = clanPair(body?.clanGuid, body?.clanName)
 
   upsertStmt.run(
     sessionId,
     serverId,
     steamId,
     charName,
+    clanGuid,
+    clanName,
     startedAt,
     endedAt,
     seconds,
@@ -72,8 +87,9 @@ const KILL_KINDS = new Set(['vblood', 'pvp'])
 
 const insertKillStmt = db.prepare(
   `INSERT OR IGNORE INTO kill_events
-     (eventId, serverId, steamId, charName, kind, victim, occurredAt, createdAt)
-   VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+     (eventId, serverId, steamId, charName, kind, victim, occurredAt, createdAt,
+      clanGuid, clanName, victimClanGuid, victimClanName)
+   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 )
 
 // Validate + record one kill event from the mod. Returns { ok } or { error }.
@@ -95,6 +111,10 @@ export function recordKill(body) {
 
   const charName = body?.charName ? str(body.charName, 60) : null
   const victim = body?.victim ? str(body.victim, 100) : null
+  const [clanGuid, clanName] = clanPair(body?.clanGuid, body?.clanName)
+  // Victim clan only applies to PvP kills; ignore it on V Blood events.
+  const [victimClanGuid, victimClanName] =
+    kind === 'pvp' ? clanPair(body?.victimClanGuid, body?.victimClanName) : [null, null]
 
   insertKillStmt.run(
     eventId,
@@ -105,6 +125,10 @@ export function recordKill(body) {
     victim,
     occurredAt,
     new Date().toISOString(),
+    clanGuid,
+    clanName,
+    victimClanGuid,
+    victimClanName,
   )
   return { ok: true }
 }
@@ -1233,6 +1257,278 @@ export function getHottestFeud() {
     killer: { steamId: row.steamId, charName: killerName },
     victim: { steamId: steamIdForName(row.victim), charName: row.victim },
     kills: row.kills,
+  }
+}
+
+// --- Clans -----------------------------------------------------------------
+// Clan attribution is denormalised at event time (clanGuid + clanName on each
+// session/kill). A clan is keyed by its stable ClanGuid (rename-proof) and shown
+// under its LATEST captured name. All clan stats reuse the same POINTS weighting
+// and season-reset floors as the player leaderboard, recomputed from raw rows.
+
+// Latest captured display name for a clanGuid (across sessions + kills), newest wins.
+function clanNameForGuid(clanGuid) {
+  const row = db
+    .prepare(
+      `SELECT clanName FROM (
+         SELECT clanName, startedAt AS t FROM play_sessions
+           WHERE clanGuid = ? AND clanName IS NOT NULL
+         UNION ALL
+         SELECT clanName, occurredAt AS t FROM kill_events
+           WHERE clanGuid = ? AND clanName IS NOT NULL
+       ) ORDER BY t DESC LIMIT 1`,
+    )
+    .get(clanGuid, clanGuid)
+  return row?.clanName || null
+}
+
+// Clan leaderboard: one row per clan (serverId + clanGuid), every metric attached
+// so the UI can show a breakdown. `metric` (points|playtime|vblood|pvp) picks the
+// sort. `serverId` null = all servers. Clans are per-server, so grouping by clanGuid
+// keeps them distinct even in the all-servers view.
+export function getClanLeaderboard({ serverId = null, period = 'all', metric = 'points', limit = 100 } = {}) {
+  const col = METRICS[metric] ?? METRICS.points
+  const days = PERIODS[period] ?? null
+  const since = days ? new Date(Date.now() - days * 864e5).toISOString() : '0'
+  const cap = Math.min(Math.max(Number(limit) || 100, 1), 500)
+
+  const resetEntries = Object.entries(getLeaderboardResets())
+  const resetParams = resetEntries.map(([, iso]) => iso)
+  const floorS = resetFloorSql('startedAt', resetEntries, 8)
+  const floorK = resetFloorSql('occurredAt', resetEntries, 8)
+
+  const sql = `
+    SELECT * FROM (
+      SELECT ids.clanGuid AS clanGuid,
+             COALESCE(p.serverId, k.serverId) AS serverId,
+             COALESCE(p.seconds, 0)  AS seconds,
+             COALESCE(p.members, 0)  AS members,
+             COALESCE(k.vblood, 0)   AS vblood,
+             COALESCE(k.pvp, 0)      AS pvp,
+             MAX(COALESCE(p.lastSeen, '0'), COALESCE(k.lastKill, '0')) AS lastSeen,
+             CAST(
+               COALESCE(p.seconds, 0) / 3600.0 * ?3
+               + COALESCE(k.vbloodDistinct, 0) * ?4
+               + (COALESCE(k.vblood, 0) - COALESCE(k.vbloodDistinct, 0)) * ?5
+               + COALESCE(k.pvp, 0) * ?6
+             AS INTEGER) AS points
+        FROM (
+          SELECT DISTINCT clanGuid FROM play_sessions
+            WHERE clanGuid IS NOT NULL AND (?1 IS NULL OR serverId = ?1) AND startedAt >= ?2${floorS}
+          UNION
+          SELECT DISTINCT clanGuid FROM kill_events
+            WHERE clanGuid IS NOT NULL AND (?1 IS NULL OR serverId = ?1) AND occurredAt >= ?2${floorK}
+        ) ids
+        LEFT JOIN (
+          SELECT clanGuid, MAX(serverId) AS serverId, SUM(seconds) AS seconds,
+                 COUNT(DISTINCT steamId) AS members, MAX(updatedAt) AS lastSeen
+            FROM play_sessions
+           WHERE clanGuid IS NOT NULL AND (?1 IS NULL OR serverId = ?1) AND startedAt >= ?2${floorS}
+           GROUP BY clanGuid
+        ) p ON p.clanGuid = ids.clanGuid
+        LEFT JOIN (
+          SELECT clanGuid, MAX(serverId) AS serverId,
+                 SUM(CASE WHEN kind = 'vblood' THEN 1 ELSE 0 END) AS vblood,
+                 COUNT(DISTINCT CASE WHEN kind = 'vblood' AND victim IS NOT NULL
+                                     THEN victim END)              AS vbloodDistinct,
+                 SUM(CASE WHEN kind = 'pvp' THEN 1 ELSE 0 END)    AS pvp,
+                 MAX(occurredAt) AS lastKill
+            FROM kill_events
+           WHERE clanGuid IS NOT NULL AND (?1 IS NULL OR serverId = ?1) AND occurredAt >= ?2${floorK}
+           GROUP BY clanGuid
+        ) k ON k.clanGuid = ids.clanGuid
+    )
+    WHERE ${col} > 0
+    ORDER BY ${col} DESC, lastSeen DESC
+    LIMIT ?7`
+
+  const rows = db
+    .prepare(sql)
+    .all(
+      serverId,
+      since,
+      POINTS.perHour,
+      POINTS.perVBloodFirst,
+      POINTS.perVBloodRepeat,
+      POINTS.perPvpKill,
+      cap,
+      ...resetParams,
+    )
+  // Attach the latest display name per clan (cheap: leaderboard is capped).
+  return rows.map((r) => ({ ...r, clanName: clanNameForGuid(r.clanGuid) }))
+}
+
+// One clan's full stats: totals, current roster (distinct members seen in-window),
+// per-server split and distinct bosses felled. Returns null for an unknown clan.
+export function getClanStats(clanGuid) {
+  if (!clanGuid || typeof clanGuid !== 'string') return null
+  const resetEntries = Object.entries(getLeaderboardResets())
+  const floorS = resetFloorAnon('startedAt', resetEntries)
+  const floorK = resetFloorAnon('occurredAt', resetEntries)
+
+  const totals = db
+    .prepare(
+      `SELECT
+         (SELECT MAX(serverId) FROM play_sessions WHERE clanGuid = ?) AS serverId,
+         COALESCE(p.seconds, 0) AS seconds,
+         COALESCE(p.members, 0) AS members,
+         COALESCE(k.vblood, 0)  AS vblood,
+         COALESCE(k.vbloodDistinct, 0) AS distinctBosses,
+         COALESCE(k.pvp, 0)     AS pvp,
+         CAST(
+           COALESCE(p.seconds, 0) / 3600.0 * ?
+           + COALESCE(k.vbloodDistinct, 0) * ?
+           + (COALESCE(k.vblood, 0) - COALESCE(k.vbloodDistinct, 0)) * ?
+           + COALESCE(k.pvp, 0) * ?
+         AS INTEGER) AS points
+       FROM (SELECT 1) d
+       LEFT JOIN (
+         SELECT SUM(seconds) AS seconds, COUNT(DISTINCT steamId) AS members
+           FROM play_sessions WHERE clanGuid = ?${floorS.sql}
+       ) p ON 1=1
+       LEFT JOIN (
+         SELECT SUM(CASE WHEN kind='vblood' THEN 1 ELSE 0 END) AS vblood,
+                COUNT(DISTINCT CASE WHEN kind='vblood' AND victim IS NOT NULL THEN victim END) AS vbloodDistinct,
+                SUM(CASE WHEN kind='pvp' THEN 1 ELSE 0 END) AS pvp
+           FROM kill_events WHERE clanGuid = ?${floorK.sql}
+       ) k ON 1=1`,
+    )
+    .get(
+      clanGuid,
+      POINTS.perHour, POINTS.perVBloodFirst, POINTS.perVBloodRepeat, POINTS.perPvpKill,
+      clanGuid, ...floorS.params,
+      clanGuid, ...floorK.params,
+    )
+
+  if (!totals || (totals.seconds === 0 && totals.vblood === 0 && totals.pvp === 0)) return null
+
+  // Roster: distinct members seen under this clan, with each one's contribution.
+  const roster = db
+    .prepare(
+      `SELECT ids.steamId AS steamId,
+              (SELECT charName FROM (
+                 SELECT charName, startedAt AS t FROM play_sessions
+                   WHERE steamId = ids.steamId AND charName IS NOT NULL
+                 UNION ALL
+                 SELECT charName, occurredAt AS t FROM kill_events
+                   WHERE steamId = ids.steamId AND charName IS NOT NULL
+               ) ORDER BY t DESC LIMIT 1) AS charName,
+              COALESCE(p.seconds, 0) AS seconds,
+              COALESCE(k.vblood, 0)  AS vblood,
+              COALESCE(k.pvp, 0)     AS pvp
+         FROM (
+           SELECT DISTINCT steamId FROM play_sessions WHERE clanGuid = ?${floorS.sql}
+           UNION
+           SELECT DISTINCT steamId FROM kill_events WHERE clanGuid = ?${floorK.sql}
+         ) ids
+         LEFT JOIN (
+           SELECT steamId, SUM(seconds) AS seconds FROM play_sessions
+             WHERE clanGuid = ?${floorS.sql} GROUP BY steamId
+         ) p ON p.steamId = ids.steamId
+         LEFT JOIN (
+           SELECT steamId,
+                  SUM(CASE WHEN kind='vblood' THEN 1 ELSE 0 END) AS vblood,
+                  SUM(CASE WHEN kind='pvp' THEN 1 ELSE 0 END)    AS pvp
+             FROM kill_events WHERE clanGuid = ?${floorK.sql} GROUP BY steamId
+         ) k ON k.steamId = ids.steamId
+         ORDER BY seconds DESC`,
+    )
+    .all(
+      clanGuid, ...floorS.params,
+      clanGuid, ...floorK.params,
+      clanGuid, ...floorS.params,
+      clanGuid, ...floorK.params,
+    )
+
+  return {
+    clanGuid,
+    clanName: clanNameForGuid(clanGuid),
+    serverId: totals.serverId,
+    seconds: totals.seconds,
+    members: totals.members,
+    vblood: totals.vblood,
+    distinctBosses: totals.distinctBosses,
+    pvp: totals.pvp,
+    points: totals.points,
+    roster,
+  }
+}
+
+// Clan-vs-clan war record for one clan: head-to-head PvP kills against each rival
+// clan (kills = we killed them, deaths = they killed us). Returns an array sorted by
+// total engagement, newest activity first. Only PvP kills with both clans set count.
+export function getClanWars(clanGuid, limit = 20) {
+  if (!clanGuid || typeof clanGuid !== 'string') return []
+  const cap = Math.min(Math.max(Number(limit) || 20, 1), 50)
+  const floorK = resetFloorAnon('occurredAt', Object.entries(getLeaderboardResets()))
+
+  // Kills we landed on other clans, grouped by the rival clanGuid.
+  const kills = db
+    .prepare(
+      `SELECT victimClanGuid AS rival, COUNT(*) AS kills, MAX(occurredAt) AS last
+         FROM kill_events
+        WHERE kind = 'pvp' AND clanGuid = ? AND victimClanGuid IS NOT NULL
+          AND victimClanGuid != ?${floorK.sql}
+        GROUP BY victimClanGuid`,
+    )
+    .all(clanGuid, clanGuid, ...floorK.params)
+
+  // Deaths: kills other clans landed on us, grouped by the attacker clanGuid.
+  const deaths = db
+    .prepare(
+      `SELECT clanGuid AS rival, COUNT(*) AS deaths, MAX(occurredAt) AS last
+         FROM kill_events
+        WHERE kind = 'pvp' AND victimClanGuid = ? AND clanGuid IS NOT NULL
+          AND clanGuid != ?${floorK.sql}
+        GROUP BY clanGuid`,
+    )
+    .all(clanGuid, clanGuid, ...floorK.params)
+
+  const byRival = new Map()
+  const bump = (rival, patch, last) => {
+    const e = byRival.get(rival) || { rival, kills: 0, deaths: 0, last: '0' }
+    Object.assign(e, { ...e, ...patch })
+    if (last > e.last) e.last = last
+    byRival.set(rival, e)
+  }
+  for (const r of kills) bump(r.rival, { kills: r.kills }, r.last)
+  for (const r of deaths) {
+    const e = byRival.get(r.rival)
+    if (e) { e.deaths = r.deaths; if (r.last > e.last) e.last = r.last }
+    else bump(r.rival, { deaths: r.deaths }, r.last)
+  }
+
+  return [...byRival.values()]
+    .map((e) => ({ ...e, clanName: clanNameForGuid(e.rival) }))
+    .sort((a, b) => b.kills + b.deaths - (a.kills + a.deaths) || (b.last > a.last ? 1 : -1))
+    .slice(0, cap)
+}
+
+// The single most active clan-vs-clan feud across all clans (for the milestones
+// strip). Returns { a:{clanGuid,clanName}, b:{clanGuid,clanName}, aKills, bKills }
+// or null when there isn't a clan matchup with enough kills yet.
+export function getHottestClanWar() {
+  const floorK = resetFloorAnon('occurredAt', Object.entries(getLeaderboardResets()))
+  // Order each pair canonically (min,max) so A→B and B→A collapse into one feud.
+  const rows = db
+    .prepare(
+      `SELECT
+         CASE WHEN clanGuid < victimClanGuid THEN clanGuid ELSE victimClanGuid END AS lo,
+         CASE WHEN clanGuid < victimClanGuid THEN victimClanGuid ELSE clanGuid END AS hi,
+         SUM(CASE WHEN clanGuid < victimClanGuid THEN 1 ELSE 0 END) AS loKills,
+         SUM(CASE WHEN clanGuid < victimClanGuid THEN 0 ELSE 1 END) AS hiKills,
+         COUNT(*) AS total
+       FROM kill_events
+      WHERE kind = 'pvp' AND clanGuid IS NOT NULL AND victimClanGuid IS NOT NULL
+        AND clanGuid != victimClanGuid${floorK.sql}
+      GROUP BY lo, hi
+      ORDER BY total DESC LIMIT 1`,
+    )
+    .get(...floorK.params)
+  if (!rows || rows.total < 2) return null
+  return {
+    a: { clanGuid: rows.lo, clanName: clanNameForGuid(rows.lo), kills: rows.loKills },
+    b: { clanGuid: rows.hi, clanName: clanNameForGuid(rows.hi), kills: rows.hiKills },
   }
 }
 

@@ -20,6 +20,7 @@ const NAV_GROUPS = [
     label: 'Stats',
     items: [
       { label: 'Leaderboard', to: '/leaderboard', page: true },
+      { label: 'Clans', to: '/clans', page: true },
       { label: 'Hunt Tracker', to: '/hunt', page: true },
       { label: 'Players', to: '/players', page: true },
       { label: 'Achievements', to: '/achievements', page: true },

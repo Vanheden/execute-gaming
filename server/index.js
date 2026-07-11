@@ -53,6 +53,10 @@ import {
   setLeaderboardReset,
   restoreLeaderboardReset,
   getSeasonChampions,
+  getClanLeaderboard,
+  getClanStats,
+  getClanWars,
+  getHottestClanWar,
   LEADERBOARD_PERIODS,
   LEADERBOARD_METRICS,
 } from './playtime.js'
@@ -549,6 +553,52 @@ app.get('/api/kills/recent', (req, res) => {
   res.json({ kills: entries })
 })
 
+// Clan leaderboard — one row per clan (keyed by stable ClanGuid, shown under its
+// latest name). Same metric/period/server filters as the player leaderboard.
+app.get('/api/clans', (req, res) => {
+  const serverId = req.query.serverId ? String(req.query.serverId) : null
+  const period = LEADERBOARD_PERIODS.includes(req.query.period) ? req.query.period : 'all'
+  const metric = LEADERBOARD_METRICS.includes(req.query.metric) ? req.query.metric : 'points'
+  const rows = getClanLeaderboard({ serverId, period, metric, limit: req.query.limit })
+  const entries = rows.map((c) => ({
+    clanGuid: c.clanGuid,
+    clanName: c.clanName || 'Unnamed clan',
+    serverId: c.serverId,
+    members: c.members,
+    seconds: c.seconds,
+    vblood: c.vblood,
+    pvp: c.pvp,
+    points: c.points,
+  }))
+  res.json({ entries, period, serverId, metric })
+})
+
+// One clan's profile: totals, roster (each member linked to their site account
+// where a matching Steam login exists) and its clan-vs-clan war record.
+app.get('/api/clan/:clanGuid', (req, res) => {
+  const stats = getClanStats(req.params.clanGuid)
+  if (!stats) return res.status(404).json({ error: 'clan not found' })
+  const roster = stats.roster.map((m) => {
+    const member = getUserByProvider('steam', m.steamId)
+    const linked = member && !member.banned ? member : null
+    return {
+      steamId: m.steamId,
+      charName: m.charName || linked?.username || 'Unknown vampire',
+      seconds: m.seconds,
+      vblood: m.vblood,
+      pvp: m.pvp,
+      member: linked ? { key: keyOf(linked.id) } : null,
+    }
+  })
+  const wars = getClanWars(req.params.clanGuid).map((w) => ({
+    clanGuid: w.rival,
+    clanName: w.clanName || 'Unnamed clan',
+    kills: w.kills,
+    deaths: w.deaths,
+  }))
+  res.json({ ...stats, roster, wars })
+})
+
 // V Blood hunt tracker — which bosses each player has killed (for the hunt page).
 app.get('/api/vblood-hunt', (req, res) => {
   const serverId = req.query.serverId ? String(req.query.serverId) : null
@@ -642,7 +692,13 @@ app.get('/api/global-stats', (req, res) => {
     }
   })
 
-  res.json({ stats: getGlobalStats(), hottestFeud, topStreaks })
+  const cw = getHottestClanWar()
+  const hottestClanWar = cw
+    ? { a: { ...cw.a, clanName: cw.a.clanName || 'Unnamed clan' },
+        b: { ...cw.b, clanName: cw.b.clanName || 'Unnamed clan' } }
+    : null
+
+  res.json({ stats: getGlobalStats(), hottestFeud, hottestClanWar, topStreaks })
 })
 
 // Rivalries (nemeses + prey) and play streak for a player — used on both profile

@@ -159,6 +159,15 @@ the live domain while developing — the same `.env` works on your machine and t
   Favourite prey from PvP `kill_events` — note PvP `victim` is a *charName*, so nemeses
   resolve by killer SteamID while prey resolve name→latest SteamID), and
   `getPlayerStreak(steamId)` / `getTopStreaks()` (consecutive-day play streaks, UTC days).
+  **Clans:** `getClanLeaderboard({ metric, serverId, period })` ranks clans (keyed by
+  the stable `clanGuid`, shown under the latest captured `clanName`) with the same
+  POINTS weighting summed across members; `getClanStats(clanGuid)` returns one clan's
+  totals + roster + distinct bosses; `getClanWars(clanGuid)` is the clan-vs-clan PvP
+  record (kills we landed vs deaths taken, per rival clan, from `victimClanGuid` on
+  PvP kills); `getHottestClanWar()` is the single most active clan feud for the
+  milestones strip. Clan attribution is denormalised at event time (clanGuid/clanName
+  on each session + kill, victimClan* on PvP kills) so clan stats recompute from raw
+  rows like everything else — no membership table.
   Also `checkRankPromotion(steamId)` — recomputes the player's GLOBAL all-time rank
   tier after each ingest and compares it to the highest tier stored in the
   `player_ranks` table. First sighting seeds the current tier **silently** (returns
@@ -212,8 +221,8 @@ the live domain while developing — the same `.env` works on your machine and t
 - `GET /api/season-champions` — **public** top-1 player per completed season per
   server (between consecutive resets).
 - `GET /api/global-stats` — **public** community milestones (total hours/V Bloods/PvP
-  kills/players) + hottest PvP feud + top play streaks (for the leaderboard's
-  `<Milestones>` strip).
+  kills/players) + hottest PvP feud + hottest **clan** war + top play streaks (for the
+  leaderboard's `<Milestones>` strip).
 - `GET /api/player/:steamId/rivalries` — **public** Nemesis + Favourite prey + play
   streak for a player. Keyed by SteamID so members (`/u/:key`) and guests
   (`/p/:steamId`) share the same `<Rivalries>` component.
@@ -238,10 +247,18 @@ the live domain while developing — the same `.env` works on your machine and t
   active *server* filter: global on "All servers", per-server otherwise). Rows link to
   member profiles where the SteamID matches a Steam login. Rendered by
   `components/Leaderboard.jsx` (metric tabs + per-row rank pill from `src/data/ranks.js`).
+- `GET /api/clans?metric=&serverId=&period=` — **public** clan leaderboard (one row
+  per clan, keyed by `clanGuid`, shown under its latest name). Rendered by
+  `components/ClanLeaderboard.jsx` at `/clans`.
+- `GET /api/clan/:clanGuid` — **public** one clan's profile (totals, roster with
+  member links, clan-vs-clan war record). 404 if the clan has no tracked activity.
+  Rendered by `components/ClanProfile.jsx` at `/c/:clanGuid`.
 - `POST /api/ingest/session` and `POST /api/ingest/kill` — ingest from the in-game
   mod. **Not** user-auth; both guarded by a shared secret (`INGEST_SECRET`, header
   `X-Ingest-Secret`) and **fail closed** (503) if the secret isn't set. `kill` body
-  is `{ eventId, serverId, steamId, charName, kind: vblood|pvp, victim, occurredAt }`.
+  is `{ eventId, serverId, steamId, charName, kind: vblood|pvp, victim, occurredAt,
+  clanGuid?, clanName?, victimClanGuid?, victimClanName? }`; `session` body adds
+  `clanGuid?`/`clanName?`. Clan fields are optional (empty = clanless).
   After a successful ingest both routes fire-and-forget `checkRankPromotion(steamId)`
   and, on a promotion, post a "rank up" embed to Discord (see `discord.js`).
 - `GET /api/news` (public), `POST/PUT/DELETE /api/news/:id` (admin)
