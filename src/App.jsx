@@ -8,6 +8,7 @@ import Events from './components/Events.jsx'
 import Community from './components/Community.jsx'
 import Members from './components/Members.jsx'
 import Leaderboard from './components/Leaderboard.jsx'
+import Pvp from './components/Pvp.jsx'
 import ClanLeaderboard from './components/ClanLeaderboard.jsx'
 import ClanProfile from './components/ClanProfile.jsx'
 import Achievements from './components/Achievements.jsx'
@@ -67,6 +68,7 @@ const PAGES = {
   '/events': Events,
   '/members': Members,
   '/leaderboard': Leaderboard,
+  '/pvp': Pvp,
   '/clans': ClanLeaderboard,
   '/achievements': Achievements,
   '/suggestions': Suggestions,

@@ -34,6 +34,9 @@ import {
   topServers,
   serverPlaytime,
   getPlayerStats,
+  getPlayerRecap,
+  getPvpLeaderboard,
+  getPvpRating,
   getPlayerTotals,
   getPlayerTotalsBatch,
   getRecentKills,
@@ -547,7 +550,8 @@ app.get('/api/leaderboard', (req, res) => {
 app.get('/api/kills/recent', (req, res) => {
   const serverId = req.query.serverId ? String(req.query.serverId) : null
   const limit = req.query.limit ? Number(req.query.limit) : 20
-  const kills = getRecentKills(serverId, limit)
+  const kind = req.query.kind ? String(req.query.kind) : null
+  const kills = getRecentKills(serverId, limit, kind)
   const entries = kills.map((k) => {
     const member = getUserByProvider('steam', k.steamId)
     const linked = member && !member.banned ? member : null
@@ -907,9 +911,23 @@ app.get('/api/player/:steamId', (req, res) => {
       lastSeen: stats.lastSeen,
       latestVBlood,
       perServer,
+      pvpRating: getPvpRating(stats.steamId),
       member: linked ? { key: keyOf(linked.id), username: linked.username } : null,
     },
   })
+})
+
+// PvP skill-rating ladder (Elo). ?limit= (default 50, max 200).
+app.get('/api/pvp/leaderboard', (req, res) => {
+  const limit = req.query.limit ? Number(req.query.limit) : 50
+  res.json({ players: getPvpLeaderboard(limit) })
+})
+
+// Shareable season recap for a player — the numbers behind the downloadable card.
+app.get('/api/player/:steamId/recap', (req, res) => {
+  const recap = getPlayerRecap(req.params.steamId)
+  if (!recap) return res.status(404).json({ error: 'not found' })
+  res.json({ recap })
 })
 
 // Daily activity for a player's activity heatmap (on /p/:steamId).

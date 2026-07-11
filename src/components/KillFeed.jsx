@@ -13,7 +13,7 @@ function timeAgo(iso) {
   return `${d}d ago`
 }
 
-export default function KillFeed({ serverId }) {
+export default function KillFeed({ serverId, kind }) {
   const [kills, setKills] = useState(null)
   const [error, setError] = useState(false)
   const [enabled, setEnabled] = useState(true)
@@ -26,6 +26,7 @@ export default function KillFeed({ serverId }) {
     const poll = () => {
       const params = new URLSearchParams({ limit: '15' })
       if (serverId) params.set('serverId', serverId)
+      if (kind) params.set('kind', kind)
       fetch(`/api/kills/recent?${params}`)
         .then((r) => (r.ok ? r.json() : Promise.reject()))
         .then((d) => {
@@ -53,7 +54,7 @@ export default function KillFeed({ serverId }) {
     <div className="killfeed">
       <h3 className="killfeed__title">
         <span className="killfeed__pulse" aria-hidden="true" />
-        Live Kill Feed
+        {kind === 'pvp' ? 'Live PvP Feed' : 'Live Kill Feed'}
       </h3>
       <ul className="killfeed__list">
         {kills.map((k, i) => {

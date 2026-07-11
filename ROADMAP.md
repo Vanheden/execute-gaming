@@ -114,6 +114,19 @@ Ideas for growing the site, grouped by theme. Effort is a rough guide:
   clanless solo raider), and the raid attribution is denormalised at event time like the
   rest. The mod hook is **built + compile-verified but pending live verification** (raids
   are rare — like the kill hooks before v0.2.2; the mod logs `→ Raid:` for the first one).
+- **Season recap card** (M) — a shareable "V Rising Wrapped" card on every player
+  profile (`/p/:steamId` + `/u/:key`). A single self-contained `<svg>` (no external
+  images/fonts, so it rasterises cleanly) with the player's playtime, kills, raids,
+  points, global rank/percentile, top nemesis and a computed **archetype** (Castle
+  Breaker / Bloodletter / V Blood Hunter / Nightwalker). "Download card" exports a PNG
+  (SVG → canvas) to drop in Discord; "Copy link" shares the profile. Backed by
+  `getPlayerRecap()` + `GET /api/player/:steamId/recap` (`components/SeasonRecap.jsx`).
+- **PvP rating (Elo) + PvP hub** (M) — every PvP kill is a 1v1 match that shifts both
+  fighters' Elo (start 1000, K=32, <3 duels = provisional), replayed chronologically and
+  memoised. A dedicated **PvP Arena** page (`/pvp`) gathers it all: the rating ladder,
+  a top-PvP-killers board, a PvP-only live kill feed (`kind=pvp`) and the fiercest
+  rivalry. Ratings also show on player profiles. Backed by `getPvpLeaderboard()` /
+  `getPvpRating()` + `GET /api/pvp/leaderboard` (`components/Pvp.jsx`, `PvpLadder.jsx`).
 - **Leaderboard pagination** — the ladder shows 20 players per page with Prev/Next
   controls; rank numbers and medals stay global across pages. (Also fixed the top-3
   medal emoji rendering as tofu — `'🥇🥈🥉'[i]` split a surrogate pair.)
@@ -235,7 +248,12 @@ Most of the roadmap is now built. What's left:
    hottest feud + hottest clan war), building on the announcements webhook +
    `getGlobalStats`/`getTopStreaks`/`getHottestClanWar`.
 
-Recently shipped: **castle raids** — a raid feed on `/clans`, a per-clan raid record
+Recently shipped: **season recap card** — a shareable "V Rising Wrapped" SVG on every
+player profile (playtime/kills/raids/rank/nemesis + a computed archetype) that exports to
+PNG for Discord (`getPlayerRecap()`, `components/SeasonRecap.jsx`). **PvP rating + hub** —
+an Elo skill rating from every duel, surfaced on a dedicated `/pvp` page (rating ladder,
+top killers, PvP-only kill feed, fiercest rivalry) and on player profiles
+(`getPvpRating()`/`getPvpLeaderboard()`, `components/Pvp.jsx`). **castle raids** — a raid feed on `/clans`, a per-clan raid record
 (raids landed vs suffered) and a "most feared raiders" milestone; the mod (v0.4.0)
 hooks `CastleHeartEventSystem.ProcessRaidEvent` and reports attacker + defender clans
 per raid (pending live verification). **clans** — clan leaderboard (`/clans`), clan

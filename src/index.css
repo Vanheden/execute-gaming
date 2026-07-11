@@ -3074,6 +3074,275 @@ body.has-banner .nav {
 }
 
 /* --------------------------------------------------------------------------
+   Season recap card (shareable "V Rising Wrapped")
+   -------------------------------------------------------------------------- */
+.recap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+.recap__stage {
+  max-width: 420px;
+  margin: 0 auto;
+  width: 100%;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 18px 50px rgba(255, 45, 85, 0.14), 0 4px 16px rgba(0, 0, 0, 0.5);
+}
+.recap__svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.recap__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+}
+.recap__hint {
+  flex-basis: 100%;
+  text-align: center;
+  font-size: 0.82rem;
+  color: var(--text-dim);
+}
+.recap__loading {
+  color: var(--text-dim);
+  font-size: 0.9rem;
+}
+
+/* --------------------------------------------------------------------------
+   PvP rating ladder + profile rating block
+   -------------------------------------------------------------------------- */
+.pvpladder {
+  background: var(--surface, rgba(255, 255, 255, 0.02));
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 14px;
+  padding: 1.1rem 1.2rem;
+  margin-bottom: 1.5rem;
+}
+.pvpladder__head {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  margin-bottom: 0.8rem;
+}
+.pvpladder__title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+.pvpladder__sub {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+}
+.pvpladder__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.pvpladder__row {
+  display: grid;
+  grid-template-columns: 2rem 1fr auto 6.5rem;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.4rem 0.5rem;
+  border-radius: 9px;
+}
+.pvpladder__row--top {
+  background: rgba(255, 45, 85, 0.06);
+}
+.pvpladder__rank {
+  font-weight: 700;
+  text-align: center;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+.pvpladder__name {
+  font-weight: 600;
+  color: var(--text);
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pvpladder__name:hover {
+  color: var(--blood-bright, #ff6b81);
+}
+.pvpladder__wl {
+  font-size: 0.82rem;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+.pvpladder__wlsep {
+  opacity: 0.5;
+  margin: 0 1px;
+}
+.pvpladder__rating {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  height: 1.6rem;
+  padding: 0 0.55rem;
+  border-radius: 7px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.04);
+}
+.pvpladder__bar {
+  position: absolute;
+  inset: 0;
+  width: var(--pct, 0%);
+  background: color-mix(in srgb, var(--tier, #33c9c9) 26%, transparent);
+  border-right: 2px solid var(--tier, #33c9c9);
+}
+.pvpladder__num {
+  position: relative;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: #fff;
+}
+.pvprate {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  background: rgba(255, 45, 85, 0.06);
+  border: 1px solid rgba(255, 45, 85, 0.16);
+  border-radius: 12px;
+  padding: 0.9rem 1.1rem;
+}
+.pvprate__main {
+  display: flex;
+  align-items: baseline;
+  gap: 0.7rem;
+}
+.pvprate__num {
+  font-size: 2rem;
+  font-weight: 800;
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.pvprate__meta {
+  font-size: 0.85rem;
+  color: var(--text-dim);
+}
+.pvprate__side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.15rem;
+}
+.pvprate__wl {
+  font-size: 0.95rem;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.pvprate__peak {
+  font-size: 0.78rem;
+  color: var(--text-dim);
+}
+
+/* PvP hub page (/pvp) — top-killers board + fiercest-rivalry callout */
+.pvphub__card {
+  background: var(--surface, rgba(255, 255, 255, 0.02));
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 14px;
+  padding: 1.1rem 1.2rem;
+  margin-bottom: 1.5rem;
+}
+.pvphub__cardtitle {
+  margin: 0 0 0.8rem;
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+.pvphub__card--feud {
+  background: rgba(255, 45, 85, 0.06);
+  border-color: rgba(255, 45, 85, 0.18);
+}
+.feud__line {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--text);
+  line-height: 1.5;
+}
+.feud__killer,
+.feud__victim {
+  font-weight: 700;
+  text-decoration: none;
+}
+.feud__killer {
+  color: var(--blood-bright, #ff6b81);
+}
+.feud__victim {
+  color: var(--text);
+}
+a.feud__victim:hover,
+a.feud__killer:hover {
+  text-decoration: underline;
+}
+.feud__count {
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+}
+.topkills {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.topkills__row {
+  display: grid;
+  grid-template-columns: 2rem 1fr 1fr auto;
+  align-items: center;
+  gap: 0.6rem;
+}
+.topkills__rank {
+  font-weight: 700;
+  text-align: center;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+.topkills__name {
+  font-weight: 600;
+  color: var(--text);
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.topkills__name:hover {
+  color: var(--blood-bright, #ff6b81);
+}
+.topkills__track {
+  height: 0.55rem;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.05);
+  overflow: hidden;
+}
+.topkills__bar {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  background: linear-gradient(90deg, rgba(255, 45, 85, 0.5), var(--blood-bright, #ff6b81));
+}
+.topkills__num {
+  font-weight: 800;
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+  min-width: 1.8rem;
+  text-align: right;
+}
+
+/* --------------------------------------------------------------------------
    Login toast
    -------------------------------------------------------------------------- */
 .toast {

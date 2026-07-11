@@ -5,6 +5,7 @@ import { linkProps } from '../lib/router.js'
 import ActivityHeatmap from './ActivityHeatmap.jsx'
 import Rivalries from './Rivalries.jsx'
 import ServerSplit from './ServerSplit.jsx'
+import SeasonRecap from './SeasonRecap.jsx'
 
 function formatDuration(seconds) {
   const h = Math.floor(seconds / 3600)
@@ -143,6 +144,8 @@ export default function PlayerProfile({ steamId }) {
 
             <RankBox points={p.points} />
 
+            <SeasonRecap steamId={p.steamId} />
+
             <section className="pubcard__section">
               <h2 className="pubcard__label">Stats</h2>
               <div className="pstats">
@@ -168,6 +171,28 @@ export default function PlayerProfile({ steamId }) {
                 </div>
               </div>
             </section>
+
+            {p.pvpRating && (
+              <section className="pubcard__section">
+                <h2 className="pubcard__label">PvP rating</h2>
+                <div className="pvprate">
+                  <div className="pvprate__main">
+                    <span className="pvprate__num">{p.pvpRating.rating}</span>
+                    <span className="pvprate__meta">
+                      {p.pvpRating.rank
+                        ? `Rank #${p.pvpRating.rank} of ${p.pvpRating.totalRated}`
+                        : `Provisional · ${p.pvpRating.matches} of 3 duels`}
+                    </span>
+                  </div>
+                  <div className="pvprate__side">
+                    <span className="pvprate__wl">
+                      <strong>{p.pvpRating.wins}</strong>W · <strong>{p.pvpRating.losses}</strong>L
+                    </span>
+                    <span className="pvprate__peak">Peak {p.pvpRating.peak}</span>
+                  </div>
+                </div>
+              </section>
+            )}
 
             {p.latestVBlood && (
               <section className="pubcard__section">

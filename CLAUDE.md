@@ -160,6 +160,13 @@ the live domain while developing — the same `.env` works on your machine and t
   Favourite prey from PvP `kill_events` — note PvP `victim` is a *charName*, so nemeses
   resolve by killer SteamID while prey resolve name→latest SteamID), and
   `getPlayerStreak(steamId)` / `getTopStreaks()` (consecutive-day play streaks, UTC days).
+  `getRecentKills` takes an optional `kind` (`'pvp'`/`'vblood'`) to filter the feed.
+  **Season recap:** `getPlayerRecap(steamId)` assembles the shareable card's numbers
+  (playtime/kills/raids/points, global rank + percentile, top nemesis, a computed
+  archetype) — the data behind `components/SeasonRecap.jsx` on `/p/:steamId` + `/u/:key`.
+  **PvP rating (Elo):** `getPvpLeaderboard(limit)` / `getPvpRating(steamId)` replay all
+  PvP kills chronologically as 1v1 matches (start 1000, K=32, <3 duels = provisional),
+  memoised on a cheap kill-count signature — the `/pvp` hub + the profile rating block.
   **Clans:** `getClanLeaderboard({ metric, serverId, period })` ranks clans (keyed by
   the stable `clanGuid`, shown under the latest captured `clanName`) with the same
   POINTS weighting summed across members; `getClanStats(clanGuid)` returns one clan's
@@ -220,10 +227,16 @@ the live domain while developing — the same `.env` works on your machine and t
 - `GET /api/player/:steamId` — **public** game stats for any player (guest profile
   at `/p/:steamId`). Works for unregistered players: playtime, kills, points, rank,
   per-server breakdown, latest V Blood. Includes `member` link if registered.
+  per-server breakdown, latest V Blood. Also includes `pvpRating` (Elo, or null).
 - `GET /api/player/:steamId/activity?days=` — **public** daily playtime for the
   activity heatmap (array of `{ date, seconds }`).
-- `GET /api/kills/recent?serverId=&limit=` — **public** live kill feed (latest V Blood
-  + PvP kills, newest first, with resolved boss names + member link keys).
+- `GET /api/player/:steamId/recap` — **public** season-recap numbers for the shareable
+  card (`components/SeasonRecap.jsx`). 404 for players with no tracked activity.
+- `GET /api/pvp/leaderboard?limit=` — **public** PvP Elo ladder (established fighters,
+  best rating first), for the `/pvp` hub.
+- `GET /api/kills/recent?serverId=&limit=&kind=` — **public** live kill feed (latest V Blood
+  + PvP kills, newest first, with resolved boss names + member link keys). Optional
+  `kind=pvp`/`kind=vblood` filters the feed (the `/pvp` hub uses `kind=pvp`).
 - `GET /api/vblood-hunt?serverId=` — **public** V Blood hunt tracker (per-player boss
   kill sets, sorted by kill count).
 - `GET /api/season-champions` — **public** top-1 player per completed season per

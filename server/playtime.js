@@ -955,22 +955,111 @@ export function getPlayerStats(steamId) {
   }
 }
 
+// Cosmetic "archetype" flavour for the shareable recap card — whichever pursuit
+// dominates a player's season decides their title. Purely for fun/branding.
+const RECAP_ARCHETYPES = {
+  raider: { title: 'Castle Breaker', icon: '🏰', blurb: 'Walls mean nothing to them.' },
+  duelist: { title: 'Bloodletter', icon: '⚔️', blurb: 'Death follows their blade.' },
+  hunter: { title: 'V Blood Hunter', icon: '🩸', blurb: 'A collector of legends.' },
+  nightwalker: { title: 'Nightwalker', icon: '🌙', blurb: 'The night belongs to them.' },
+}
+
+// Assemble a shareable "season recap" for one player — the numbers behind the
+// downloadable card on /p/:steamId and /u/:key. Everything is season-floored so a
+// server wipe resets it too, matching the leaderboard. Returns null for players
+// with no tracked activity.
+export function getPlayerRecap(steamId) {
+  const stats = getPlayerStats(steamId)
+  if (!stats) return null
+
+  const floorK = resetFloorAnon('occurredAt', Object.entries(getLeaderboardResets()))
+
+  // Distinct V Blood bosses felled (drives the "hunter" archetype + a card stat).
+  const vbloodDistinct = db
+    .prepare(
+      `SELECT COUNT(DISTINCT victim) AS c FROM kill_events
+         WHERE steamId = ? AND kind = 'vblood' AND victim IS NOT NULL${floorK.sql}`,
+    )
+    .get(steamId, ...floorK.params).c
+
+  // Raids landed as the attacker (event-sourced on raid_events, same season floor).
+  const raids = db
+    .prepare(`SELECT COUNT(*) AS c FROM raid_events WHERE attackerSteamId = ?${floorK.sql}`)
+    .get(steamId, ...floorK.params).c
+
+  // Global rank position by points. The community is small, so the 500 cap on the
+  // board is plenty to place everyone who has earned a single point.
+  const board = getLeaderboard({ metric: 'points', limit: 500 })
+  const idx = board.findIndex((r) => r.steamId === steamId)
+  const rank = idx >= 0 ? idx + 1 : null
+  const totalRanked = board.length
+  const percentile =
+    rank && totalRanked ? Math.max(1, Math.round((rank / totalRanked) * 100)) : null
+
+  // Top nemesis (whoever killed them most this season) for the card's rivalry line.
+  const { nemeses } = getRivalries(steamId, 1)
+  const nemesis = nemeses[0]
+    ? { name: nemeses[0].charName, kills: nemeses[0].kills, revenge: nemeses[0].revenge }
+    : null
+
+  // Archetype: whichever pursuit dominates, by a simple weighted share of the
+  // headline stats. Weights just balance the scales (raids are rare, hours common).
+  const hours = stats.seconds / 3600
+  const scores = {
+    raider: raids * 8,
+    duelist: stats.pvp * 2,
+    hunter: vbloodDistinct * 3,
+    nightwalker: hours,
+  }
+  const [topKey, topScore] = Object.entries(scores).sort((a, b) => b[1] - a[1])[0]
+  const archetype =
+    topScore > 0
+      ? RECAP_ARCHETYPES[topKey]
+      : { title: 'Fledgling Vampire', icon: '🦇', blurb: 'The story is just beginning.' }
+
+  // Season label from the most recent reset cutoff, if any is set.
+  const resets = Object.values(getLeaderboardResets())
+  const seasonStart = resets.length ? resets.slice().sort().slice(-1)[0] : null
+
+  return {
+    steamId: stats.steamId,
+    charName: stats.charName,
+    seconds: stats.seconds,
+    hours: Math.round(hours),
+    sessions: stats.sessions,
+    vblood: stats.vblood,
+    vbloodDistinct,
+    pvp: stats.pvp,
+    raids,
+    points: stats.points,
+    rank,
+    totalRanked,
+    percentile,
+    nemesis,
+    archetype,
+    seasonStart,
+    generatedAt: new Date().toISOString(),
+  }
+}
+
 // Recent kill events for the live kill feed. Returns the latest N kills across
 // all servers (or one server), newest first. Each row: { steamId, charName, kind,
 // victim, occurredAt, serverId }. Respects season-reset floors.
-export function getRecentKills(serverId = null, limit = 20) {
+export function getRecentKills(serverId = null, limit = 20, kind = null) {
   const resetEntries = Object.entries(getLeaderboardResets())
   const floorK = resetFloorAnon('occurredAt', resetEntries)
   const cap = Math.min(Math.max(Number(limit) || 20, 1), 100)
+  const kindFilter = kind === 'pvp' || kind === 'vblood' ? kind : null
 
   const sql = `
     SELECT steamId, charName, kind, victim, occurredAt, serverId
       FROM kill_events
-     WHERE (? IS NULL OR serverId = ?)${floorK.sql}
+     WHERE (? IS NULL OR serverId = ?)
+       AND (? IS NULL OR kind = ?)${floorK.sql}
      ORDER BY occurredAt DESC
      LIMIT ?`
 
-  return db.prepare(sql).all(serverId, serverId, ...floorK.params, cap)
+  return db.prepare(sql).all(serverId, serverId, kindFilter, kindFilter, ...floorK.params, cap)
 }
 
 // V Blood hunt tracker — which bosses each player has killed. Returns a map
@@ -1328,6 +1417,125 @@ export function getHottestFeud() {
     victim: { steamId: steamIdForName(row.victim), charName: row.victim },
     kills: row.kills,
   }
+}
+
+// --- PvP rating (Elo) --------------------------------------------------------
+// A skill rating derived from PvP kills treated as a sequence of 1v1 "matches"
+// (the killer wins, the victim loses), replayed in chronological order. Both
+// fighters must resolve to a known SteamID — anonymous victims can't be rated.
+// Season-floored like the rest, and memoised so profile/leaderboard hits don't
+// replay the whole history unless a new PvP kill has landed.
+const ELO_START = 1000
+const ELO_K = 32
+const ELO_MIN_MATCHES = 3 // below this a player is "provisional" and hidden from the board
+
+let eloMemo = { sig: null, data: null }
+
+function computeElo() {
+  const resets = getLeaderboardResets()
+  const floorK = resetFloorAnon('occurredAt', Object.entries(resets))
+
+  // Cheap cache signature: reuse the last result unless the PvP kill count, the
+  // newest kill timestamp, or the season resets have changed.
+  const sig = db
+    .prepare(`SELECT COUNT(*) AS c, MAX(occurredAt) AS m FROM kill_events WHERE kind = 'pvp'${floorK.sql}`)
+    .get(...floorK.params)
+  const sigKey = `${sig.c}|${sig.m}|${JSON.stringify(resets)}`
+  if (eloMemo.sig === sigKey) return eloMemo.data
+
+  // Identity maps. Each MAX(t) row carries its own bare columns (SQLite's
+  // documented min/max bare-column rule), so we get the most-recent name per
+  // SteamID and the most-recent SteamID per name in a single grouped scan.
+  const identitySql = `
+    SELECT steamId, charName, MAX(t) AS t FROM (
+      SELECT steamId, charName, startedAt AS t FROM play_sessions
+        WHERE steamId IS NOT NULL AND charName IS NOT NULL
+      UNION ALL
+      SELECT steamId, charName, occurredAt AS t FROM kill_events
+        WHERE steamId IS NOT NULL AND charName IS NOT NULL
+    ) GROUP BY `
+  const idToName = new Map(
+    db.prepare(identitySql + 'steamId').all().map((r) => [r.steamId, r.charName]),
+  )
+  const nameToId = new Map(
+    db.prepare(identitySql + 'charName').all().map((r) => [r.charName, r.steamId]),
+  )
+
+  const kills = db
+    .prepare(
+      `SELECT steamId AS killer, victim FROM kill_events
+         WHERE kind = 'pvp' AND victim IS NOT NULL AND steamId IS NOT NULL${floorK.sql}
+         ORDER BY occurredAt ASC, rowid ASC`,
+    )
+    .all(...floorK.params)
+
+  const R = new Map() // steamId -> current rating
+  const stat = new Map() // steamId -> { wins, losses, matches, peak }
+  const get = (id) => (R.has(id) ? R.get(id) : ELO_START)
+  const st = (id) => {
+    let s = stat.get(id)
+    if (!s) stat.set(id, (s = { wins: 0, losses: 0, matches: 0, peak: ELO_START }))
+    return s
+  }
+
+  for (const k of kills) {
+    const a = k.killer
+    const b = nameToId.get(k.victim)
+    if (!b || a === b) continue // unrateable / self-kill
+    const Ra = get(a)
+    const Rb = get(b)
+    const Ea = 1 / (1 + Math.pow(10, (Rb - Ra) / 400))
+    const delta = ELO_K * (1 - Ea) // winner gains this, loser sheds it
+    R.set(a, Ra + delta)
+    R.set(b, Rb - delta)
+    const sa = st(a)
+    const sb = st(b)
+    sa.wins++
+    sa.matches++
+    if (Ra + delta > sa.peak) sa.peak = Ra + delta
+    sb.losses++
+    sb.matches++
+  }
+
+  const players = [...R.entries()]
+    .map(([id, rating]) => {
+      const s = stat.get(id)
+      return {
+        steamId: id,
+        charName: idToName.get(id) || null,
+        rating: Math.round(rating),
+        wins: s.wins,
+        losses: s.losses,
+        matches: s.matches,
+        peak: Math.round(s.peak),
+        provisional: s.matches < ELO_MIN_MATCHES,
+      }
+    })
+    .sort((x, y) => y.rating - x.rating || y.matches - x.matches)
+
+  eloMemo = { sig: sigKey, data: players }
+  return players
+}
+
+// Ranked PvP ladder — established (non-provisional) fighters, best rating first.
+export function getPvpLeaderboard(limit = 50) {
+  const cap = Math.min(Math.max(Number(limit) || 50, 1), 200)
+  return computeElo()
+    .filter((p) => !p.provisional)
+    .slice(0, cap)
+}
+
+// One player's PvP rating + ladder position. Returns null if they've never had a
+// rateable PvP fight this season. `rank`/`totalRated` reflect the established
+// ladder; a provisional fighter carries a rating but no rank yet.
+export function getPvpRating(steamId) {
+  if (!steamId || !/^\d{5,20}$/.test(steamId)) return null
+  const all = computeElo()
+  const me = all.find((p) => p.steamId === steamId)
+  if (!me) return null
+  const ranked = all.filter((p) => !p.provisional)
+  const idx = me.provisional ? -1 : ranked.findIndex((p) => p.steamId === steamId)
+  return { ...me, rank: idx >= 0 ? idx + 1 : null, totalRated: ranked.length }
 }
 
 // --- Clans -----------------------------------------------------------------

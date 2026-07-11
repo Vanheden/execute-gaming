@@ -6,6 +6,7 @@ import Badges from './Badges.jsx'
 import ActivityHeatmap from './ActivityHeatmap.jsx'
 import Rivalries from './Rivalries.jsx'
 import ServerSplit from './ServerSplit.jsx'
+import SeasonRecap from './SeasonRecap.jsx'
 
 function serverName(id) {
   return servers.find((s) => s.id === id)?.name || id
@@ -156,6 +157,8 @@ export default function PublicProfile({ profileKey }) {
             </div>
 
             {m.points && typeof m.points.overall === 'number' && <RankBadge points={m.points} />}
+
+            {m.steamId && <SeasonRecap steamId={m.steamId} />}
 
             {m.steamId && <Rivalries steamId={m.steamId} />}
 
