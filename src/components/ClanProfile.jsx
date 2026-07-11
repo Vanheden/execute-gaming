@@ -155,6 +155,47 @@ export default function ClanProfile({ clanGuid }) {
               </section>
             )}
 
+            {c.raidRecord && (c.raidRecord.raidsDone > 0 || c.raidRecord.raidsSuffered > 0) && (
+              <section className="pubcard__section">
+                <h2 className="pubcard__label">Castle raids</h2>
+                <div className="raidrec">
+                  <div className="raidrec__tile raidrec__tile--done">
+                    <span className="raidrec__num">{c.raidRecord.raidsDone}</span>
+                    <span className="raidrec__label">Raids landed ⚔️</span>
+                  </div>
+                  <div className="raidrec__tile raidrec__tile--suffered">
+                    <span className="raidrec__num">{c.raidRecord.raidsSuffered}</span>
+                    <span className="raidrec__label">Raids suffered 🛡️</span>
+                  </div>
+                </div>
+                {c.raidRecord.rivals?.length > 0 && (
+                  <ul className="clanwars clanwars--raids">
+                    {c.raidRecord.rivals.map((r) => {
+                      const won = r.raided > r.raidedBy
+                      const even = r.raided === r.raidedBy
+                      return (
+                        <li className="clanwars__row" key={r.clanGuid}>
+                          <a className="clanwars__rival" {...linkProps(`/c/${r.clanGuid}`)}>
+                            {r.clanName}
+                          </a>
+                          <span
+                            className={`clanwars__score ${
+                              even ? '' : won ? 'clanwars__score--win' : 'clanwars__score--loss'
+                            }`}
+                          >
+                            <span className="clanwars__k">{r.raided}</span>
+                            <span className="clanwars__sep">–</span>
+                            <span className="clanwars__d">{r.raidedBy}</span>
+                          </span>
+                          <span className="clanwars__verdict">raided / raided by</span>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                )}
+              </section>
+            )}
+
             {c.roster?.length > 0 && (
               <section className="pubcard__section">
                 <h2 className="pubcard__label">Roster</h2>

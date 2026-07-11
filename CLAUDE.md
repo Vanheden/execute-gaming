@@ -169,6 +169,13 @@ the live domain while developing — the same `.env` works on your machine and t
   milestones strip. Clan attribution is denormalised at event time (clanGuid/clanName
   on each session + kill, victimClan* on PvP kills) so clan stats recompute from raw
   rows like everything else — no membership table.
+  **Castle raids (mod v0.4.0):** `recordRaid(body)` ingests one `raid_events` row per
+  raid (attacker = raider, defender = raided castle owner; either side's steamId/clan
+  may be null). `getRaidFeed(serverId, limit)` is the recent-raids feed on `/clans`;
+  `getClanRaidRecord(clanGuid)` returns `{ raidsDone, raidsSuffered, rivals[] }` for the
+  clan profile; `getTopRaiderClan()` is the "most feared raiders" for the milestones
+  strip. `getGlobalStats()` also returns a `raids` count. `clanNameForGuid` also reads
+  `raid_events`, so a clan seen only via raids still resolves to a name.
   Also `checkRankPromotion(steamId)` — recomputes the player's GLOBAL all-time rank
   tier after each ingest and compares it to the highest tier stored in the
   `player_ranks` table. First sighting seeds the current tier **silently** (returns
@@ -252,14 +259,19 @@ the live domain while developing — the same `.env` works on your machine and t
   per clan, keyed by `clanGuid`, shown under its latest name). Rendered by
   `components/ClanLeaderboard.jsx` at `/clans`.
 - `GET /api/clan/:clanGuid` — **public** one clan's profile (totals, roster with
-  member links, clan-vs-clan war record). 404 if the clan has no tracked activity.
-  Rendered by `components/ClanProfile.jsx` at `/c/:clanGuid`.
-- `POST /api/ingest/session` and `POST /api/ingest/kill` — ingest from the in-game
-  mod. **Not** user-auth; both guarded by a shared secret (`INGEST_SECRET`, header
-  `X-Ingest-Secret`) and **fail closed** (503) if the secret isn't set. `kill` body
-  is `{ eventId, serverId, steamId, charName, kind: vblood|pvp, victim, occurredAt,
-  clanGuid?, clanName?, victimClanGuid?, victimClanName? }`; `session` body adds
-  `clanGuid?`/`clanName?`. Clan fields are optional (empty = clanless).
+  member links, clan-vs-clan war record, and a castle-raid record). 404 if the clan has
+  no tracked activity. Rendered by `components/ClanProfile.jsx` at `/c/:clanGuid`.
+- `GET /api/raids?serverId=&limit=` — **public** recent castle raids (the raid feed on
+  `/clans`). Each side resolved to a clan (linked to `/c/:guid`) and/or a player.
+  Rendered by `components/RaidFeed.jsx`.
+- `POST /api/ingest/session`, `POST /api/ingest/kill` and `POST /api/ingest/raid` —
+  ingest from the in-game mod. **Not** user-auth; all guarded by a shared secret
+  (`INGEST_SECRET`, header `X-Ingest-Secret`) and **fail closed** (503) if the secret
+  isn't set. `kill` body is `{ eventId, serverId, steamId, charName, kind: vblood|pvp,
+  victim, occurredAt, clanGuid?, clanName?, victimClanGuid?, victimClanName? }`;
+  `session` body adds `clanGuid?`/`clanName?`; `raid` body is `{ eventId, serverId,
+  kind:"raid", occurredAt, attacker*, defender* }` (steamId/name/clanGuid/clanName per
+  side, all optional). Clan fields are optional (empty = clanless).
   After a successful ingest both routes fire-and-forget `checkRankPromotion(steamId)`
   and, on a promotion, post a "rank up" embed to Discord (see `discord.js`).
 - `GET /api/news` (public), `POST/PUT/DELETE /api/news/:id` (admin)
@@ -352,6 +364,13 @@ V Rising game server, not from this repo. It lives in `../mod/` (sibling of
   on PvP kills. The site denormalises these at ingest time and powers `/clans` +
   `/c/:clanGuid`. Clan fields are optional/empty for clanless players — old mod
   versions that don't send them just produce no clan stats (graceful).
+- **Castle raids (mod v0.4.0):** the mod reports a raid (`POST /api/ingest/raid`) when
+  a player raids a castle heart — attacker (from `CastleHeartEventSystem.ProcessRaidEvent`
+  → `FromCharacter`) and defender (the heart's owner), each resolved to a clan. Powers
+  the raid feed on `/clans`, the per-clan raid record on `/c/:clanGuid`, and the "most
+  feared raiders" milestone. The raid hook is **built + compile-verified but pending
+  live verification** (raids are rare and can't be staged in a smoke test — like the
+  kill hooks before v0.2.2); the mod logs `→ Raid:` for the first live raid.
 - The site side is self-contained and testable **without** the game: set
   `INGEST_SECRET`, `curl` a session/kill in, and read `GET /api/leaderboard`.
 - To change either ingest contract, update **both** `server/playtime.js` (validation)

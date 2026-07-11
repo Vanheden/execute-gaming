@@ -150,6 +150,30 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_kills_server_occurred ON kill_events(serverId, occurredAt);
   CREATE INDEX IF NOT EXISTS idx_kills_kind ON kill_events(kind);
 
+  -- Castle raid events ingested from the same mod (v0.4.0+), keyed by a mod-issued
+  -- eventId so re-posts are idempotent (INSERT OR IGNORE). One row per raid: an
+  -- attacker (raider) took/destroyed a defender's castle heart. Either side's steamId
+  -- and clan may be NULL (a clanless solo raider, or an unresolved owner). Powers the
+  -- raid feed + per-clan raid record. kind is 'raid' (reserved: 'breach'/'claim').
+  CREATE TABLE IF NOT EXISTS raid_events (
+    eventId          TEXT PRIMARY KEY,
+    serverId         TEXT NOT NULL,
+    kind             TEXT NOT NULL,
+    attackerSteamId  TEXT,
+    attackerName     TEXT,
+    attackerClanGuid TEXT,
+    attackerClanName TEXT,
+    defenderSteamId  TEXT,
+    defenderName     TEXT,
+    defenderClanGuid TEXT,
+    defenderClanName TEXT,
+    occurredAt       TEXT NOT NULL,
+    createdAt        TEXT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_raids_server_occurred ON raid_events(serverId, occurredAt);
+  CREATE INDEX IF NOT EXISTS idx_raids_attacker_clan ON raid_events(attackerClanGuid);
+  CREATE INDEX IF NOT EXISTS idx_raids_defender_clan ON raid_events(defenderClanGuid);
+
   -- Highest rank tier each player has reached (index into src/data/ranks.js).
   -- Lets us fire a one-off Discord "rank up" webhook the moment a player crosses
   -- into a new tier: the row is seeded silently on first ingest, then only bumped

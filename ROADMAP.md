@@ -102,6 +102,18 @@ Ideas for growing the site, grouped by theme. Effort is a rough guide:
   event time, so clan stats recompute from raw rows with the same points weighting —
   no membership table. Backed by `getClanLeaderboard()` / `getClanStats()` /
   `getClanWars()` / `getHottestClanWar()` in `server/playtime.js`.
+- **Castle raid tracking** (L) — the standout of the clan feature: the mod (v0.4.0)
+  hooks `CastleHeartEventSystem.ProcessRaidEvent` and reports each castle raid — the
+  **attacker** (raider, from `FromCharacter`) and the **defender** (the raided heart's
+  owner, via `UserOwner`/`CastleHeart.LastUserOwner`), each resolved to a clan. The site
+  gets a **raid feed** on `/clans` ("Clan A ⚔️ raided Clan B · 2h ago",
+  `components/RaidFeed.jsx`), a **raid record** on each clan profile (raids landed vs
+  suffered + a per-rival breakdown), and a **"most feared raiders"** line on the
+  milestones strip. Backed by `recordRaid()` / `getRaidFeed()` / `getClanRaidRecord()` /
+  `getTopRaiderClan()` + a `raid_events` table. Either side's identity may be partial (a
+  clanless solo raider), and the raid attribution is denormalised at event time like the
+  rest. The mod hook is **built + compile-verified but pending live verification** (raids
+  are rare — like the kill hooks before v0.2.2; the mod logs `→ Raid:` for the first one).
 - **Leaderboard pagination** — the ladder shows 20 players per page with Prev/Next
   controls; rank numbers and medals stay global across pages. (Also fixed the top-3
   medal emoji rendering as tofu — `'🥇🥈🥉'[i]` split a surrogate pair.)
@@ -156,6 +168,11 @@ Ideas for growing the site, grouped by theme. Effort is a rough guide:
   the clan (`ClanGuid` + name) on sessions/kills and the victim clan on PvP kills.
   Keyed by the rename-proof `ClanGuid`, denormalised at event time. See
   `getClanLeaderboard()` / `getClanStats()` / `getClanWars()` in `server/playtime.js`.
+- ~~**Castle raid tracking**~~ (L) ✅ — raid feed on `/clans` + per-clan raid record +
+  "most feared raiders" milestone; the mod (v0.4.0) hooks
+  `CastleHeartEventSystem.ProcessRaidEvent` and reports attacker + defender clans per
+  raid (`raid_events` table, `getRaidFeed()` / `getClanRaidRecord()` /
+  `getTopRaiderClan()`). Mod hook pending live verification (raids are rare).
 - ~~Live Discord widget~~ ✅ — shows who's online in Discord (needs the guild
   widget enabled in Discord → Server Settings → Widget).
 - ~~**"Server is full / online" badges**~~ ✅ — a live status strip at the top of the
@@ -218,10 +235,13 @@ Most of the roadmap is now built. What's left:
    hottest feud + hottest clan war), building on the announcements webhook +
    `getGlobalStats`/`getTopStreaks`/`getHottestClanWar`.
 
-Recently shipped: **clans** — clan leaderboard (`/clans`), clan profiles (`/c/:guid`)
-with roster + clan-vs-clan war record, hottest clan war on the milestones strip; the
-mod (v0.3.0) captures the clan (`ClanGuid` + name) on sessions/kills + victim clan on
-PvP kills. **per-server home tag + playtime split** — each leaderboard row
+Recently shipped: **castle raids** — a raid feed on `/clans`, a per-clan raid record
+(raids landed vs suffered) and a "most feared raiders" milestone; the mod (v0.4.0)
+hooks `CastleHeartEventSystem.ProcessRaidEvent` and reports attacker + defender clans
+per raid (pending live verification). **clans** — clan leaderboard (`/clans`), clan
+profiles (`/c/:guid`) with roster + clan-vs-clan war record, hottest clan war on the
+milestones strip; the mod (v0.3.0) captures the clan (`ClanGuid` + name) on
+sessions/kills + victim clan on PvP kills. **per-server home tag + playtime split** — each leaderboard row
 (in the "All servers" view) shows the server that player has logged the most time on,
 as an accent-tinted tag beside their points value (`topServers()` in
 `server/playtime.js` → `entry.homeServer`); both profile pages gain a stacked-bar

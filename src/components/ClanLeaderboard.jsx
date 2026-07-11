@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { servers } from '../data/servers.js'
 import { linkProps } from '../lib/router.js'
+import RaidFeed from './RaidFeed.jsx'
 
 // Clan leaderboard (/clans). Ranks clans (keyed by their stable ClanGuid, shown
 // under the latest captured name) by the same metrics as the player ladder. Each
@@ -159,6 +160,8 @@ export default function ClanLeaderboard() {
             ))}
           </div>
         </div>
+
+        <RaidFeed serverId={serverId} />
 
         {entries === null && <ClanSkeleton />}
 

@@ -133,6 +133,72 @@ export function recordKill(body) {
   return { ok: true }
 }
 
+// --- Castle raids -----------------------------------------------------------
+// One event per raid (a player raiding another player's/clan's castle heart),
+// keyed by a mod-issued eventId (INSERT OR IGNORE, so retries can't double count).
+// Either side's identity may be partial: a clanless solo raider has no attacker
+// clan, and an unresolved owner has no defender identity. We keep whatever resolves.
+const RAID_KINDS = new Set(['raid'])
+
+const insertRaidStmt = db.prepare(
+  `INSERT OR IGNORE INTO raid_events
+     (eventId, serverId, kind, attackerSteamId, attackerName, attackerClanGuid,
+      attackerClanName, defenderSteamId, defenderName, defenderClanGuid,
+      defenderClanName, occurredAt, createdAt)
+   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+)
+
+// A SteamID64 is a 17-digit number; accept as string to avoid precision loss. Blank
+// or malformed → null (the raid is still recorded, attributed by clan instead).
+function steamIdOrNull(v) {
+  const s = v ? str(v, 20) : null
+  return s && /^\d{5,20}$/.test(s) ? s : null
+}
+
+// Validate + record one raid event from the mod. Returns { ok } or { error }.
+export function recordRaid(body) {
+  const eventId = str(body?.eventId, 100)
+  if (!eventId) return { error: 'eventId required' }
+
+  const serverId = str(body?.serverId, 60)
+  if (!serverId || !SERVER_IDS.has(serverId)) return { error: 'unknown serverId' }
+
+  const kind = str(body?.kind, 20) || 'raid'
+  if (!RAID_KINDS.has(kind)) return { error: 'invalid kind' }
+
+  const occurredAt = isoOrNull(body?.occurredAt)
+  if (!occurredAt) return { error: 'invalid occurredAt' }
+
+  const attackerSteamId = steamIdOrNull(body?.attackerSteamId)
+  const defenderSteamId = steamIdOrNull(body?.defenderSteamId)
+  const attackerName = body?.attackerName ? str(body.attackerName, 60) : null
+  const defenderName = body?.defenderName ? str(body.defenderName, 60) : null
+  const [attackerClanGuid, attackerClanName] = clanPair(body?.attackerClanGuid, body?.attackerClanName)
+  const [defenderClanGuid, defenderClanName] = clanPair(body?.defenderClanGuid, body?.defenderClanName)
+
+  // Reject a raid with no identifiable participant on either side (nothing to show).
+  if (!attackerSteamId && !defenderSteamId && !attackerClanGuid && !defenderClanGuid) {
+    return { error: 'no participants' }
+  }
+
+  insertRaidStmt.run(
+    eventId,
+    serverId,
+    kind,
+    attackerSteamId,
+    attackerName,
+    attackerClanGuid,
+    attackerClanName,
+    defenderSteamId,
+    defenderName,
+    defenderClanGuid,
+    defenderClanName,
+    occurredAt,
+    new Date().toISOString(),
+  )
+  return { ok: true }
+}
+
 // Points weighting for the combined "Points" ranking. The leaderboard recomputes
 // from raw sessions/events on every request, so tweaking these reweights the whole
 // history immediately — no backfill needed.
@@ -1126,6 +1192,9 @@ export function getGlobalStats() {
          FROM kill_events WHERE 1=1${floorK.sql}`,
     )
     .get(...floorK.params)
+  const r = db
+    .prepare(`SELECT COUNT(*) AS raids FROM raid_events WHERE 1=1${floorK.sql}`)
+    .get(...floorK.params)
 
   return {
     seconds: p.seconds || 0,
@@ -1134,6 +1203,7 @@ export function getGlobalStats() {
     vblood: k.vblood || 0,
     pvp: k.pvp || 0,
     distinctBosses: k.distinctBosses || 0,
+    raids: r.raids || 0,
   }
 }
 
@@ -1276,9 +1346,15 @@ function clanNameForGuid(clanGuid) {
          UNION ALL
          SELECT clanName, occurredAt AS t FROM kill_events
            WHERE clanGuid = ? AND clanName IS NOT NULL
+         UNION ALL
+         SELECT attackerClanName, occurredAt AS t FROM raid_events
+           WHERE attackerClanGuid = ? AND attackerClanName IS NOT NULL
+         UNION ALL
+         SELECT defenderClanName, occurredAt AS t FROM raid_events
+           WHERE defenderClanGuid = ? AND defenderClanName IS NOT NULL
        ) ORDER BY t DESC LIMIT 1`,
     )
-    .get(clanGuid, clanGuid)
+    .get(clanGuid, clanGuid, clanGuid, clanGuid)
   return row?.clanName || null
 }
 
@@ -1530,6 +1606,107 @@ export function getHottestClanWar() {
     a: { clanGuid: rows.lo, clanName: clanNameForGuid(rows.lo), kills: rows.loKills },
     b: { clanGuid: rows.hi, clanName: clanNameForGuid(rows.hi), kills: rows.hiKills },
   }
+}
+
+// --- Castle raids (aggregation) --------------------------------------------
+// The mod reports one raid_events row per raid, with the attacker (raider) and the
+// defender (raided castle owner) each resolved to a steamId + clan where possible.
+// These power the raid feed, the per-clan raid record and the "most feared raiders".
+
+// Recent raids across all servers (or one), newest first. index.js resolves each
+// side to a member link. Not season-floored — it's an inherently recent list.
+export function getRaidFeed(serverId = null, limit = 20) {
+  const cap = Math.min(Math.max(Number(limit) || 20, 1), 50)
+  return db
+    .prepare(
+      `SELECT eventId, serverId, kind, occurredAt,
+              attackerSteamId, attackerName, attackerClanGuid, attackerClanName,
+              defenderSteamId, defenderName, defenderClanGuid, defenderClanName
+         FROM raid_events
+        WHERE (?1 IS NULL OR serverId = ?1)
+        ORDER BY occurredAt DESC
+        LIMIT ?2`,
+    )
+    .all(serverId, cap)
+}
+
+// One clan's raid record: how many raids it landed vs suffered, plus a per-rival
+// breakdown (raided them / raided by them), respecting season resets. Returns
+// { raidsDone, raidsSuffered, rivals: [{ clanGuid, clanName, raided, raidedBy, last }] }.
+export function getClanRaidRecord(clanGuid) {
+  if (!clanGuid || typeof clanGuid !== 'string') {
+    return { raidsDone: 0, raidsSuffered: 0, rivals: [] }
+  }
+  const floor = resetFloorAnon('occurredAt', Object.entries(getLeaderboardResets()))
+
+  const totals = db
+    .prepare(
+      `SELECT
+         (SELECT COUNT(*) FROM raid_events
+            WHERE attackerClanGuid = ?1${floor.sql}) AS raidsDone,
+         (SELECT COUNT(*) FROM raid_events
+            WHERE defenderClanGuid = ?1${floor.sql}) AS raidsSuffered`,
+    )
+    .get(clanGuid, ...floor.params, ...floor.params)
+
+  // Raids we landed on other clans, grouped by the defender clan.
+  const done = db
+    .prepare(
+      `SELECT defenderClanGuid AS rival, COUNT(*) AS n, MAX(occurredAt) AS last
+         FROM raid_events
+        WHERE attackerClanGuid = ? AND defenderClanGuid IS NOT NULL
+          AND defenderClanGuid != ?${floor.sql}
+        GROUP BY defenderClanGuid`,
+    )
+    .all(clanGuid, clanGuid, ...floor.params)
+
+  // Raids other clans landed on us, grouped by the attacker clan.
+  const suffered = db
+    .prepare(
+      `SELECT attackerClanGuid AS rival, COUNT(*) AS n, MAX(occurredAt) AS last
+         FROM raid_events
+        WHERE defenderClanGuid = ? AND attackerClanGuid IS NOT NULL
+          AND attackerClanGuid != ?${floor.sql}
+        GROUP BY attackerClanGuid`,
+    )
+    .all(clanGuid, clanGuid, ...floor.params)
+
+  const byRival = new Map()
+  const touch = (rival) =>
+    byRival.get(rival) || byRival.set(rival, { rival, raided: 0, raidedBy: 0, last: '0' }).get(rival)
+  for (const r of done) {
+    const e = touch(r.rival)
+    e.raided = r.n
+    if (r.last > e.last) e.last = r.last
+  }
+  for (const r of suffered) {
+    const e = touch(r.rival)
+    e.raidedBy = r.n
+    if (r.last > e.last) e.last = r.last
+  }
+
+  const rivals = [...byRival.values()]
+    .map((e) => ({ clanGuid: e.rival, clanName: clanNameForGuid(e.rival), raided: e.raided, raidedBy: e.raidedBy, last: e.last }))
+    .sort((a, b) => b.raided + b.raidedBy - (a.raided + a.raidedBy) || (b.last > a.last ? 1 : -1))
+
+  return { raidsDone: totals.raidsDone || 0, raidsSuffered: totals.raidsSuffered || 0, rivals }
+}
+
+// The clan with the most raids landed (for the milestones strip). Returns
+// { clanGuid, clanName, raids } or null when no clan has raided yet.
+export function getTopRaiderClan() {
+  const floor = resetFloorAnon('occurredAt', Object.entries(getLeaderboardResets()))
+  const row = db
+    .prepare(
+      `SELECT attackerClanGuid AS guid, COUNT(*) AS raids
+         FROM raid_events
+        WHERE attackerClanGuid IS NOT NULL${floor.sql}
+        GROUP BY attackerClanGuid
+        ORDER BY raids DESC LIMIT 1`,
+    )
+    .get(...floor.params)
+  if (!row || row.raids < 1) return null
+  return { clanGuid: row.guid, clanName: clanNameForGuid(row.guid), raids: row.raids }
 }
 
 // --- Play streaks ----------------------------------------------------------

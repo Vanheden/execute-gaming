@@ -79,7 +79,7 @@ export default function Milestones() {
 
   if (loading) return <MilestonesSkeleton />
   if (!data?.stats) return null
-  const { stats, hottestFeud, hottestClanWar, topStreaks } = data
+  const { stats, hottestFeud, hottestClanWar, topRaiders, topStreaks } = data
   // Nothing tracked yet → don't render an empty strip.
   if (!stats.sessions && !stats.vblood && !stats.pvp) return null
 
@@ -127,6 +127,19 @@ export default function Milestones() {
               <a className="milestones__feudname" {...linkProps(`/c/${hottestClanWar.b.clanGuid}`)}>
                 {hottestClanWar.b.clanName}
               </a>
+            </span>
+          </div>
+        )}
+
+        {topRaiders && topRaiders.raids > 0 && (
+          <div className="milestones__feud">
+            <span className="milestones__feudicon">🏰</span>
+            <span className="milestones__feudlabel">Most feared raiders</span>
+            <span className="milestones__feudline">
+              <a className="milestones__feudname" {...linkProps(`/c/${topRaiders.clanGuid}`)}>
+                {topRaiders.clanName}
+              </a>{' '}
+              <strong>{topRaiders.raids}</strong> raid{topRaiders.raids === 1 ? '' : 's'}
             </span>
           </div>
         )}

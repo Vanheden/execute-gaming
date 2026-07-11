@@ -57,6 +57,10 @@ import {
   getClanStats,
   getClanWars,
   getHottestClanWar,
+  recordRaid,
+  getRaidFeed,
+  getClanRaidRecord,
+  getTopRaiderClan,
   LEADERBOARD_PERIODS,
   LEADERBOARD_METRICS,
 } from './playtime.js'
@@ -473,6 +477,14 @@ app.post('/api/ingest/kill', ensureIngestSecret, (req, res) => {
   afterIngest(req.body?.steamId, req.body?.charName)
 })
 
+// Ingest a single castle raid event from the mod. Same guard. No rank/milestone
+// post-effects (raids aren't part of the points ladder — they're their own feed).
+app.post('/api/ingest/raid', ensureIngestSecret, (req, res) => {
+  const result = recordRaid(req.body)
+  if (result.error) return res.status(400).json({ error: result.error })
+  res.status(204).end()
+})
+
 // Public leaderboard. ?metric=points|playtime|vblood|pvp (default points),
 // ?serverId= (default all), ?period=all|30d|7d, ?limit= (default 100). Every row
 // carries all metrics (seconds/vblood/pvp/points) so the client can show a
@@ -596,7 +608,46 @@ app.get('/api/clan/:clanGuid', (req, res) => {
     kills: w.kills,
     deaths: w.deaths,
   }))
-  res.json({ ...stats, roster, wars })
+  const rr = getClanRaidRecord(req.params.clanGuid)
+  const raidRecord = {
+    raidsDone: rr.raidsDone,
+    raidsSuffered: rr.raidsSuffered,
+    rivals: rr.rivals.map((r) => ({
+      clanGuid: r.clanGuid,
+      clanName: r.clanName || 'Unnamed clan',
+      raided: r.raided,
+      raidedBy: r.raidedBy,
+    })),
+  }
+  res.json({ ...stats, roster, wars, raidRecord })
+})
+
+// Recent castle raids across all servers (or one) — the raid feed on /clans. Each
+// side is resolved to a clan (linked to /c/:guid) and/or a player (linked to a
+// profile) where identifiable.
+app.get('/api/raids', (req, res) => {
+  const serverId = req.query.serverId ? String(req.query.serverId) : null
+  const limit = req.query.limit ? Number(req.query.limit) : 20
+  // Resolve one side of a raid into a display object: clan (if any) + player link.
+  const side = (steamId, name, clanGuid, clanName) => {
+    const member = steamId ? getUserByProvider('steam', steamId) : null
+    const linked = member && !member.banned ? member : null
+    return {
+      clanGuid: clanGuid || null,
+      clanName: clanGuid ? clanName || 'Unnamed clan' : null,
+      steamId: steamId || null,
+      name: name || linked?.username || null,
+      member: linked ? { key: keyOf(linked.id) } : null,
+    }
+  }
+  const raids = getRaidFeed(serverId, limit).map((r) => ({
+    eventId: r.eventId,
+    serverId: r.serverId,
+    occurredAt: r.occurredAt,
+    attacker: side(r.attackerSteamId, r.attackerName, r.attackerClanGuid, r.attackerClanName),
+    defender: side(r.defenderSteamId, r.defenderName, r.defenderClanGuid, r.defenderClanName),
+  }))
+  res.json({ raids })
 })
 
 // V Blood hunt tracker — which bosses each player has killed (for the hunt page).
@@ -698,7 +749,10 @@ app.get('/api/global-stats', (req, res) => {
         b: { ...cw.b, clanName: cw.b.clanName || 'Unnamed clan' } }
     : null
 
-  res.json({ stats: getGlobalStats(), hottestFeud, hottestClanWar, topStreaks })
+  const tr = getTopRaiderClan()
+  const topRaiders = tr ? { ...tr, clanName: tr.clanName || 'Unnamed clan' } : null
+
+  res.json({ stats: getGlobalStats(), hottestFeud, hottestClanWar, topRaiders, topStreaks })
 })
 
 // Rivalries (nemeses + prey) and play streak for a player — used on both profile
