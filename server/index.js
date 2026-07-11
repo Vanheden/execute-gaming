@@ -37,6 +37,9 @@ import {
   getPlayerRecap,
   getPvpLeaderboard,
   getPvpRating,
+  getServerRecords,
+  getTopRampages,
+  rampageTier,
   getPlayerTotals,
   getPlayerTotalsBatch,
   getRecentKills,
@@ -472,11 +475,42 @@ app.post('/api/ingest/session', ensureIngestSecret, (req, res) => {
   afterIngest(req.body?.steamId, req.body?.charName)
 })
 
+// Turn a kill's structured highlights into ready-to-broadcast in-game strings.
+// The mod prints each one to global chat verbatim, so all boss-name resolution and
+// wording lives here. Returns [] when the kill isn't noteworthy.
+function buildKillBroadcasts(highlights, body) {
+  if (!highlights) return []
+  const out = []
+  const who = body?.charName ? String(body.charName).slice(0, 60) : 'A vampire'
+
+  if (highlights.kind === 'vblood' && highlights.worldFirst) {
+    const boss = vbloodName(highlights.victim) || 'a V Blood'
+    out.push(`🩸 WORLD FIRST — ${who} was first to fell ${boss}!`)
+  }
+  if (highlights.kind === 'pvp') {
+    if (highlights.milestone) {
+      const t = rampageTier(highlights.streak)
+      out.push(`${t.emoji} ${who} — ${t.label}! (${highlights.streak} kills)`)
+    }
+    if (highlights.endedName && highlights.endedStreak >= RAMPAGE_TIERS_MIN) {
+      out.push(`💥 ${who} ended ${highlights.endedName}'s rampage (${highlights.endedStreak} kills).`)
+    }
+  }
+  return out
+}
+// A rampage only counts as "ended" (worth announcing) once the victim had reached
+// the first tier — matches RAMPAGE_TIERS[0].at in playtime.js.
+const RAMPAGE_TIERS_MIN = 3
+
 // Ingest a single kill event (V Blood boss or PvP) from the mod. Same guard.
+// Responds 200 with any in-game broadcast strings the kill earned (world-first,
+// killstreak milestone, streak-ended) so the mod can announce them; the array is
+// usually empty.
 app.post('/api/ingest/kill', ensureIngestSecret, (req, res) => {
   const result = recordKill(req.body)
   if (result.error) return res.status(400).json({ error: result.error })
-  res.status(204).end()
+  const broadcasts = buildKillBroadcasts(result.highlights, req.body)
+  res.status(200).json({ ok: true, broadcasts })
   afterIngest(req.body?.steamId, req.body?.charName)
 })
 
@@ -921,6 +955,45 @@ app.get('/api/player/:steamId', (req, res) => {
 app.get('/api/pvp/leaderboard', (req, res) => {
   const limit = req.query.limit ? Number(req.query.limit) : 50
   res.json({ players: getPvpLeaderboard(limit) })
+})
+
+// Biggest PvP killstreaks this season (the rampage board on /pvp). Each row links
+// to a player profile when their SteamID matches a Steam login.
+app.get('/api/pvp/rampages', (req, res) => {
+  const limit = req.query.limit ? Number(req.query.limit) : 10
+  const rows = getTopRampages(limit).map((r) => {
+    const member = getUserByProvider('steam', r.steamId)
+    const linked = member && !member.banned ? member : null
+    return {
+      steamId: r.steamId,
+      name: linked?.username || r.charName || 'Unknown vampire',
+      member: linked ? { key: keyOf(linked.id), username: linked.username } : null,
+      peak: r.peak,
+      current: r.current,
+    }
+  })
+  res.json({ rampages: rows })
+})
+
+// Server records / Hall of Fame: the first player to fell each V Blood boss this
+// season. ?serverId= scopes to one server (default all). Boss GUIDs are resolved
+// to display names; unknown ids pass through raw for the client to label neutrally.
+app.get('/api/records', (req, res) => {
+  const serverId = req.query.serverId ? String(req.query.serverId) : null
+  const worldFirsts = getServerRecords(serverId).map((r) => {
+    const member = getUserByProvider('steam', r.steamId)
+    const linked = member && !member.banned ? member : null
+    return {
+      bossGuid: r.victim,
+      boss: vbloodName(r.victim),
+      serverId: r.serverId,
+      steamId: r.steamId,
+      name: linked?.username || r.charName || 'Unknown vampire',
+      member: linked ? { key: keyOf(linked.id), username: linked.username } : null,
+      occurredAt: r.occurredAt,
+    }
+  })
+  res.json({ worldFirsts })
 })
 
 // Shareable season recap for a player — the numbers behind the downloadable card.

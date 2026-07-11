@@ -167,6 +167,15 @@ the live domain while developing — the same `.env` works on your machine and t
   **PvP rating (Elo):** `getPvpLeaderboard(limit)` / `getPvpRating(steamId)` replay all
   PvP kills chronologically as 1v1 matches (start 1000, K=32, <3 duels = provisional),
   memoised on a cheap kill-count signature — the `/pvp` hub + the profile rating block.
+  **Killstreaks + world-first (live hype):** `recordKill` also returns `highlights` —
+  a PvP `streak` (consecutive kills since the killer's last death, inclusive) with a
+  `milestone` flag (tiers `RAMPAGE_TIERS` = 3/5/7/10, then every 5) and any `endedName`/
+  `endedStreak` (a rampage this kill broke), or a V Blood `worldFirst` (no earlier kill
+  of that boss on that server this season). `index.js`'s `buildKillBroadcasts()` turns
+  these into the strings the mod prints to global chat. As lasting records:
+  `getServerRecords(serverId)` is the world-first-per-boss Hall of Fame, and
+  `getTopRampages(limit)` is the biggest-killstreak board (replay memoised like Elo;
+  shares `pvpIdentityMaps()`). Season-floored like everything else.
   **Clans:** `getClanLeaderboard({ metric, serverId, period })` ranks clans (keyed by
   the stable `clanGuid`, shown under the latest captured `clanName`) with the same
   POINTS weighting summed across members; `getClanStats(clanGuid)` returns one clan's
@@ -234,6 +243,10 @@ the live domain while developing — the same `.env` works on your machine and t
   card (`components/SeasonRecap.jsx`). 404 for players with no tracked activity.
 - `GET /api/pvp/leaderboard?limit=` — **public** PvP Elo ladder (established fighters,
   best rating first), for the `/pvp` hub.
+- `GET /api/pvp/rampages?limit=` — **public** biggest PvP killstreaks this season
+  (`peak` + live `current`), for the Biggest-Rampages board on `/pvp`.
+- `GET /api/records?serverId=` — **public** world-first V Blood kills (first player to
+  fell each boss this season, per server), for the Hall of Fame on the hunt tracker.
 - `GET /api/kills/recent?serverId=&limit=&kind=` — **public** live kill feed (latest V Blood
   + PvP kills, newest first, with resolved boss names + member link keys). Optional
   `kind=pvp`/`kind=vblood` filters the feed (the `/pvp` hub uses `kind=pvp`).
@@ -285,6 +298,9 @@ the live domain while developing — the same `.env` works on your machine and t
   `session` body adds `clanGuid?`/`clanName?`; `raid` body is `{ eventId, serverId,
   kind:"raid", occurredAt, attacker*, defender* }` (steamId/name/clanGuid/clanName per
   side, all optional). Clan fields are optional (empty = clanless).
+  `POST /api/ingest/kill` responds `200 { ok, broadcasts:[...] }` — the strings the mod
+  prints to global chat (killstreak/world-first hype; usually empty). The mod parses
+  them from the response and queues them for its game thread (`BroadcastQueue`).
   After a successful ingest both routes fire-and-forget `checkRankPromotion(steamId)`
   and, on a promotion, post a "rank up" embed to Discord (see `discord.js`).
 - `GET /api/news` (public), `POST/PUT/DELETE /api/news/:id` (admin)

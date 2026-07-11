@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { linkProps } from '../lib/router.js'
 import KillFeed from './KillFeed.jsx'
 import PvpLadder from './PvpLadder.jsx'
+import RampageBoard from './RampageBoard.jsx'
 
 // -------------------------------------------------------------------------
 // Pvp — the PvP hub (/pvp). Gathers everything combat-related in one place:
@@ -108,6 +109,7 @@ export default function Pvp() {
           <div className="lb-main">
             <FiercestFeud />
             <PvpLadder />
+            <RampageBoard />
             <TopKillers />
           </div>
         </div>

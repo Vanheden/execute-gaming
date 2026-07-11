@@ -3206,6 +3206,80 @@ body.has-banner .nav {
   font-variant-numeric: tabular-nums;
   color: #fff;
 }
+
+/* Rampage board — reuses the .pvpladder layout; the "auto" column holds the tier. */
+.rampage__tier {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--tier, #ff8a3d);
+  white-space: nowrap;
+  text-align: right;
+}
+.rampage__live {
+  color: #ff8a3d;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Hall of Fame — world-first V Blood kills (on the hunt tracker) */
+.worldfirsts {
+  background: rgba(255, 45, 85, 0.05);
+  border: 1px solid rgba(255, 45, 85, 0.16);
+  border-radius: 14px;
+  padding: 1.1rem 1.2rem;
+  margin-bottom: 1.5rem;
+}
+.worldfirsts__head {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  margin-bottom: 0.9rem;
+}
+.worldfirsts__title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+.worldfirsts__sub {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+}
+.worldfirsts__grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 0.5rem;
+}
+.worldfirsts__item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.55rem 0.7rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+}
+.worldfirsts__boss {
+  font-weight: 700;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.worldfirsts__meta {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+}
+.worldfirsts__who {
+  color: var(--blood-bright, #ff6b81);
+  font-weight: 600;
+  text-decoration: none;
+}
+.worldfirsts__who:hover {
+  text-decoration: underline;
+}
 .pvprate {
   display: flex;
   align-items: center;

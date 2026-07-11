@@ -130,7 +130,128 @@ export function recordKill(body) {
     victimClanGuid,
     victimClanName,
   )
-  return { ok: true }
+
+  // Hype highlights: a world-first V Blood kill, or a PvP killstreak crossing a
+  // milestone / ending someone else's rampage. The route turns these into the
+  // strings the in-game mod broadcasts to all players. Best-effort — a failure
+  // here must never fail the ingest, so it's wrapped and defaulted to null.
+  let highlights = null
+  try {
+    highlights = killHighlights({ serverId, steamId, kind, victim, occurredAt })
+  } catch (err) {
+    highlights = null
+  }
+  return { ok: true, highlights }
+}
+
+// --- Kill highlights (in-game hype broadcasts) ------------------------------
+// Computed from the same event history the leaderboard reads, at ingest time, so
+// the mod stays a thin forwarder: it POSTs a kill and prints whatever broadcast
+// strings the site returns. Everything is season-floored like the rest.
+//
+// Killstreak ("rampage") tiers: a player's streak is their consecutive PvP kills
+// since their last PvP death, inclusive of the kill just recorded. We announce
+// when the streak first reaches a tier boundary (3/5/7/10, then every 5 beyond).
+export const RAMPAGE_TIERS = [
+  { at: 3, label: 'RAMPAGE', emoji: '🔥' },
+  { at: 5, label: 'DOMINATING', emoji: '💀' },
+  { at: 7, label: 'UNSTOPPABLE', emoji: '⚡' },
+  { at: 10, label: 'GODLIKE', emoji: '👑' },
+]
+
+// The tier a given streak length belongs to (the highest boundary it has reached).
+export function rampageTier(streak) {
+  let tier = RAMPAGE_TIERS[0]
+  for (const t of RAMPAGE_TIERS) if (streak >= t.at) tier = t
+  return tier
+}
+
+// A streak length is "milestone-worthy" (worth announcing) when it lands exactly on
+// a tier boundary, or on every 5th kill once past the top tier.
+function isRampageMilestone(streak) {
+  if (RAMPAGE_TIERS.some((t) => t.at === streak)) return true
+  const top = RAMPAGE_TIERS[RAMPAGE_TIERS.length - 1].at
+  return streak > top && streak % 5 === 0
+}
+
+// Structured highlight data for one just-recorded kill (or null if none). Shapes:
+//   vblood → { kind:'vblood', worldFirst:bool, victim }
+//   pvp    → { kind:'pvp', streak, milestone:bool, endedName, endedStreak }
+function killHighlights({ serverId, steamId, kind, victim, occurredAt }) {
+  const floorK = resetFloorAnon('occurredAt', Object.entries(getLeaderboardResets()))
+
+  if (kind === 'vblood') {
+    if (!victim) return null
+    // World-first: no earlier kill of this boss on this server, this season. Strict
+    // `<` on the ms-precision timestamp so a retry of this same event (already
+    // inserted) still reads as the first — the mod only broadcasts on a fresh
+    // response, so that never double-announces.
+    const s = `SELECT COUNT(*) AS c FROM kill_events
+                 WHERE kind = 'vblood' AND victim = ? AND serverId = ?
+                   AND occurredAt < ?${floorK.sql}`
+    const prior = db.prepare(s).get(victim, serverId, occurredAt, ...floorK.params).c
+    return { kind: 'vblood', worldFirst: prior === 0, victim }
+  }
+
+  if (kind === 'pvp') {
+    // Killer's current streak: PvP kills since their last death (as a victim),
+    // including this kill. Identity is by charName (PvP victims are stored by name).
+    const myNames = namesForSteamId(steamId)
+    let lastDeathAt = null
+    if (myNames.length) {
+      const ph = myNames.map(() => '?').join(',')
+      let ds = `SELECT MAX(occurredAt) AS m FROM kill_events
+                  WHERE kind = 'pvp' AND victim IN (${ph}) AND occurredAt < ?`
+      const dp = [...myNames, occurredAt]
+      ds += floorK.sql
+      dp.push(...floorK.params)
+      lastDeathAt = db.prepare(ds).get(...dp).m
+    }
+    let ks = `SELECT COUNT(*) AS c FROM kill_events
+                WHERE kind = 'pvp' AND steamId = ? AND occurredAt <= ?`
+    const kp = [steamId, occurredAt]
+    if (lastDeathAt) {
+      ks += ' AND occurredAt > ?'
+      kp.push(lastDeathAt)
+    }
+    ks += floorK.sql
+    kp.push(...floorK.params)
+    const streak = db.prepare(ks).get(...kp).c
+
+    // Did this kill end the victim's own rampage? Resolve the victim to a player and
+    // count the streak they had going before this death.
+    let endedName = null
+    let endedStreak = 0
+    const victimId = victim ? steamIdForName(victim) : null
+    if (victimId && victimId !== steamId) {
+      const vNames = namesForSteamId(victimId)
+      let prevDeathAt = null
+      if (vNames.length) {
+        const ph = vNames.map(() => '?').join(',')
+        let ps = `SELECT MAX(occurredAt) AS m FROM kill_events
+                    WHERE kind = 'pvp' AND victim IN (${ph}) AND occurredAt < ?`
+        const pp = [...vNames, occurredAt]
+        ps += floorK.sql
+        pp.push(...floorK.params)
+        prevDeathAt = db.prepare(ps).get(...pp).m
+      }
+      let vs = `SELECT COUNT(*) AS c FROM kill_events
+                  WHERE kind = 'pvp' AND steamId = ? AND occurredAt < ?`
+      const vp = [victimId, occurredAt]
+      if (prevDeathAt) {
+        vs += ' AND occurredAt > ?'
+        vp.push(prevDeathAt)
+      }
+      vs += floorK.sql
+      vp.push(...floorK.params)
+      endedStreak = db.prepare(vs).get(...vp).c
+      endedName = victim
+    }
+
+    return { kind: 'pvp', streak, milestone: isRampageMilestone(streak), endedName, endedStreak }
+  }
+
+  return null
 }
 
 // --- Castle raids -----------------------------------------------------------
@@ -1536,6 +1657,112 @@ export function getPvpRating(steamId) {
   const ranked = all.filter((p) => !p.provisional)
   const idx = me.provisional ? -1 : ranked.findIndex((p) => p.steamId === steamId)
   return { ...me, rank: idx >= 0 ? idx + 1 : null, totalRated: ranked.length }
+}
+
+// --- Server records: world-first V Blood kills ------------------------------
+// The first player to fell each V Blood boss on a server, this season (season-
+// floored so a wipe restarts the race). Powers the "Hall of Fame" on the hunt
+// tracker and the in-game world-first broadcast (same `occurredAt < now` rule).
+// index.js resolves the boss PrefabGUID to a display name. Newest conquest first.
+export function getServerRecords(serverId = null, limit = 100) {
+  const cap = Math.min(Math.max(Number(limit) || 100, 1), 200)
+  const floorK = resetFloorAnon('occurredAt', Object.entries(getLeaderboardResets()))
+
+  // ROW_NUMBER picks the earliest kill of each (server, boss); rn=1 is the record.
+  const sql = `
+    SELECT victim, serverId, steamId, charName, occurredAt FROM (
+      SELECT victim, serverId, steamId, charName, occurredAt,
+             ROW_NUMBER() OVER (PARTITION BY serverId, victim
+                                ORDER BY occurredAt ASC, rowid ASC) AS rn
+        FROM kill_events
+       WHERE kind = 'vblood' AND victim IS NOT NULL
+         AND (? IS NULL OR serverId = ?)${floorK.sql}
+    )
+    WHERE rn = 1
+    ORDER BY occurredAt DESC
+    LIMIT ?`
+
+  return db.prepare(sql).all(serverId, serverId, ...floorK.params, cap)
+}
+
+// --- Rampages (biggest PvP killstreaks) -------------------------------------
+// Replays PvP kills chronologically, tracking each player's running streak (reset
+// when they die to another player) and their peak. Season-floored and memoised on
+// the same cheap signature as the Elo ladder. Powers the rampage board on /pvp.
+
+// Most-recent name↔SteamID maps across all tracked activity (SQLite's min/max
+// bare-column rule gives the newest row per group in one scan). Shared by the
+// rampage replay; the Elo engine builds its own inline copy.
+function pvpIdentityMaps() {
+  const identitySql = `
+    SELECT steamId, charName, MAX(t) AS t FROM (
+      SELECT steamId, charName, startedAt AS t FROM play_sessions
+        WHERE steamId IS NOT NULL AND charName IS NOT NULL
+      UNION ALL
+      SELECT steamId, charName, occurredAt AS t FROM kill_events
+        WHERE steamId IS NOT NULL AND charName IS NOT NULL
+    ) GROUP BY `
+  const idToName = new Map(
+    db.prepare(identitySql + 'steamId').all().map((r) => [r.steamId, r.charName]),
+  )
+  const nameToId = new Map(
+    db.prepare(identitySql + 'charName').all().map((r) => [r.charName, r.steamId]),
+  )
+  return { idToName, nameToId }
+}
+
+let rampageMemo = { sig: null, data: null }
+
+function computeRampages() {
+  const resets = getLeaderboardResets()
+  const floorK = resetFloorAnon('occurredAt', Object.entries(resets))
+
+  const sig = db
+    .prepare(`SELECT COUNT(*) AS c, MAX(occurredAt) AS m FROM kill_events WHERE kind = 'pvp'${floorK.sql}`)
+    .get(...floorK.params)
+  const sigKey = `${sig.c}|${sig.m}|${JSON.stringify(resets)}`
+  if (rampageMemo.sig === sigKey) return rampageMemo.data
+
+  const { idToName, nameToId } = pvpIdentityMaps()
+  const kills = db
+    .prepare(
+      `SELECT steamId AS killer, victim FROM kill_events
+         WHERE kind = 'pvp' AND victim IS NOT NULL AND steamId IS NOT NULL${floorK.sql}
+         ORDER BY occurredAt ASC, rowid ASC`,
+    )
+    .all(...floorK.params)
+
+  const cur = new Map() // steamId -> current streak
+  const peak = new Map() // steamId -> best streak this season
+  for (const k of kills) {
+    const a = k.killer
+    const s = (cur.get(a) || 0) + 1
+    cur.set(a, s)
+    if (s > (peak.get(a) || 0)) peak.set(a, s)
+    // The victim's streak (if we can identify them) is broken by this death.
+    const b = nameToId.get(k.victim)
+    if (b) cur.set(b, 0)
+  }
+
+  const out = [...peak.entries()]
+    .map(([id, best]) => ({
+      steamId: id,
+      charName: idToName.get(id) || null,
+      peak: best,
+      current: cur.get(id) || 0,
+    }))
+    .filter((p) => p.peak >= 2) // a "streak" needs at least 2 kills
+    .sort((a, b) => b.peak - a.peak || b.current - a.current)
+
+  rampageMemo = { sig: sigKey, data: out }
+  return out
+}
+
+// Top PvP killstreaks this season, best peak first. Each row carries `peak` (their
+// best streak) and `current` (their live streak as of the last kill).
+export function getTopRampages(limit = 10) {
+  const cap = Math.min(Math.max(Number(limit) || 10, 1), 50)
+  return computeRampages().slice(0, cap)
 }
 
 // --- Clans -----------------------------------------------------------------

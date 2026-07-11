@@ -127,6 +127,17 @@ Ideas for growing the site, grouped by theme. Effort is a rough guide:
   a top-PvP-killers board, a PvP-only live kill feed (`kind=pvp`) and the fiercest
   rivalry. Ratings also show on player profiles. Backed by `getPvpLeaderboard()` /
   `getPvpRating()` + `GET /api/pvp/leaderboard` (`components/Pvp.jsx`, `PvpLadder.jsx`).
+- **Killstreaks + World-First (live hype)** (M) — the site computes hype from the
+  events it already stores and returns ready-to-broadcast strings in the kill-ingest
+  response; the mod (v0.5.0) prints them to global chat via `ServerChatUtils`. A
+  **rampage** is consecutive PvP kills without dying — announced at 3/5/7/10 (then every
+  5); a **world-first** is the first player to fell a given V Blood boss this season.
+  Both are also lasting records on the site: a **Biggest Rampages** board on `/pvp`
+  (`RampageBoard.jsx`) and a **Hall of Fame** of world-firsts on the hunt tracker
+  (`WorldFirsts.jsx`). Backed by `getTopRampages()` / `getServerRecords()` +
+  `GET /api/pvp/rampages` / `GET /api/records`; broadcast strings via the extended
+  `recordKill()` highlights → `buildKillBroadcasts()`. Mod: `BroadcastQueue` bridges the
+  HTTP-response thread → game thread (drained in the death patch).
 - **Leaderboard pagination** — the ladder shows 20 players per page with Prev/Next
   controls; rank numbers and medals stay global across pages. (Also fixed the top-3
   medal emoji rendering as tofu — `'🥇🥈🥉'[i]` split a surrogate pair.)
@@ -248,7 +259,12 @@ Most of the roadmap is now built. What's left:
    hottest feud + hottest clan war), building on the announcements webhook +
    `getGlobalStats`/`getTopStreaks`/`getHottestClanWar`.
 
-Recently shipped: **season recap card** — a shareable "V Rising Wrapped" SVG on every
+Recently shipped: **killstreaks + world-first (live hype)** — the site returns
+ready-to-broadcast strings in the kill-ingest response and the mod (v0.5.0) prints them
+to global chat via `ServerChatUtils`; rampages (3/5/7/10 kills) and world-first boss
+kills also become a Biggest-Rampages board on `/pvp` and a Hall of Fame on the hunt
+tracker (`getTopRampages()`/`getServerRecords()`, `RampageBoard.jsx`/`WorldFirsts.jsx`).
+**season recap card** — a shareable "V Rising Wrapped" SVG on every
 player profile (playtime/kills/raids/rank/nemesis + a computed archetype) that exports to
 PNG for Discord (`getPlayerRecap()`, `components/SeasonRecap.jsx`). **PvP rating + hub** —
 an Elo skill rating from every duel, surfaced on a dedicated `/pvp` page (rating ladder,

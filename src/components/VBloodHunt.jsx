@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo } from 'react'
 import { servers } from '../data/servers.js'
 import { VBLOOD_NAMES } from '../data/vbloods.js'
 import { linkProps } from '../lib/router.js'
+import WorldFirsts from './WorldFirsts.jsx'
 
 const ALL_BOSSES = Object.entries(VBLOOD_NAMES).map(([guid, name]) => ({ guid, name }))
 const SERVER_TABS = [['', 'All servers'], ...servers.map((s) => [s.id, s.name])]
@@ -64,6 +65,8 @@ export default function VBloodHunt() {
             </button>
           ))}
         </div>
+
+        <WorldFirsts serverId={serverId} />
 
         {error && <p className="empty">Failed to load hunt data. Try again later.</p>}
 
