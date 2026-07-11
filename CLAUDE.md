@@ -410,8 +410,13 @@ V Rising game server, not from this repo. It lives in `../mod/` (sibling of
   ("🩸 Latest Kill: Alpha Wolf"). `getLeaderboard` returns the latest in-window `kill_event`
   per SteamID (`lastVBlood` guid + `lastVBloodAt`); the route resolves the guid via
   `src/data/vbloods.js` (`vbloodName()`), which maps all 64 V Blood bosses' PrefabGUIDs
-  → names from the official wiki's "V Blood Unit IDs" table. Any unmapped id (e.g. a
-  new boss after a game update) renders a neutral "V Blood boss" label client-side.
+  → names from the V Rising Mod Wiki prefab dump. It also maps the 22 **Primal / Gate
+  Boss** variant GUIDs (`CHAR_..._GateBoss_*`, spawned on Brutal servers like our Duo
+  PvP one) to the same boss names — without these, Primal kills showed "V Blood boss".
+  Any unmapped id (e.g. a new boss after a game update) renders a neutral "V Blood
+  boss" label client-side. For "X of Y" completion, use `VBLOOD_BOSSES` (64 distinct
+  names) / `bossNamesForGuids()` — never `Object.keys(VBLOOD_NAMES)` (86, counts Primals
+  twice); the `/api/vblood-hunt` route already collapses variants by name.
 
 ## Gotchas
 

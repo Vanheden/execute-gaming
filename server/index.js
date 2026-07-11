@@ -81,7 +81,7 @@ import {
   announceMilestone,
   announceTest,
 } from './discord.js'
-import { vbloodName, VBLOOD_NAMES } from '../src/data/vbloods.js'
+import { vbloodName, VBLOOD_BOSSES, bossNamesForGuids } from '../src/data/vbloods.js'
 import { servers } from '../src/data/servers.js'
 import {
   badgesForUser,
@@ -692,20 +692,22 @@ app.get('/api/raids', (req, res) => {
 app.get('/api/vblood-hunt', (req, res) => {
   const serverId = req.query.serverId ? String(req.query.serverId) : null
   const progress = getVBloodHuntProgress(serverId)
-  const allBosses = Object.keys(VBLOOD_NAMES)
   const players = Object.entries(progress).map(([steamId, data]) => {
     const member = getUserByProvider('steam', steamId)
     const linked = member && !member.banned ? member : null
+    // Collapse Primal + normal variants of the same boss to one name so a Brutal
+    // server's Primal kills count once and against the 64-boss denominator.
+    const bosses = bossNamesForGuids(data.bosses)
     return {
       steamId,
       charName: data.charName || linked?.username || 'Unknown vampire',
-      bosses: [...data.bosses],
-      count: data.bosses.size,
+      bosses: [...bosses],
+      count: bosses.size,
       member: linked ? { key: keyOf(linked.id) } : null,
     }
   })
   players.sort((a, b) => b.count - a.count)
-  res.json({ players, totalBosses: allBosses.length })
+  res.json({ players, totalBosses: VBLOOD_BOSSES.length })
 })
 
 // Season champions — top-1 player for each completed season per server.

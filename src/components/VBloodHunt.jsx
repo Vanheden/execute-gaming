@@ -1,10 +1,12 @@
 import { useEffect, useState, useMemo } from 'react'
 import { servers } from '../data/servers.js'
-import { VBLOOD_NAMES } from '../data/vbloods.js'
+import { VBLOOD_BOSSES } from '../data/vbloods.js'
 import { linkProps } from '../lib/router.js'
 import WorldFirsts from './WorldFirsts.jsx'
 
-const ALL_BOSSES = Object.entries(VBLOOD_NAMES).map(([guid, name]) => ({ guid, name }))
+// Distinct boss names (Primal + normal collapsed). The API returns each player's
+// felled bosses as resolved names, so the checklist matches by name.
+const ALL_BOSSES = VBLOOD_BOSSES.map((name) => ({ name }))
 const SERVER_TABS = [['', 'All servers'], ...servers.map((s) => [s.id, s.name])]
 
 export default function VBloodHunt() {
@@ -100,11 +102,11 @@ export default function VBloodHunt() {
                     <div className="hunt__bosses">
                       {ALL_BOSSES.map((b) => (
                         <span
-                          key={b.guid}
-                          className={`hunt__boss ${bossSet.has(b.guid) ? 'hunt__boss--done' : ''}`}
-                          title={bossSet.has(b.guid) ? `${b.name} ✓` : b.name}
+                          key={b.name}
+                          className={`hunt__boss ${bossSet.has(b.name) ? 'hunt__boss--done' : ''}`}
+                          title={bossSet.has(b.name) ? `${b.name} ✓` : b.name}
                         >
-                          {bossSet.has(b.guid) ? '🩸' : '○'}
+                          {bossSet.has(b.name) ? '🩸' : '○'}
                         </span>
                       ))}
                     </div>
