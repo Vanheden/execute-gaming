@@ -16,6 +16,7 @@ import Suggestions from './components/Suggestions.jsx'
 import VBloodHunt from './components/VBloodHunt.jsx'
 import PlayerSearch from './components/PlayerSearch.jsx'
 import Rules from './components/Rules.jsx'
+import RulesPage from './components/RulesPage.jsx'
 import Footer from './components/Footer.jsx'
 import PublicProfile from './components/PublicProfile.jsx'
 import PlayerProfile from './components/PlayerProfile.jsx'
@@ -72,6 +73,7 @@ const PAGES = {
   '/clans': ClanLeaderboard,
   '/achievements': Achievements,
   '/suggestions': Suggestions,
+  '/rules': RulesPage,
   '/hunt': VBloodHunt,
   '/players': PlayerSearch,
   '/admin': AdminPanel,

@@ -1,3 +1,5 @@
+import { linkProps } from '../lib/router.js'
+
 const rules = [
   {
     title: 'Respect everyone',
@@ -40,6 +42,12 @@ export default function Rules() {
             </li>
           ))}
         </ol>
+
+        <div className="rules__cta">
+          <a className="btn" {...linkProps('/rules')}>
+            Full Duo PvP rules →
+          </a>
+        </div>
       </div>
     </section>
   )

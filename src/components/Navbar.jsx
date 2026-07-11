@@ -13,6 +13,7 @@ const NAV_GROUPS = [
       { label: 'News', to: '/#news' },
       { label: 'Events', to: '/events', page: true },
       { label: 'Members', to: '/members', page: true },
+      { label: 'Rules', to: '/rules', page: true },
       { label: 'Suggestions', to: '/suggestions', page: true },
     ],
   },

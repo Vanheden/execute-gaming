@@ -966,6 +966,211 @@ body.has-banner .nav {
   color: var(--text-dim);
   font-size: 0.94rem;
 }
+.rules__cta {
+  margin-top: 28px;
+  text-align: center;
+}
+
+/* ===========================================================================
+   Rules page (/rules) — full Duo PvP ruleset
+   =========================================================================== */
+.rulepage__gist {
+  list-style: none;
+  margin: 0 0 40px;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+}
+.rulepage__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text);
+  background: color-mix(in srgb, var(--c-pink) 12%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--c-pink) 32%, var(--border));
+  border-radius: 999px;
+}
+
+.ruleset {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+}
+.rulecard {
+  display: flex;
+  gap: 16px;
+  padding: 22px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.rulecard__num {
+  flex: none;
+  font-size: 1.5rem;
+  font-weight: 800;
+  font-family: ui-monospace, monospace;
+  line-height: 1.1;
+  color: var(--c-pink);
+}
+.rulecard__title {
+  font-size: 1.08rem;
+  margin: 0 0 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.rulecard__body p {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 0.94rem;
+  line-height: 1.55;
+}
+.rulecard__tagline {
+  margin-top: 10px !important;
+}
+.rulecard__tag {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 2px 7px;
+  border-radius: 6px;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+.rulecard__tag--example {
+  color: var(--c-cyan);
+  background: color-mix(in srgb, var(--c-cyan) 16%, transparent);
+}
+.rulecard__tag--exception {
+  color: var(--c-orange);
+  background: color-mix(in srgb, var(--c-orange) 16%, transparent);
+}
+.rulecard__note {
+  margin-top: 10px !important;
+  font-style: italic;
+  color: var(--text-faint) !important;
+  font-size: 0.88rem !important;
+}
+
+.rulepage__block {
+  margin-top: 48px;
+  padding: 28px;
+  background: color-mix(in srgb, var(--blood) 6%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--blood-bright) 22%, var(--border));
+  border-radius: var(--radius);
+}
+.rulepage__blocktitle {
+  margin: 0 0 12px;
+  font-size: 1.35rem;
+  font-family: var(--font-display);
+}
+.rulepage__blocklead {
+  margin: 0 0 14px;
+  color: var(--text-dim);
+  font-size: 0.95rem;
+  line-height: 1.55;
+}
+.rulepage__subtitle {
+  margin: 26px 0 8px;
+  font-size: 1.05rem;
+}
+.rulepage__ffaconduct {
+  margin: 0;
+  padding-left: 20px;
+  color: var(--text-dim);
+  font-size: 0.94rem;
+  line-height: 1.6;
+}
+.rulepage__ffaconduct li {
+  margin-bottom: 8px;
+}
+
+.ffa__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
+}
+.ffa__zone {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.ffa__icon {
+  font-size: 1.3rem;
+}
+.ffa__name {
+  display: flex;
+  flex-direction: column;
+  font-weight: 700;
+  color: var(--text);
+}
+.ffa__sub {
+  font-weight: 500;
+  font-size: 0.8rem;
+  color: var(--text-faint);
+}
+
+.rulepage__raidhours {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin-bottom: 20px;
+  padding: 14px 18px;
+  background: var(--grad-blood);
+  border-radius: var(--radius-sm);
+}
+.rulepage__raidhours-label {
+  font-weight: 800;
+  color: #fff;
+}
+.rulepage__raidhours-time {
+  font-weight: 700;
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+}
+.rulepage__raidhours-note {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.75);
+  font-style: italic;
+}
+.ruleset--raid .rulecard__num {
+  font-size: 1.5rem;
+}
+
+.rulepage__foot {
+  margin-top: 40px;
+  text-align: center;
+  color: var(--text-dim);
+  font-size: 0.95rem;
+}
+.rulepage__foot a {
+  color: var(--c-pink);
+  font-weight: 600;
+}
+
+@media (max-width: 720px) {
+  .ruleset {
+    grid-template-columns: 1fr;
+  }
+}
 
 /* ===========================================================================
    Footer
