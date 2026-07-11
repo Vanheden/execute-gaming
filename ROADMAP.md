@@ -91,6 +91,17 @@ Ideas for growing the site, grouped by theme. Effort is a rough guide:
 - **Play streaks** — consecutive-day play streaks (current + longest) shown on
   profiles and a "longest active streaks" list in the milestones strip. Backed by
   `getPlayerStreak()` / `getTopStreaks()`.
+- **Clans** (L) — a whole team dimension on top of the per-player stats. The mod
+  (v0.3.0) captures each player's clan (stable `ClanGuid` + name, from
+  `User.ClanEntity` → `ClanTeam`) and sends it on every session + kill, plus the
+  victim's clan on PvP kills. The site gets a **clan leaderboard** (`/clans`, same
+  metric/server/period filters, keyed by `ClanGuid` and shown under the latest name),
+  **clan profiles** (`/c/:guid` — totals, distinct bosses, member roster, and a
+  **clan-vs-clan war record** "Clan A 5–2 Clan B" with win/loss colouring), and the
+  **hottest clan war** on the milestones strip. Clan attribution is denormalised at
+  event time, so clan stats recompute from raw rows with the same points weighting —
+  no membership table. Backed by `getClanLeaderboard()` / `getClanStats()` /
+  `getClanWars()` / `getHottestClanWar()` in `server/playtime.js`.
 - **Leaderboard pagination** — the ladder shows 20 players per page with Prev/Next
   controls; rank numbers and medals stay global across pages. (Also fixed the top-3
   medal emoji rendering as tofu — `'🥇🥈🥉'[i]` split a surrogate pair.)
@@ -140,6 +151,11 @@ Ideas for growing the site, grouped by theme. Effort is a rough guide:
   V Blood boss kills and PvP kills. Points = weighted blend (playtime + V Bloods +
   PvP), tunable in `server/playtime.js`. The mod's kill hooks are **verified live**
   (death-based detection, mod v0.2.2 — see mod CLAUDE.md).
+- ~~**Clan leaderboard & clan-vs-clan wars**~~ (L) ✅ — `/clans` ladder + `/c/:guid`
+  clan profiles with roster and a head-to-head war record; the mod (v0.3.0) captures
+  the clan (`ClanGuid` + name) on sessions/kills and the victim clan on PvP kills.
+  Keyed by the rename-proof `ClanGuid`, denormalised at event time. See
+  `getClanLeaderboard()` / `getClanStats()` / `getClanWars()` in `server/playtime.js`.
 - ~~Live Discord widget~~ ✅ — shows who's online in Discord (needs the guild
   widget enabled in Discord → Server Settings → Widget).
 - ~~**"Server is full / online" badges**~~ ✅ — a live status strip at the top of the
@@ -192,11 +208,20 @@ Ideas for growing the site, grouped by theme. Effort is a rough guide:
 
 Most of the roadmap is now built. What's left:
 
-1. **Donations / VIP** (M) — optional; the `supporter` badge is already there.
-2. **Scheduled weekly recap** (M) — a cron-posted Discord digest (top 3, most active,
-   hottest feud), building on the announcements webhook + `getGlobalStats`/`getTopStreaks`.
+1. **Clan tag on player rows** (S) — show each player's clan as a small tag beside
+   their name on the main `/leaderboard` (needs `getLeaderboard` to return the
+   player's latest clan — a subquery like `lastVBlood`). Deferred from the clan build.
+2. **Clan achievements / clan season champions** (M) — reuse the badge + season-champion
+   machinery at the clan level (e.g. "first clan to fell every V Blood", reigning clan).
+3. **Donations / VIP** (M) — optional; the `supporter` badge is already there.
+4. **Scheduled weekly recap** (M) — a cron-posted Discord digest (top 3, most active,
+   hottest feud + hottest clan war), building on the announcements webhook +
+   `getGlobalStats`/`getTopStreaks`/`getHottestClanWar`.
 
-Recently shipped: **per-server home tag + playtime split** — each leaderboard row
+Recently shipped: **clans** — clan leaderboard (`/clans`), clan profiles (`/c/:guid`)
+with roster + clan-vs-clan war record, hottest clan war on the milestones strip; the
+mod (v0.3.0) captures the clan (`ClanGuid` + name) on sessions/kills + victim clan on
+PvP kills. **per-server home tag + playtime split** — each leaderboard row
 (in the "All servers" view) shows the server that player has logged the most time on,
 as an accent-tinted tag beside their points value (`topServers()` in
 `server/playtime.js` → `entry.homeServer`); both profile pages gain a stacked-bar

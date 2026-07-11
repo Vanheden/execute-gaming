@@ -50,8 +50,9 @@ the live domain while developing — the same `.env` works on your machine and t
   promise-based `confirm()`/`prompt()` rendered as styled modals (no native popups).
 - `App.jsx` composes the home page (Hero → Servers → News → Community → Rules)
   and does tiny client-side routing via a `PAGES` map: `/events`, `/members`,
-  `/achievements`, `/suggestions` render that one section as a standalone page,
-  `/u/:key` renders `<PublicProfile>`, everything else is the home page. It also
+  `/achievements`, `/suggestions`, `/clans` render that one section as a standalone
+  page, `/u/:key` renders `<PublicProfile>`, `/p/:steamId` `<PlayerProfile>`,
+  `/c/:clanGuid` `<ClanProfile>`, everything else is the home page. It also
   fires the privacy-friendly page-view beacon (`POST /api/hit`).
 - `components/Hero.jsx` layers a self-drawn SVG scene (`public/hero-bg.svg`:
   blood moon, castle silhouette, bats) + CSS embers behind the hero copy. All
@@ -346,6 +347,11 @@ V Rising game server, not from this repo. It lives in `../mod/` (sibling of
   `POST /api/ingest/kill` (this repo), both guarded by the shared `INGEST_SECRET`.
   Contract + validation live in `server/playtime.js`. The mod's kill hooks are
   **verified live** (death-based detection in `DeathEventListenerSystem`, mod v0.2.2).
+- **Clans (mod v0.3.0):** the mod also captures each player's clan (stable `ClanGuid`
+  + name, from `User.ClanEntity` → `ClanTeam`) on sessions/kills and the victim's clan
+  on PvP kills. The site denormalises these at ingest time and powers `/clans` +
+  `/c/:clanGuid`. Clan fields are optional/empty for clanless players — old mod
+  versions that don't send them just produce no clan stats (graceful).
 - The site side is self-contained and testable **without** the game: set
   `INGEST_SECRET`, `curl` a session/kill in, and read `GET /api/leaderboard`.
 - To change either ingest contract, update **both** `server/playtime.js` (validation)
