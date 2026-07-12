@@ -305,6 +305,12 @@ the live domain while developing — the same `.env` works on your machine and t
   them from the response and queues them for its game thread (`BroadcastQueue`).
   After a successful ingest both routes fire-and-forget `checkRankPromotion(steamId)`
   and, on a promotion, post a "rank up" embed to Discord (see `discord.js`).
+- `GET /api/mod/cmd?cmd=<rank|top|vbloods|online|help>&steamId=&charName=` (mod v0.6.0,
+  `X-Ingest-Secret`-guarded) — powers in-game chat commands. Returns `{ lines:[...] }`,
+  the ready-to-print reply the mod sends privately to the player. `buildCommandLines()`
+  computes the wording; broadcast/command strings carry **TextMeshPro `<color=#hex>` tags**
+  (V Rising's chat renders colour but not emoji — emoji show as boxes). `online` reuses
+  `fetchServerOnline()` (BattleMetrics, 30s-cached).
 - `GET /api/news` (public), `POST/PUT/DELETE /api/news/:id` (admin)
 - `GET /api/events` (public), `POST/PUT/DELETE /api/events/:id` (admin)
 - `GET /api/suggestions` (public), `POST` (auth), `POST /:id/vote` (auth),

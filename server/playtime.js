@@ -152,11 +152,14 @@ export function recordKill(body) {
 // Killstreak ("rampage") tiers: a player's streak is their consecutive PvP kills
 // since their last PvP death, inclusive of the kill just recorded. We announce
 // when the streak first reaches a tier boundary (3/5/7/10, then every 5 beyond).
+// `emoji` is used on the website (where emoji render fine); `color` is a TextMeshPro
+// hex used for the in-game chat broadcast, since V Rising's chat font renders <color>
+// tags but shows emoji as missing-glyph boxes.
 export const RAMPAGE_TIERS = [
-  { at: 3, label: 'RAMPAGE', emoji: '🔥' },
-  { at: 5, label: 'DOMINATING', emoji: '💀' },
-  { at: 7, label: 'UNSTOPPABLE', emoji: '⚡' },
-  { at: 10, label: 'GODLIKE', emoji: '👑' },
+  { at: 3, label: 'RAMPAGE', emoji: '🔥', color: '#ff8a3d' },
+  { at: 5, label: 'DOMINATING', emoji: '💀', color: '#ff4d63' },
+  { at: 7, label: 'UNSTOPPABLE', emoji: '⚡', color: '#b07bff' },
+  { at: 10, label: 'GODLIKE', emoji: '👑', color: '#ffd24a' },
 ]
 
 // The tier a given streak length belongs to (the highest boundary it has reached).

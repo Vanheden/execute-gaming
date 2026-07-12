@@ -82,6 +82,7 @@ import {
   announceTest,
 } from './discord.js'
 import { vbloodName, VBLOOD_BOSSES, bossNamesForGuids } from '../src/data/vbloods.js'
+import { rankForPoints } from '../src/data/ranks.js'
 import { servers } from '../src/data/servers.js'
 import {
   badgesForUser,
@@ -483,17 +484,22 @@ function buildKillBroadcasts(highlights, body) {
   const out = []
   const who = body?.charName ? String(body.charName).slice(0, 60) : 'A vampire'
 
+  // Colours are TextMeshPro <color> tags — V Rising's chat renders these but not
+  // emoji (they show as missing-glyph boxes), so the flair is carried by colour.
+  const c = (hex, s) => `<color=${hex}>${s}</color>`
   if (highlights.kind === 'vblood' && highlights.worldFirst) {
     const boss = vbloodName(highlights.victim) || 'a V Blood'
-    out.push(`🩸 WORLD FIRST — ${who} was first to fell ${boss}!`)
+    out.push(`${c('#e63950', 'WORLD FIRST')} — ${c('#ffd24a', who)} was first to fell ${c('#ff8a3d', boss)}!`)
   }
   if (highlights.kind === 'pvp') {
     if (highlights.milestone) {
       const t = rampageTier(highlights.streak)
-      out.push(`${t.emoji} ${who} — ${t.label}! (${highlights.streak} kills)`)
+      out.push(`${c(t.color, who)} — ${c(t.color, `${t.label}!`)} (${highlights.streak} kills)`)
     }
     if (highlights.endedName && highlights.endedStreak >= RAMPAGE_TIERS_MIN) {
-      out.push(`💥 ${who} ended ${highlights.endedName}'s rampage (${highlights.endedStreak} kills).`)
+      out.push(
+        `${c('#ff4d63', who)} ended ${c('#c3aeb9', `${highlights.endedName}'s`)} rampage (${highlights.endedStreak} kills).`,
+      )
     }
   }
   return out
@@ -1035,19 +1041,18 @@ app.get('/api/discord/widget', async (req, res) => {
 const onlineCache = new Map()
 const CACHE_TTL = 30_000 // 30s
 
-app.get('/api/servers/:id/online', async (req, res) => {
-  const srv = servers.find((s) => s.id === req.params.id)
-  if (!srv?.battlemetricsId) return res.json({ players: [] })
-
+// Fetch (and 30s-cache) one server's online player list from BattleMetrics.
+// Returns { players: [...] }, or { players: [] } when unconfigured/unreachable.
+async function fetchServerOnline(srv) {
+  if (!srv?.battlemetricsId) return { players: [] }
   const cached = onlineCache.get(srv.id)
-  if (cached && Date.now() - cached.at < CACHE_TTL) return res.json(cached.data)
-
+  if (cached && Date.now() - cached.at < CACHE_TTL) return cached.data
   try {
     const bmRes = await fetch(
       `https://api.battlemetrics.com/servers/${srv.battlemetricsId}?include=players`,
       { headers: { Accept: 'application/json' } },
     )
-    if (!bmRes.ok) return res.json({ players: [] })
+    if (!bmRes.ok) return { players: [] }
     const body = await bmRes.json()
     const included = body.included || []
     const players = included
@@ -1069,9 +1074,89 @@ app.get('/api/servers/:id/online', async (req, res) => {
       .sort((a, b) => (b.time || 0) - (a.time || 0))
     const data = { players }
     onlineCache.set(srv.id, { at: Date.now(), data })
-    res.json(data)
+    return data
   } catch {
-    res.json({ players: [] })
+    return { players: [] }
+  }
+}
+
+app.get('/api/servers/:id/online', async (req, res) => {
+  const srv = servers.find((s) => s.id === req.params.id)
+  res.json(await fetchServerOnline(srv))
+})
+
+// In-game chat commands: the mod intercepts "!rank", "!top", etc. and calls this,
+// then prints the returned `lines` privately to the player. All wording + colour
+// (TextMeshPro <color> tags, which V Rising's chat renders) is built here so the
+// mod stays a thin printer — same split as the kill broadcasts.
+async function buildCommandLines(cmd, steamId, charName) {
+  const c = (hex, s) => `<color=${hex}>${s}</color>`
+  const gold = '#ffd24a'
+  const who = charName ? String(charName).slice(0, 60) : 'You'
+
+  if (cmd === 'help' || cmd === 'commands') {
+    return [
+      `Commands: ${c(gold, '!rank')} · ${c(gold, '!top')} · ${c(gold, '!vbloods')} · ${c(gold, '!online')}`,
+    ]
+  }
+
+  if (cmd === 'rank') {
+    if (!steamId) return ['Link your account on the website to get a rank.']
+    const lifetime = allTimePoints([steamId])[steamId] ?? 0
+    const rows = getLeaderboard({ period: 'all', metric: 'points', limit: 500 })
+    const idx = rows.findIndex((r) => r.steamId === steamId)
+    const name = (idx >= 0 ? rows[idx].charName : null) || who
+    const r = rankForPoints(lifetime)
+    const posLabel = idx >= 0 ? `#${idx + 1}` : 'unranked'
+    const out = [
+      `${c(r.tier.color, name)} — ${c(gold, r.tier.name)} · ${c('#b07bff', posLabel)} · ${lifetime.toLocaleString()} pts`,
+    ]
+    if (!r.isMax) out.push(`Next: ${c(r.next.color, r.next.name)} in ${r.toNext.toLocaleString()} pts`)
+    return out
+  }
+
+  if (cmd === 'top') {
+    const rows = getLeaderboard({ period: 'all', metric: 'points', limit: 3 })
+    if (!rows.length) return ['No ranked vampires yet — go make some history.']
+    const medals = ['#ffd24a', '#d8d8e0', '#cd7f4d']
+    const parts = rows.map(
+      (r, i) => `${c(medals[i] || '#c3aeb9', `${i + 1}. ${r.charName || 'Unknown'}`)} ${r.points.toLocaleString()}`,
+    )
+    return [`Top 3 — ${parts.join('  ·  ')}`]
+  }
+
+  if (cmd === 'vbloods') {
+    if (!steamId) return ['Link your account on the website to track V Bloods.']
+    const prog = getVBloodHuntProgress(null)[steamId]
+    const count = prog ? bossNamesForGuids(prog.bosses).size : 0
+    const name = prog?.charName || who
+    return [`${c('#7cf267', name)} — ${c(gold, `${count}/${VBLOOD_BOSSES.length}`)} V Bloods felled`]
+  }
+
+  if (cmd === 'online') {
+    const lists = await Promise.all(servers.map((s) => fetchServerOnline(s)))
+    const total = lists.reduce((n, d) => n + d.players.length, 0)
+    const per = servers
+      .map((s, i) => ({ s, n: lists[i].players.length, bm: !!s.battlemetricsId }))
+      .filter((x) => x.bm)
+      .map((x) => `${x.s.name.replace(/^V Rising — /, '')} ${x.n}`)
+      .join(' · ')
+    if (!per) return ['Live player counts are on the website.']
+    return [`${c('#7cf267', `${total} online now`)} — ${per}`]
+  }
+
+  return null // unknown command → mod sends nothing
+}
+
+app.get('/api/mod/cmd', ensureIngestSecret, async (req, res) => {
+  const cmd = String(req.query.cmd || '').toLowerCase()
+  const steamId = req.query.steamId && /^\d{5,20}$/.test(req.query.steamId) ? String(req.query.steamId) : null
+  const charName = req.query.charName ? String(req.query.charName) : null
+  try {
+    const lines = await buildCommandLines(cmd, steamId, charName)
+    res.json({ lines: lines || [] })
+  } catch (err) {
+    res.status(200).json({ lines: [] })
   }
 })
 
