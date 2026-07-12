@@ -2,6 +2,9 @@ import { useEffect } from 'react'
 import AnnouncementBanner from './components/AnnouncementBanner.jsx'
 import Navbar from './components/Navbar.jsx'
 import Hero from './components/Hero.jsx'
+import Ticker from './components/Ticker.jsx'
+import ChampionSpotlight from './components/ChampionSpotlight.jsx'
+import StatsShowcase from './components/StatsShowcase.jsx'
 import Servers from './components/Servers.jsx'
 import News from './components/News.jsx'
 import Events from './components/Events.jsx'
@@ -129,9 +132,14 @@ export default function App() {
   return (
     <Layout>
       <Hero />
+      <Ticker />
+      <Reveal>
+        <StatsShowcase />
+      </Reveal>
       <Reveal>
         <Servers />
       </Reveal>
+      <ChampionSpotlight />
       <Reveal>
         <News />
       </Reveal>

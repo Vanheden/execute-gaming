@@ -43,7 +43,7 @@ export const servers = [
     game: 'V Rising',
     mode: 'Duo PvP · x3',
     tagline: 'Two against the world with x3 rates and monthly wipes. Raid, defend, and rise to the top in pairs.',
-    accent: '#ff5db1',
+    accent: '#e63950',
     image: '/servers/vrising-duo.svg',
     connect: '',
     ip: '158.174.144.145:9878',

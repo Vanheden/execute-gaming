@@ -1,10 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -220 1440 780" preserveAspectRatio="xMidYMax slice" fill="none">
   <defs>
     <radialGradient id="moon" cx="50%" cy="50%" r="50%">
-      <stop offset="0%" stop-color="#ffe3ee"/>
-      <stop offset="34%" stop-color="#ff9ec7"/>
-      <stop offset="68%" stop-color="#ff5db1" stop-opacity="0.28"/>
-      <stop offset="100%" stop-color="#ff5db1" stop-opacity="0"/>
+      <stop offset="0%" stop-color="#f6c8ce"/>
+      <stop offset="34%" stop-color="#e0455a"/>
+      <stop offset="68%" stop-color="#c81f2e" stop-opacity="0.28"/>
+      <stop offset="100%" stop-color="#c81f2e" stop-opacity="0"/>
     </radialGradient>
     <linearGradient id="ridge" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0%" stop-color="#2a1d4d"/>
@@ -18,8 +18,8 @@
 
   <!-- Blood moon (glow fully contained within the viewBox so it never clips) -->
   <circle cx="1075" cy="90" r="300" fill="url(#moon)"/>
-  <circle cx="1075" cy="90" r="82" fill="#ffe9f2"/>
-  <circle cx="1075" cy="90" r="82" fill="#ff9ec7" opacity="0.35"/>
+  <circle cx="1075" cy="90" r="82" fill="#f8d2d7"/>
+  <circle cx="1075" cy="90" r="82" fill="#e0455a" opacity="0.35"/>
 
   <!-- Distant ridge / faint spires -->
   <g fill="url(#ridge)" opacity="0.65">

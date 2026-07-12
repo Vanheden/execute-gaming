@@ -12,7 +12,7 @@ const MEDALS = ['🥇', '🥈', '🥉']
 // Rating tiers just add a splash of colour + a label to the number.
 function tierOf(rating) {
   if (rating >= 1300) return { name: 'Warlord', color: '#ffcf40' }
-  if (rating >= 1150) return { name: 'Duelist', color: '#7c4dff' }
+  if (rating >= 1150) return { name: 'Duelist', color: '#a366e6' }
   if (rating >= 1000) return { name: 'Fighter', color: '#33c9c9' }
   return { name: 'Fledgling', color: '#9aa3b2' }
 }

@@ -13,7 +13,7 @@ const MEDALS = ['🥇', '🥈', '🥉']
 // Same tier ladder the mod announces in-game (see RAMPAGE_TIERS in playtime.js).
 function tierOf(peak) {
   if (peak >= 10) return { name: 'Godlike', emoji: '👑', color: '#ffcf40' }
-  if (peak >= 7) return { name: 'Unstoppable', emoji: '⚡', color: '#7c4dff' }
+  if (peak >= 7) return { name: 'Unstoppable', emoji: '⚡', color: '#a366e6' }
   if (peak >= 5) return { name: 'Dominating', emoji: '💀', color: '#ff5470' }
   if (peak >= 3) return { name: 'Rampage', emoji: '🔥', color: '#ff8a3d' }
   return { name: 'Streak', emoji: '', color: '#9aa3b2' }
