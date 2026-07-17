@@ -5,6 +5,7 @@ import Hero from './components/Hero.jsx'
 import Ticker from './components/Ticker.jsx'
 import ChampionSpotlight from './components/ChampionSpotlight.jsx'
 import StatsShowcase from './components/StatsShowcase.jsx'
+import Challenges from './components/Challenges.jsx'
 import Servers from './components/Servers.jsx'
 import News from './components/News.jsx'
 import Events from './components/Events.jsx'
@@ -136,6 +137,7 @@ export default function App() {
       <Reveal>
         <StatsShowcase />
       </Reveal>
+      <Challenges />
       <Reveal>
         <Servers />
       </Reveal>

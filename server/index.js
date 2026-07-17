@@ -84,6 +84,7 @@ import {
 import { vbloodName, VBLOOD_BOSSES, bossNamesForGuids } from '../src/data/vbloods.js'
 import { rankForPoints } from '../src/data/ranks.js'
 import { servers } from '../src/data/servers.js'
+import { checkAndRecordCompletions, getChallengeState, challengePoints } from './challenges.js'
 import {
   badgesForUser,
   grantAchievement,
@@ -516,8 +517,54 @@ app.post('/api/ingest/kill', ensureIngestSecret, (req, res) => {
   const result = recordKill(req.body)
   if (result.error) return res.status(400).json({ error: result.error })
   const broadcasts = buildKillBroadcasts(result.highlights, req.body)
+  // A kill can also complete a daily/weekly challenge — announce it in the same
+  // broadcast channel. Best-effort: a failure here must never drop the kill.
+  try {
+    const who = req.body?.charName ? String(req.body.charName).slice(0, 60) : 'A vampire'
+    for (const ch of checkAndRecordCompletions(req.body?.steamId, req.body?.serverId, req.body?.charName)) {
+      broadcasts.push(
+        `<color=#ffd24a>CHALLENGE</color> — <color=#7cf267>${who}</color> cleared "${ch.title}"! +${ch.bonus} CP`,
+      )
+    }
+  } catch {
+    /* ignore challenge errors */
+  }
   res.status(200).json({ ok: true, broadcasts })
   afterIngest(req.body?.steamId, req.body?.charName)
+})
+
+// Active daily/weekly challenges + who's cleared them + Challenge Points champions.
+app.get('/api/challenges', (req, res) => {
+  try {
+    const state = getChallengeState()
+    const resolve = (c) => ({
+      ...c,
+      clears: c.clears.map((x) => {
+        const member = getUserByProvider('steam', x.steamId)
+        const linked = member && !member.banned ? member : null
+        return {
+          steamId: x.steamId,
+          name: linked?.username || x.charName || 'Unknown vampire',
+          at: x.at,
+          member: linked ? { key: keyOf(linked.id) } : null,
+        }
+      }),
+    })
+    const champions = state.champions.map((c) => {
+      const member = getUserByProvider('steam', c.steamId)
+      const linked = member && !member.banned ? member : null
+      return {
+        steamId: c.steamId,
+        name: linked?.username || c.charName || 'Unknown vampire',
+        points: c.points,
+        clears: c.clears,
+        member: linked ? { key: keyOf(linked.id) } : null,
+      }
+    })
+    res.json({ daily: resolve(state.daily), weekly: resolve(state.weekly), champions })
+  } catch {
+    res.json({ daily: null, weekly: null, champions: [] })
+  }
 })
 
 // Ingest a single castle raid event from the mod. Same guard. No rank/milestone
@@ -944,8 +991,10 @@ app.get('/api/player/:steamId', (req, res) => {
   const toughestVBlood = stats.toughestVBlood
     ? { ...stats.toughestVBlood, name: vbloodName(stats.toughestVBlood.id) }
     : null
+  const challenge = challengePoints(stats.steamId)
   res.json({
     player: {
+      challenge,
       steamId: stats.steamId,
       charName: stats.charName,
       seconds: stats.seconds,

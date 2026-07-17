@@ -314,6 +314,16 @@ the live domain while developing — the same `.env` works on your machine and t
   computes the wording; broadcast/command strings carry **TextMeshPro `<color=#hex>` tags**
   (V Rising's chat renders colour but not emoji — emoji show as boxes). `online` reuses
   `fetchServerOnline()` (BattleMetrics, 30s-cached).
+- `GET /api/challenges` (public) — the rotating **daily + weekly challenges** engine
+  (`server/challenges.js`). A deterministic objective per period (picked from a pool by
+  hashing the period key, so it rotates with no admin action); progress is computed live
+  from `kill_events` (no counters stored). The **kill-ingest route** calls
+  `checkAndRecordCompletions()` and appends a colour-tagged `CHALLENGE — … cleared …`
+  string to the same `broadcasts` array the mod prints (so completions announce in-game
+  with **no mod change**). Completions land in `challenge_completions` (idempotent per
+  player+challenge+period) and award **Challenge Points** — a *separate* score
+  (`challengePoints()`, shown on the home `<Challenges>` widget + `/p/:steamId`), so this
+  never touches the core points/ranking maths.
 - `GET /api/news` (public), `POST/PUT/DELETE /api/news/:id` (admin)
 - `GET /api/events` (public), `POST/PUT/DELETE /api/events/:id` (admin)
 - `GET /api/suggestions` (public), `POST` (auth), `POST /:id/vote` (auth),

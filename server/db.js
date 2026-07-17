@@ -184,6 +184,20 @@ db.exec(`
     updatedAt TEXT NOT NULL
   );
 
+  -- Daily/weekly challenge completions. One row per (player, challenge, period) so
+  -- re-posts/repeat kills never double-award. bonus = Challenge Points earned.
+  CREATE TABLE IF NOT EXISTS challenge_completions (
+    steamId     TEXT NOT NULL,
+    challengeId TEXT NOT NULL,
+    periodKey   TEXT NOT NULL,
+    serverId    TEXT,
+    charName    TEXT,
+    bonus       INTEGER NOT NULL DEFAULT 0,
+    completedAt TEXT NOT NULL,
+    PRIMARY KEY (steamId, challengeId, periodKey)
+  );
+  CREATE INDEX IF NOT EXISTS idx_challenge_player ON challenge_completions(steamId);
+
   -- Linked provider identities. One account (users.id) can own several — e.g. a
   -- Discord-primary member who also linked their Steam. Every account has at least
   -- its own (its provider+providerId → its id). Login and getUserByProvider resolve

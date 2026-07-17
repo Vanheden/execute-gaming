@@ -217,6 +217,15 @@ export default function PlayerProfile({ steamId }) {
               </section>
             )}
 
+            {p.challenge?.clears > 0 && (
+              <section className="pubcard__section">
+                <h2 className="pubcard__label">Challenges</h2>
+                <p className="pstats__latest">
+                  📜 {p.challenge.points.toLocaleString()} CP · {p.challenge.clears} cleared
+                </p>
+              </section>
+            )}
+
             {p.perServer?.length > 0 && (
               <section className="pubcard__section">
                 <h2 className="pubcard__label">By server</h2>
