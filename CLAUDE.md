@@ -296,7 +296,10 @@ the live domain while developing — the same `.env` works on your machine and t
   ingest from the in-game mod. **Not** user-auth; all guarded by a shared secret
   (`INGEST_SECRET`, header `X-Ingest-Secret`) and **fail closed** (503) if the secret
   isn't set. `kill` body is `{ eventId, serverId, steamId, charName, kind: vblood|pvp,
-  victim, occurredAt, clanGuid?, clanName?, victimClanGuid?, victimClanName? }`;
+  victim, occurredAt, clanGuid?, clanName?, victimClanGuid?, victimClanName?,
+  victimSteamId? }` (`victimSteamId`, mod v0.7.0, PvP only, is the dead player's
+  SteamID — `getRivalries` prefers it and falls back to victim-name matching on older
+  rows; column auto-migrates via `ensureColumn`);
   `session` body adds `clanGuid?`/`clanName?`; `raid` body is `{ eventId, serverId,
   kind:"raid", occurredAt, attacker*, defender* }` (steamId/name/clanGuid/clanName per
   side, all optional). Clan fields are optional (empty = clanless).

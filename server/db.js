@@ -229,5 +229,8 @@ ensureColumn('kill_events', 'clanName', 'TEXT')
 // PvP only: the victim's clan at kill time, so kills resolve to clan-vs-clan wars.
 ensureColumn('kill_events', 'victimClanGuid', 'TEXT')
 ensureColumn('kill_events', 'victimClanName', 'TEXT')
+// PvP only (mod v0.7.0+): the victim's SteamID, so rivalries resolve exactly instead
+// of guessing from the victim's character name. NULL/empty on older rows (name-fallback).
+ensureColumn('kill_events', 'victimSteamId', 'TEXT')
 db.exec('CREATE INDEX IF NOT EXISTS idx_sessions_clan ON play_sessions(serverId, clanGuid);')
 db.exec('CREATE INDEX IF NOT EXISTS idx_kills_clan ON kill_events(serverId, clanGuid);')

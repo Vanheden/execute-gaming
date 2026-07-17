@@ -88,8 +88,8 @@ const KILL_KINDS = new Set(['vblood', 'pvp'])
 const insertKillStmt = db.prepare(
   `INSERT OR IGNORE INTO kill_events
      (eventId, serverId, steamId, charName, kind, victim, occurredAt, createdAt,
-      clanGuid, clanName, victimClanGuid, victimClanName)
-   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      clanGuid, clanName, victimClanGuid, victimClanName, victimSteamId)
+   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 )
 
 // Validate + record one kill event from the mod. Returns { ok } or { error }.
@@ -115,6 +115,10 @@ export function recordKill(body) {
   // Victim clan only applies to PvP kills; ignore it on V Blood events.
   const [victimClanGuid, victimClanName] =
     kind === 'pvp' ? clanPair(body?.victimClanGuid, body?.victimClanName) : [null, null]
+  // Victim SteamID (PvP only) — the exact identity so rivalries don't guess from the
+  // name. Empty/absent (e.g. older mod builds) stays null → name-fallback still works.
+  const rawVictimSteam = kind === 'pvp' ? str(body?.victimSteamId, 20) : null
+  const victimSteamId = rawVictimSteam && /^\d{5,20}$/.test(rawVictimSteam) ? rawVictimSteam : null
 
   insertKillStmt.run(
     eventId,
@@ -129,6 +133,7 @@ export function recordKill(body) {
     clanName,
     victimClanGuid,
     victimClanName,
+    victimSteamId,
   )
 
   // Hype highlights: a world-first V Blood kill, or a PvP killstreak crossing a
@@ -1461,40 +1466,41 @@ export function getRivalries(steamId, limit = 5) {
 
   const myNames = namesForSteamId(steamId)
 
-  // Nemeses: PvP deaths where I'm the victim, grouped by the killer's steamId.
-  let nemeses = []
-  if (myNames.length) {
-    const ph = myNames.map(() => '?').join(',')
-    const rows = db
-      .prepare(
-        `SELECT steamId AS steamId, MAX(charName) AS charName, COUNT(*) AS kills
-           FROM kill_events
-          WHERE kind = 'pvp' AND steamId != ? AND victim IN (${ph})${floorK.sql}
-          GROUP BY steamId ORDER BY kills DESC, MAX(occurredAt) DESC LIMIT ?`,
-      )
-      .all(steamId, ...myNames, ...floorK.params, cap)
+  // SQL matching a PvP victim to a player: prefer the exact `victimSteamId` the mod
+  // sends (v0.7.0+); fall back to their character names for older rows that predate it.
+  // Bind order: the steamId first, then the names. Never double-counts — the name
+  // branch only fires when victimSteamId is NULL.
+  const victimMatchSql = (names) =>
+    names.length
+      ? `(victimSteamId = ? OR (victimSteamId IS NULL AND victim IN (${names.map(() => '?').join(',')})))`
+      : `victimSteamId = ?`
 
-    nemeses = rows.map((n) => {
+  // Nemeses: PvP deaths where I'm the victim, grouped by the killer's steamId.
+  const nemeses = db
+    .prepare(
+      `SELECT steamId AS steamId, MAX(charName) AS charName, COUNT(*) AS kills
+         FROM kill_events
+        WHERE kind = 'pvp' AND steamId != ? AND ${victimMatchSql(myNames)}${floorK.sql}
+        GROUP BY steamId ORDER BY kills DESC, MAX(occurredAt) DESC LIMIT ?`,
+    )
+    .all(steamId, steamId, ...myNames, ...floorK.params, cap)
+    .map((n) => {
       // Head-to-head: how many times I killed this nemesis back.
       const theirNames = namesForSteamId(n.steamId)
-      let revenge = 0
-      if (theirNames.length) {
-        const ph2 = theirNames.map(() => '?').join(',')
-        revenge = db
-          .prepare(
-            `SELECT COUNT(*) AS c FROM kill_events
-              WHERE kind = 'pvp' AND steamId = ? AND victim IN (${ph2})${floorK.sql}`,
-          )
-          .get(steamId, ...theirNames, ...floorK.params).c
-      }
+      const revenge = db
+        .prepare(
+          `SELECT COUNT(*) AS c FROM kill_events
+            WHERE kind = 'pvp' AND steamId = ? AND ${victimMatchSql(theirNames)}${floorK.sql}`,
+        )
+        .get(steamId, n.steamId, ...theirNames, ...floorK.params).c
       return { steamId: n.steamId, charName: n.charName, kills: n.kills, revenge }
     })
-  }
 
-  // Prey: PvP kills where I'm the killer, grouped by the victim's name.
+  // Prey: PvP kills where I'm the killer, grouped by the victim's name. Prefer the
+  // exact victimSteamId for linking to a profile; fall back to resolving the name.
   const preyRows = db
     .prepare(
-      `SELECT victim AS name, COUNT(*) AS kills, MAX(occurredAt) AS last
+      `SELECT victim AS name, MAX(victimSteamId) AS vid, COUNT(*) AS kills, MAX(occurredAt) AS last
          FROM kill_events
         WHERE kind = 'pvp' AND steamId = ? AND victim IS NOT NULL${floorK.sql}
         GROUP BY victim ORDER BY kills DESC, last DESC LIMIT ?`,
@@ -1502,7 +1508,7 @@ export function getRivalries(steamId, limit = 5) {
     .all(steamId, ...floorK.params, cap)
 
   const prey = preyRows.map((r) => ({
-    steamId: steamIdForName(r.name),
+    steamId: r.vid || steamIdForName(r.name),
     charName: r.name,
     kills: r.kills,
   }))
