@@ -426,6 +426,14 @@ V Rising game server, not from this repo. It lives in `../mod/` (sibling of
   boss" label client-side. For "X of Y" completion, use `VBLOOD_BOSSES` (64 distinct
   names) / `bossNamesForGuids()` — never `Object.keys(VBLOOD_NAMES)` (86, counts Primals
   twice); the `/api/vblood-hunt` route already collapses variants by name.
+- **Boss difficulty tiers (display-only):** `src/data/vbloodTiers.js` maps each boss
+  PrefabGUID → `{ tier: I|II|III|IV|Shard, diff }` (story act + a monotonic difficulty
+  score; Primal variants inherit their base's tier). `vbloodTier(guid)` adds a label +
+  colour; `<TierBadge guid>` renders a small pill (nothing for unknown bosses). Shown on
+  the leaderboard's "Latest Kill", the Hall of Fame cards, and the `/p/:steamId` profile's
+  "Toughest Felled" (`getPlayerStats.toughestVBlood` = max-`diff` boss ever felled). This
+  is purely cosmetic — it does **not** affect points/ranking (that's still flat
+  first/repeat weighting in `POINTS`).
 
 ## Gotchas
 

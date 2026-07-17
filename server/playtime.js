@@ -10,6 +10,7 @@
 import { db } from './db.js'
 import { servers } from '../src/data/servers.js'
 import { rankForPoints, RANKS } from '../src/data/ranks.js'
+import { vbloodTier } from '../src/data/vbloodTiers.js'
 
 const SERVER_IDS = new Set(servers.map((s) => s.id))
 // A single session can't sensibly exceed a few days; cap to reject garbage.
@@ -1059,6 +1060,24 @@ export function getPlayerStats(steamId) {
     )
     .get(steamId, steamId)
 
+  // Toughest V Blood ever felled, by difficulty tier — a lifetime profile stat.
+  // All-time (not season-floored): it's an achievement, not a leaderboard number.
+  const felled = db
+    .prepare(
+      `SELECT DISTINCT victim FROM kill_events
+         WHERE steamId = ? AND kind = 'vblood' AND victim IS NOT NULL`,
+    )
+    .all(steamId)
+  let toughestVBlood = null
+  let bestDiff = -1
+  for (const r of felled) {
+    const t = vbloodTier(r.victim)
+    if (t && t.diff > bestDiff) {
+      bestDiff = t.diff
+      toughestVBlood = { id: r.victim, tier: t.tier, label: t.label, color: t.color }
+    }
+  }
+
   return {
     steamId,
     charName: nameRow?.charName || null,
@@ -1071,6 +1090,7 @@ export function getPlayerStats(steamId) {
     latestVBlood: latestRow
       ? { id: latestRow.victim, at: latestRow.occurredAt }
       : null,
+    toughestVBlood,
     perServer: rows
       .filter((r) => r.seconds > 0 || r.vblood > 0 || r.pvp > 0)
       .map((r) => ({

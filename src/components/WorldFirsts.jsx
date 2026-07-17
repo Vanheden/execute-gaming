@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { linkProps } from '../lib/router.js'
 import { servers } from '../data/servers.js'
+import TierBadge from './TierBadge.jsx'
 
 // -------------------------------------------------------------------------
 // WorldFirsts — the "Hall of Fame": the first hunter to fell each V Blood boss
@@ -46,7 +47,10 @@ export default function WorldFirsts({ serverId = '' }) {
           const href = r.member ? `/u/${r.member.key}` : `/p/${r.steamId}`
           return (
             <li className="worldfirsts__item" key={`${r.serverId}:${r.bossGuid}`}>
-              <span className="worldfirsts__boss">{r.boss || 'V Blood boss'}</span>
+              <span className="worldfirsts__boss">
+                {r.boss || 'V Blood boss'}
+                <TierBadge guid={r.bossGuid} />
+              </span>
               <span className="worldfirsts__meta">
                 <a className="worldfirsts__who" {...linkProps(href)} title={r.name}>
                   {r.name}

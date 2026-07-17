@@ -941,6 +941,9 @@ app.get('/api/player/:steamId', (req, res) => {
   const latestVBlood = stats.latestVBlood
     ? { id: stats.latestVBlood.id, name: vbloodName(stats.latestVBlood.id), at: stats.latestVBlood.at }
     : null
+  const toughestVBlood = stats.toughestVBlood
+    ? { ...stats.toughestVBlood, name: vbloodName(stats.toughestVBlood.id) }
+    : null
   res.json({
     player: {
       steamId: stats.steamId,
@@ -952,6 +955,7 @@ app.get('/api/player/:steamId', (req, res) => {
       points: stats.points,
       lastSeen: stats.lastSeen,
       latestVBlood,
+      toughestVBlood,
       perServer,
       pvpRating: getPvpRating(stats.steamId),
       member: linked ? { key: keyOf(linked.id), username: linked.username } : null,

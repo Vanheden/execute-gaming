@@ -5323,6 +5323,22 @@ a.feud__killer:hover {
   color: #4ade80;
   font-weight: 600;
 }
+/* V Blood boss difficulty-tier pill (Act I–IV / Shardbearer). Colour set inline. */
+.tierbadge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 0.64rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  vertical-align: middle;
+  color: var(--tier);
+  background: color-mix(in srgb, var(--tier) 16%, transparent);
+  border: 1px solid color-mix(in srgb, var(--tier) 45%, transparent);
+}
 .lb__pvp {
   color: #f87171;
   font-weight: 600;

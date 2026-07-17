@@ -4,6 +4,7 @@ import { rankForPoints } from '../data/ranks.js'
 import { linkProps } from '../lib/router.js'
 import ActivityHeatmap from './ActivityHeatmap.jsx'
 import Rivalries from './Rivalries.jsx'
+import TierBadge from './TierBadge.jsx'
 import ServerSplit from './ServerSplit.jsx'
 import SeasonRecap from './SeasonRecap.jsx'
 
@@ -202,6 +203,16 @@ export default function PlayerProfile({ steamId }) {
                   {p.latestVBlood.at && (
                     <span className="pstats__latestdate"> · {formatDate(p.latestVBlood.at)}</span>
                   )}
+                </p>
+              </section>
+            )}
+
+            {p.toughestVBlood && (
+              <section className="pubcard__section">
+                <h2 className="pubcard__label">Toughest Felled</h2>
+                <p className="pstats__latest">
+                  💀 {p.toughestVBlood.name || 'V Blood boss'}
+                  <TierBadge guid={p.toughestVBlood.id} />
                 </p>
               </section>
             )}

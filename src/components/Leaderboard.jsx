@@ -7,6 +7,7 @@ import ChampionCard from './ChampionCard.jsx'
 import SeasonChampions from './SeasonChampions.jsx'
 import WeeklyHighlights from './WeeklyHighlights.jsx'
 import Milestones from './Milestones.jsx'
+import TierBadge from './TierBadge.jsx'
 
 // Human-readable playtime, e.g. 5400s → "1h 30m".
 function formatDuration(seconds) {
@@ -208,10 +209,11 @@ function Meta({ e, metric }) {
 // Unknown bosses (a PrefabGUID we haven't mapped) show a neutral label — never a guess.
 function LatestKill({ e }) {
   if (!e.latestVBlood) return null
-  const { name } = e.latestVBlood
+  const { id, name } = e.latestVBlood
   return (
     <span className="lb__latest">
       Latest Kill: <span className="lb__vb">{name || 'V Blood boss'}</span>
+      <TierBadge guid={id} />
     </span>
   )
 }
