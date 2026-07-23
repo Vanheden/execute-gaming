@@ -68,8 +68,8 @@ the live domain while developing — the same `.env` works on your machine and t
 - `data/achievements.js` — **single source of truth** for the badge catalog,
   imported by BOTH the frontend and the backend (`server/achievements.js`).
   Auto badges (`auto: true`) are computed; the rest are admin-granted.
-- `services/serverStatus.js` + `hooks/useServerStatus.js` — live status. V Rising
-  uses BattleMetrics (`battlemetricsId`); anything without one falls back to mock.
+- `services/serverStatus.js` + `hooks/useServerStatus.js` — live status. Gated on the
+  server's `query` ({host,port}); the backend queries it via A2S. No `query` → mock.
 - `auth/AuthContext.jsx` — `useAuth()` exposes `{ user, loading, providers,
   turnstile, logout }`. Fetches `/api/me` and `/api/config` on load (`turnstile`
   is `{ enabled, siteKey }` for the CAPTCHA widget).
@@ -129,12 +129,14 @@ the live domain while developing — the same `.env` works on your machine and t
 - `audit.js` — `logAudit()` / `listAudit()` for the admin action log.
 - `analytics.js` — privacy-friendly page-view counter (`recordHit`, `summary`);
   no cookies/IPs/PII, aggregate counts only.
-- `stats.js` — background poller that snapshots each server's BattleMetrics
-  player count (every `STATS_POLL_MINUTES`, default 5) into `server_stats`, plus
-  `getHistory()`. Imports the shared `src/data/servers.js` for the server list.
-  Also `getLiveStatus(serverId)` — the **server-side status proxy** behind
-  `GET /api/servers/:id/status` (30s cache): fetches BattleMetrics on the server so
-  the browser never calls it directly (a visitor's VPN/adblock/CORS used to blank the
+- `stats.js` + `a2s.js` — live status + player count via a direct **Steam A2S query**
+  to each server's own query port (`server.query = { host, port }`), first-party and
+  free (no BattleMetrics / API key). `a2s.js` sends A2S_INFO over UDP (handles the
+  challenge) → `{ online, name, map, players, maxPlayers }`. `stats.js` is the
+  background poller that snapshots player counts (every `STATS_POLL_MINUTES`, default 5)
+  into `server_stats` + `getHistory()`, and `getLiveStatus(serverId)` — the status
+  source behind `GET /api/servers/:id/status` (~20s cache): queries A2S on the server so
+  the browser never calls out directly (a visitor's VPN/adblock/CORS used to blank the
   card). `serverStatus.js` on the frontend now calls this same-origin proxy.
 - `playtime.js` — the **leaderboard**. `recordSession()` validates + UPSERTs a play
   session (keyed by a mod-issued `sessionId`, so heartbeats and the final disconnect
@@ -266,8 +268,12 @@ the live domain while developing — the same `.env` works on your machine and t
   visibility toggles (`milestones`/`highlights`/`champions`, **default ON**). The
   `<Leaderboard>` hides a panel when its flag is off; admins toggle them in
   `/admin` → Settings. Kill feed has its own `/api/killfeed/enabled` (default OFF).
-- `GET /api/servers/:id/status` — **public** live status for one server, proxied
-  server-side from BattleMetrics (30s cache) so the browser never calls it directly.
+- `GET /api/servers/:id/status` — **public** live status for one server, from a
+  server-side A2S query (~20s cache) so the browser never calls out directly.
+- `GET /api/servers/:id/online` — **public** `{ online, count, maxPlayers, players }`:
+  the count is authoritative (A2S); `players` is the named "who's online" list derived
+  from the mod's live sessions (`getOnlinePlayers` — open session with a recent
+  `updatedAt`), so it can be a subset of the count.
 - `GET /api/webhook` (admin) — Discord webhook status (`configured`) + per-category
   flags. `PUT /api/webhook` (admin) toggles one category. `POST /api/webhook/test`
   (admin) fires a test embed (400 if `DISCORD_WEBHOOK_URL` unset). Wired into
@@ -313,7 +319,7 @@ the live domain while developing — the same `.env` works on your machine and t
   the ready-to-print reply the mod sends privately to the player. `buildCommandLines()`
   computes the wording; broadcast/command strings carry **TextMeshPro `<color=#hex>` tags**
   (V Rising's chat renders colour but not emoji — emoji show as boxes). `online` reuses
-  `fetchServerOnline()` (BattleMetrics, 30s-cached).
+  `fetchServerOnline()` (A2S count per server).
 - `GET /api/challenges` (public) — the rotating **daily + weekly challenges** engine
   (`server/challenges.js`). A deterministic objective per period (picked from a pool by
   hashing the period key, so it rotates with no admin action); progress is computed live
@@ -476,9 +482,9 @@ V Rising game server, not from this repo. It lives in `../mod/` (sibling of
   but correct secret = auth passes and the site is healthy, so the gap is upstream
   (mod not running / wrong `Url` / can't reach the host). The usual cause is the
   game-server mod `.cfg`, not the site.
-- **Live server status is proxied server-side** — `src/services/serverStatus.js`
-  calls our own `GET /api/servers/:id/status` (same-origin), which fetches
-  BattleMetrics on the server (`getLiveStatus` in `server/stats.js`, 30s cache). So a
+- **Live server status is queried server-side** — `src/services/serverStatus.js`
+  calls our own `GET /api/servers/:id/status` (same-origin), which does a direct A2S
+  query to the game server (`getLiveStatus` in `server/stats.js`, ~20s cache). So a
   visitor's VPN/adblock/CORS no longer blanks the card. If the **server** can't reach
   BattleMetrics the proxy serves the last cached value, else `state: 'unknown'`.
   Servers without a `battlemetricsId` (e.g. CS 1.6) still use the client-side mock.

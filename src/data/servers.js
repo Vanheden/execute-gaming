@@ -22,8 +22,9 @@ export const servers = [
     ip: '158.174.144.145:9876',
     maxPlayers: 40,
     tags: ['Survival', 'PvE', 'Co-op'],
-    // For live status via BattleMetrics: fill in the server id.
-    battlemetricsId: '35400462',
+    // Live status + player count via a direct Steam A2S query on the query port
+    // (game port + 1). First-party and free — no BattleMetrics needed.
+    query: { host: '158.174.144.145', port: 9877 },
     details: {
       wipe: 'No scheduled wipe — build to last',
       rates: 'x3 Loot & Craft · full offline protection',
@@ -49,7 +50,7 @@ export const servers = [
     ip: '158.174.144.145:9878',
     maxPlayers: 40,
     tags: ['Survival', 'PvP', 'Duo'],
-    battlemetricsId: '38909658',
+    query: { host: '158.174.144.145', port: 9879 },
     details: {
       wipe: 'Monthly wipe — first Friday of the month',
       rates: 'x3 Loot & Craft · max clan size 2',

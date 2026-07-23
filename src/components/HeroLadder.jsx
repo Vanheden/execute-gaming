@@ -17,16 +17,16 @@ export default function HeroLadder() {
       .then((d) => live && setTop(d?.entries || []))
       .catch(() => live && setTop([]))
 
-    // Aggregate the live online count across every server (BattleMetrics-backed).
+    // Aggregate the live online count across every server (A2S query, authoritative).
     Promise.all(
       servers.map((s) =>
         fetch(`/api/servers/${s.id}/online`)
-          .then((r) => (r.ok ? r.json() : { players: [] }))
-          .catch(() => ({ players: [] })),
+          .then((r) => (r.ok ? r.json() : {}))
+          .catch(() => ({})),
       ),
     ).then((list) => {
       if (!live) return
-      setOnline(list.reduce((n, d) => n + (d.players?.length || 0), 0))
+      setOnline(list.reduce((n, d) => n + (d.count ?? d.players?.length ?? 0), 0))
     })
 
     return () => {

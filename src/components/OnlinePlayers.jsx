@@ -10,15 +10,15 @@ function timeAgo(minutes) {
 }
 
 export default function OnlinePlayers({ serverId }) {
-  const [players, setPlayers] = useState(null)
+  const [data, setData] = useState(null)
 
   useEffect(() => {
     let live = true
     const poll = () => {
       fetch(`/api/servers/${serverId}/online`)
         .then((r) => (r.ok ? r.json() : Promise.reject()))
-        .then((d) => live && setPlayers(d.players || []))
-        .catch(() => live && setPlayers([]))
+        .then((d) => live && setData(d))
+        .catch(() => live && setData({ players: [] }))
     }
     poll()
     const id = setInterval(poll, 45000)
@@ -28,14 +28,17 @@ export default function OnlinePlayers({ serverId }) {
     }
   }, [serverId])
 
-  if (!players) return null
-  if (players.length === 0) return null
+  if (!data) return null
+  const players = data.players || []
+  // Authoritative count from A2S; the named list can be a subset (only mod-tracked).
+  const count = data.count ?? players.length
+  if (count === 0 && players.length === 0) return null
 
   return (
     <div className="onlineplayers">
       <h4 className="onlineplayers__title">
         <span className="onlineplayers__dot" />
-        Online now ({players.length})
+        Online now ({count})
       </h4>
       <ul className="onlineplayers__list">
         {players.slice(0, 12).map((p, i) => {

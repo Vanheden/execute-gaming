@@ -1213,6 +1213,27 @@ export function getRecentKills(serverId = null, limit = 20, kind = null) {
 
 // V Blood hunt tracker — which bosses each player has killed. Returns a map
 // { steamId: { charName, bosses: Set of victim GUIDs } }. Respects season resets.
+// Players currently online on a server, from the mod's live session data: an open
+// session (endedAt IS NULL) whose updatedAt is recent (the mod refreshes it on every
+// connect + heartbeat). Returns [{ steamId, charName }], most-recently-active first.
+// The threshold covers a couple of missed heartbeats so a crash-without-disconnect
+// drops off rather than lingering forever. Names only — the count comes from A2S.
+const ONLINE_STALE_MS = 15 * 60 * 1000
+export function getOnlinePlayers(serverId) {
+  if (!serverId) return []
+  const cutoff = new Date(Date.now() - ONLINE_STALE_MS).toISOString()
+  return db
+    .prepare(
+      `SELECT steamId, MAX(charName) AS charName, MAX(updatedAt) AS updatedAt
+         FROM play_sessions
+        WHERE serverId = ? AND endedAt IS NULL AND updatedAt >= ?
+        GROUP BY steamId
+        ORDER BY updatedAt DESC`,
+    )
+    .all(serverId, cutoff)
+    .map((r) => ({ steamId: r.steamId, charName: r.charName }))
+}
+
 export function getVBloodHuntProgress(serverId = null) {
   const resetEntries = Object.entries(getLeaderboardResets())
   const floorK = resetFloorAnon('occurredAt', resetEntries)

@@ -32,9 +32,9 @@ function ServerDetails({ server }) {
         <div><dt>Connect</dt><dd><code>{server.ip}</code></dd></div>
       </dl>
 
-      {server.battlemetricsId && <PlayerHistoryChart server={server} />}
+      {server.query && <PlayerHistoryChart server={server} />}
 
-      {server.battlemetricsId && <OnlinePlayers serverId={server.id} />}
+      {server.query && <OnlinePlayers serverId={server.id} />}
 
       <h4 className="sd__rulesh">Rules</h4>
       <ul className="sd__rules">

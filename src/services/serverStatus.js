@@ -31,10 +31,11 @@
  * @returns {Promise<ServerStatus>}
  */
 export async function fetchServerStatus(server) {
-  if (server.battlemetricsId) {
+  if (server.query) {
+    // The backend queries the game server directly via A2S (see server/stats.js).
     return fetchViaProxy(server)
   }
-  // No battlemetricsId (e.g. CS 1.6) → fall back to mock for now.
+  // No live-status source configured → fall back to mock.
   return fetchMock(server)
 }
 

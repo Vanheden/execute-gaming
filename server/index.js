@@ -25,7 +25,7 @@ import {
   setNote,
   updateProfile,
 } from './store.js'
-import { startPolling, getHistory, getLiveStatus, bmHeaders } from './stats.js'
+import { startPolling, getHistory, getLiveStatus } from './stats.js'
 import {
   recordSession,
   recordKill,
@@ -44,6 +44,7 @@ import {
   getPlayerTotalsBatch,
   getRecentKills,
   getVBloodHuntProgress,
+  getOnlinePlayers,
   getPlayerActivity,
   getWeeklyHighlights,
   getGlobalStats,
@@ -421,8 +422,8 @@ app.get('/api/servers/:id/history', (req, res) => {
   res.json({ points: getHistory(req.params.id, hours) })
 })
 
-// Live status for a server (public), proxied server-side from BattleMetrics so a
-// visitor's VPN/adblock/CORS can't blank the card. 30s server-side cache.
+// Live status for a server (public), from a direct A2S query server-side (see
+// server/stats.js). First-party, no third party. Cached ~20s.
 app.get('/api/servers/:id/status', async (req, res) => {
   const status = await getLiveStatus(req.params.id)
   if (!status) return res.status(404).json({ error: 'unknown server' })
@@ -1089,47 +1090,29 @@ app.get('/api/discord/widget', async (req, res) => {
 })
 
 // --- Online players per server (public) -------------------------------------
-// Fetches the player list from BattleMetrics server-side (avoids client-side
-// CORS/VPN issues). Returns { players: [{ name, steamId, time }] } for one server.
-const onlineCache = new Map()
-const CACHE_TTL = 30_000 // 30s
-
-// Fetch (and 30s-cache) one server's online player list from BattleMetrics.
-// Returns { players: [...] }, or { players: [] } when unconfigured/unreachable.
+// Live status + count come from a direct A2S query (getLiveStatus, cached); the
+// named "who's online" list comes from the mod's live session data. Returns
+// { online, count, maxPlayers, players:[{ name, steamId, member? }] }. The count is
+// authoritative (A2S, includes everyone); the named list is best-effort (only
+// players the mod is tracking), so it can be a subset of the count.
 async function fetchServerOnline(srv) {
-  if (!srv?.battlemetricsId) return { players: [] }
-  const cached = onlineCache.get(srv.id)
-  if (cached && Date.now() - cached.at < CACHE_TTL) return cached.data
-  try {
-    const bmRes = await fetch(
-      `https://api.battlemetrics.com/servers/${srv.battlemetricsId}?include=players`,
-      { headers: bmHeaders() },
-    )
-    if (!bmRes.ok) return { players: [] }
-    const body = await bmRes.json()
-    const included = body.included || []
-    const players = included
-      .filter((e) => e.type === 'player')
-      .map((e) => {
-        const a = e.attributes || {}
-        const newPlayer = {
-          name: a.name || 'Unknown',
-          steamId: a.userId ? String(a.userId) : null,
-          time: a.time || null,
-        }
-        if (newPlayer.steamId) {
-          const member = getUserByProvider('steam', newPlayer.steamId)
-          const linked = member && !member.banned ? member : null
-          if (linked) newPlayer.member = { key: keyOf(linked.id), username: linked.username }
-        }
-        return newPlayer
-      })
-      .sort((a, b) => (b.time || 0) - (a.time || 0))
-    const data = { players }
-    onlineCache.set(srv.id, { at: Date.now(), data })
-    return data
-  } catch {
-    return { players: [] }
+  if (!srv) return { online: false, count: 0, players: [] }
+  const status = await getLiveStatus(srv.id)
+  const online = status?.state === 'online'
+  const players = getOnlinePlayers(srv.id).map((p) => {
+    const member = getUserByProvider('steam', p.steamId)
+    const linked = member && !member.banned ? member : null
+    return {
+      name: p.charName || 'Unknown',
+      steamId: p.steamId,
+      member: linked ? { key: keyOf(linked.id), username: linked.username } : undefined,
+    }
+  })
+  return {
+    online,
+    count: online ? status.players : 0,
+    maxPlayers: status?.maxPlayers ?? srv.maxPlayers,
+    players,
   }
 }
 
@@ -1188,10 +1171,10 @@ async function buildCommandLines(cmd, steamId, charName) {
 
   if (cmd === 'online') {
     const lists = await Promise.all(servers.map((s) => fetchServerOnline(s)))
-    const total = lists.reduce((n, d) => n + d.players.length, 0)
+    const total = lists.reduce((n, d) => n + (d.count || 0), 0)
     const per = servers
-      .map((s, i) => ({ s, n: lists[i].players.length, bm: !!s.battlemetricsId }))
-      .filter((x) => x.bm)
+      .map((s, i) => ({ s, n: lists[i].count || 0, ok: !!s.query }))
+      .filter((x) => x.ok)
       .map((x) => `${x.s.name.replace(/^V Rising — /, '')} ${x.n}`)
       .join(' · ')
     if (!per) return ['Live player counts are on the website.']

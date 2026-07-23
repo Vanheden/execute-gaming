@@ -1,41 +1,25 @@
 // ---------------------------------------------------------------------------
-// Player-count history — polls BattleMetrics on a timer and stores snapshots.
+// Player-count history + live status — via a direct Steam A2S query.
 // ---------------------------------------------------------------------------
-// Runs server-side (independent of visitors) so the graph builds real history
-// over time. Reads the same server list the frontend uses.
+// Queries each game server's own query port (server.query) for live status +
+// player count. First-party and free — no BattleMetrics / third party. Runs
+// server-side on a timer so the history graph builds over time.
 // ---------------------------------------------------------------------------
 import { db } from './db.js'
 import { servers } from '../src/data/servers.js'
+import { queryA2S } from './a2s.js'
 
-const UA =
-  'Mozilla/5.0 (compatible; Execute-Gaming/1.0; +https://execute-gaming.se)'
 const POLL_MINUTES = Number(process.env.STATS_POLL_MINUTES) || 5
 const RETENTION_DAYS = 30
-
-// BattleMetrics increasingly Cloudflare-challenges anonymous API requests (they
-// come back as an HTML block page, not JSON, which surfaces as "unknown"/0 players).
-// An API token routes through the authenticated API path instead. Optional: set
-// BATTLEMETRICS_TOKEN in the environment. Shared by the poller, the live-status
-// proxy and the online-players endpoint.
-const BM_TOKEN = process.env.BATTLEMETRICS_TOKEN
-export function bmHeaders() {
-  const h = { 'User-Agent': UA, Accept: 'application/json' }
-  if (BM_TOKEN) h.Authorization = `Bearer ${BM_TOKEN}`
-  return h
-}
 
 const insertStmt = db.prepare(
   'INSERT INTO server_stats (serverId, players, maxPlayers, at) VALUES (?, ?, ?, ?)',
 )
 
 async function fetchOne(server) {
-  const res = await fetch(`https://api.battlemetrics.com/servers/${server.battlemetricsId}`, {
-    headers: { 'User-Agent': UA, Accept: 'application/json' },
-  })
-  if (!res.ok) throw new Error(`status ${res.status}`)
-  const { data } = await res.json()
-  const a = data?.attributes ?? {}
-  return { players: a.players ?? 0, maxPlayers: a.maxPlayers ?? server.maxPlayers }
+  const r = await queryA2S(server.query.host, server.query.port)
+  if (!r.online) throw new Error('offline/unreachable')
+  return { players: r.players, maxPlayers: r.maxPlayers || server.maxPlayers }
 }
 
 let running = false
@@ -45,12 +29,12 @@ export async function pollAll() {
   const at = new Date().toISOString()
   try {
     for (const server of servers) {
-      if (!server.battlemetricsId) continue
+      if (!server.query) continue
       try {
         const { players, maxPlayers } = await fetchOne(server)
         insertStmt.run(server.id, players, maxPlayers, at)
       } catch {
-        // Skip this server this round (offline / rate-limited / network).
+        // Skip this server this round (offline / unreachable).
       }
     }
     // Prune old rows so the table stays small.
@@ -71,41 +55,26 @@ export function getHistory(serverId, hours = 24) {
     .all(serverId, since)
 }
 
-// --- Live status proxy ------------------------------------------------------
-// Fetches one server's current status BattleMetrics server-side, so the browser
-// never has to reach api.battlemetrics.com directly (a visitor's VPN/adblock/CORS
-// used to make the card show "Unknown"). Cached briefly to stay under rate limits.
+// --- Live status ------------------------------------------------------------
+// One server's current status via A2S, cached briefly so a burst of page loads
+// doesn't flood the query port.
 const statusCache = new Map() // serverId -> { at, data }
-const STATUS_TTL = 30 * 1000
+const STATUS_TTL = 20 * 1000
 
 export async function getLiveStatus(serverId) {
   const server = servers.find((s) => s.id === serverId)
   if (!server) return null
-  if (!server.battlemetricsId) return { state: 'unknown', players: 0, maxPlayers: server.maxPlayers }
+  if (!server.query) return { state: 'unknown', players: 0, maxPlayers: server.maxPlayers }
 
   const cached = statusCache.get(serverId)
   if (cached && Date.now() - cached.at < STATUS_TTL) return cached.data
 
-  try {
-    const res = await fetch(`https://api.battlemetrics.com/servers/${server.battlemetricsId}`, {
-      headers: bmHeaders(),
-    })
-    if (!res.ok) throw new Error(`status ${res.status}`)
-    const { data } = await res.json()
-    const a = data?.attributes ?? {}
-    const out = {
-      state: a.status === 'online' ? 'online' : 'offline',
-      players: a.players ?? 0,
-      maxPlayers: a.maxPlayers ?? server.maxPlayers,
-      map: a.details?.map || undefined,
-    }
-    statusCache.set(serverId, { at: Date.now(), data: out })
-    return out
-  } catch {
-    // Network error or non-OK (rate-limited / down): serve stale if we have it.
-    if (cached) return cached.data
-    return { state: 'unknown', players: 0, maxPlayers: server.maxPlayers }
-  }
+  const r = await queryA2S(server.query.host, server.query.port)
+  const out = r.online
+    ? { state: 'online', players: r.players, maxPlayers: r.maxPlayers || server.maxPlayers, map: r.map }
+    : { state: 'offline', players: 0, maxPlayers: server.maxPlayers }
+  statusCache.set(serverId, { at: Date.now(), data: out })
+  return out
 }
 
 export function startPolling() {
