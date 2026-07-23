@@ -25,7 +25,7 @@ import {
   setNote,
   updateProfile,
 } from './store.js'
-import { startPolling, getHistory, getLiveStatus } from './stats.js'
+import { startPolling, getHistory, getLiveStatus, bmHeaders } from './stats.js'
 import {
   recordSession,
   recordKill,
@@ -1103,7 +1103,7 @@ async function fetchServerOnline(srv) {
   try {
     const bmRes = await fetch(
       `https://api.battlemetrics.com/servers/${srv.battlemetricsId}?include=players`,
-      { headers: { Accept: 'application/json' } },
+      { headers: bmHeaders() },
     )
     if (!bmRes.ok) return { players: [] }
     const body = await bmRes.json()

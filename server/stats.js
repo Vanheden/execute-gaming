@@ -12,6 +12,18 @@ const UA =
 const POLL_MINUTES = Number(process.env.STATS_POLL_MINUTES) || 5
 const RETENTION_DAYS = 30
 
+// BattleMetrics increasingly Cloudflare-challenges anonymous API requests (they
+// come back as an HTML block page, not JSON, which surfaces as "unknown"/0 players).
+// An API token routes through the authenticated API path instead. Optional: set
+// BATTLEMETRICS_TOKEN in the environment. Shared by the poller, the live-status
+// proxy and the online-players endpoint.
+const BM_TOKEN = process.env.BATTLEMETRICS_TOKEN
+export function bmHeaders() {
+  const h = { 'User-Agent': UA, Accept: 'application/json' }
+  if (BM_TOKEN) h.Authorization = `Bearer ${BM_TOKEN}`
+  return h
+}
+
 const insertStmt = db.prepare(
   'INSERT INTO server_stats (serverId, players, maxPlayers, at) VALUES (?, ?, ?, ?)',
 )
@@ -76,7 +88,7 @@ export async function getLiveStatus(serverId) {
 
   try {
     const res = await fetch(`https://api.battlemetrics.com/servers/${server.battlemetricsId}`, {
-      headers: { 'User-Agent': UA, Accept: 'application/json' },
+      headers: bmHeaders(),
     })
     if (!res.ok) throw new Error(`status ${res.status}`)
     const { data } = await res.json()
