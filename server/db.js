@@ -11,9 +11,11 @@ import { fileURLToPath } from 'node:url'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 export const DATA_DIR = join(__dirname, 'data')
-const DB_FILE = join(DATA_DIR, 'users.db')
+// Defaults to server/data/users.db; EG_DB_FILE overrides it (used by tests to run
+// against a throwaway database instead of the live one). Production is unaffected.
+const DB_FILE = process.env.EG_DB_FILE || join(DATA_DIR, 'users.db')
 
-if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true })
+if (!existsSync(dirname(DB_FILE))) mkdirSync(dirname(DB_FILE), { recursive: true })
 
 export const db = new DatabaseSync(DB_FILE)
 db.exec('PRAGMA journal_mode = WAL;') // durability + concurrent reads

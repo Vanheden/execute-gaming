@@ -494,15 +494,28 @@ function buildKillBroadcasts(highlights, body) {
     out.push(`${c('#e63950', 'WORLD FIRST')} — ${c('#ffd24a', who)} was first to fell ${c('#ff8a3d', boss)}!`)
   }
   if (highlights.kind === 'pvp') {
+    // First blood leads the feed — it's the day's opening beat.
+    if (highlights.firstBlood) {
+      out.push(`${c('#e63950', 'FIRST BLOOD')} — ${c('#ffd24a', who)} drew first blood today!`)
+    }
     if (highlights.milestone) {
       const t = rampageTier(highlights.streak)
       out.push(`${c(t.color, who)} — ${c(t.color, `${t.label}!`)} (${highlights.streak} kills)`)
+    }
+    if (highlights.revenge) {
+      out.push(
+        `${c('#ff8a3d', 'REVENGE')} — ${c('#ffd24a', who)} got even with ${c('#c3aeb9', highlights.revenge)}!`,
+      )
     }
     if (highlights.endedName && highlights.endedStreak >= RAMPAGE_TIERS_MIN) {
       out.push(
         `${c('#ff4d63', who)} ended ${c('#c3aeb9', `${highlights.endedName}'s`)} rampage (${highlights.endedStreak} kills).`,
       )
     }
+  }
+  // Rank-up ("Ascension") applies to any kill kind — announce it last, as the payoff.
+  if (highlights.rankUp) {
+    out.push(`${c('#9d7bff', 'ASCENSION')} — ${c('#ffd24a', who)} rose to ${c('#c9a2ff', highlights.rankUp)}!`)
   }
   return out
 }

@@ -143,7 +143,7 @@ export function recordKill(body) {
   // here must never fail the ingest, so it's wrapped and defaulted to null.
   let highlights = null
   try {
-    highlights = killHighlights({ serverId, steamId, kind, victim, occurredAt })
+    highlights = killHighlights({ serverId, steamId, kind, victim, occurredAt, victimSteamId })
   } catch (err) {
     highlights = null
   }
@@ -184,9 +184,12 @@ function isRampageMilestone(streak) {
 }
 
 // Structured highlight data for one just-recorded kill (or null if none). Shapes:
-//   vblood → { kind:'vblood', worldFirst:bool, victim }
-//   pvp    → { kind:'pvp', streak, milestone:bool, endedName, endedStreak }
-function killHighlights({ serverId, steamId, kind, victim, occurredAt }) {
+//   vblood → { kind:'vblood', worldFirst:bool, victim, rankUp }
+//   pvp    → { kind:'pvp', streak, milestone:bool, endedName, endedStreak,
+//              firstBlood, revenge, rankUp }
+// `rankUp` is the name of the tier the killer just ascended to (or null); `revenge`
+// is the victim's name when this kill got even with the player who last killed you.
+function killHighlights({ serverId, steamId, kind, victim, occurredAt, victimSteamId }) {
   const floorK = resetFloorAnon('occurredAt', Object.entries(getLeaderboardResets()))
 
   if (kind === 'vblood') {
@@ -199,7 +202,8 @@ function killHighlights({ serverId, steamId, kind, victim, occurredAt }) {
                  WHERE kind = 'vblood' AND victim = ? AND serverId = ?
                    AND occurredAt < ?${floorK.sql}`
     const prior = db.prepare(s).get(victim, serverId, occurredAt, ...floorK.params).c
-    return { kind: 'vblood', worldFirst: prior === 0, victim }
+    const rankUp = rankUpFromKill({ steamId, kind, victim, occurredAt, floorK })
+    return { kind: 'vblood', worldFirst: prior === 0, victim, rankUp }
   }
 
   if (kind === 'pvp') {
@@ -257,10 +261,95 @@ function killHighlights({ serverId, steamId, kind, victim, occurredAt }) {
       endedName = victim
     }
 
-    return { kind: 'pvp', streak, milestone: isRampageMilestone(streak), endedName, endedStreak }
+    // First blood: the first PvP kill on this server since the start of the current
+    // UTC day (and this season). A recurring daily hype beat that rewards being early.
+    const dayFloor = startOfUtcDay(occurredAt)
+    let fbSql = `SELECT COUNT(*) AS c FROM kill_events
+                   WHERE kind = 'pvp' AND serverId = ? AND occurredAt < ? AND occurredAt >= ?`
+    const fbParams = [serverId, occurredAt, dayFloor]
+    fbSql += floorK.sql
+    fbParams.push(...floorK.params)
+    const firstBlood = db.prepare(fbSql).get(...fbParams).c === 0
+
+    // Revenge: did this kill get even with the exact player who most recently killed
+    // me (before this kill)? Uses the most recent row where I was the victim, then
+    // compares its killer to the player I just killed (SteamID-exact when available,
+    // name-fallback for older rows).
+    let revenge = false
+    if (myNames.length) {
+      const ph = myNames.map(() => '?').join(',')
+      let ls = `SELECT steamId AS killerSteam, charName AS killerName FROM kill_events
+                  WHERE kind = 'pvp' AND victim IN (${ph}) AND occurredAt < ?`
+      const lp = [...myNames, occurredAt]
+      ls += floorK.sql
+      lp.push(...floorK.params)
+      ls += ' ORDER BY occurredAt DESC, rowid DESC LIMIT 1'
+      const lastKilledMe = db.prepare(ls).get(...lp)
+      if (lastKilledMe) {
+        const preySteam = victimSteamId || (victim ? steamIdForName(victim) : null)
+        if (preySteam && lastKilledMe.killerSteam) {
+          revenge = preySteam === lastKilledMe.killerSteam
+        } else if (victim && lastKilledMe.killerName) {
+          // No SteamID on one side (older rows) → fall back to name match.
+          revenge = victim === lastKilledMe.killerName
+        }
+      }
+    }
+
+    const rankUp = rankUpFromKill({ steamId, kind, victim, occurredAt, floorK })
+    return {
+      kind: 'pvp',
+      streak,
+      milestone: isRampageMilestone(streak),
+      endedName,
+      endedStreak,
+      firstBlood,
+      revenge: revenge ? victim : null,
+      rankUp,
+    }
   }
 
   return null
+}
+
+// Start of the UTC day containing `iso`, as an ISO string. Used for daily first-blood.
+function startOfUtcDay(iso) {
+  const d = new Date(iso)
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())).toISOString()
+}
+
+// Did this single kill push the killer over a rank-tier boundary? Compares the
+// killer's all-time points (the same figure the rank pill shows) before vs after
+// this kill. The kill is already inserted when this runs, so `after` is the live
+// total and `before` = after − this kill's point value (PvP kills are flat; a V Blood
+// kill is worth `first` the first time that boss is felled, else `repeat`). Returns
+// the ascended tier's name, or null. Never throws.
+function rankUpFromKill({ steamId, kind, victim, occurredAt, floorK }) {
+  try {
+    const after = allTimePoints([steamId])[steamId] || 0
+    let delta
+    if (kind === 'pvp') {
+      delta = POINTS.perPvpKill
+    } else if (kind === 'vblood') {
+      if (!victim) return null
+      // First distinct kill of this boss (all-time, this season) → the larger award.
+      let ps = `SELECT COUNT(*) AS c FROM kill_events
+                  WHERE kind = 'vblood' AND victim = ? AND steamId = ? AND occurredAt < ?`
+      const pp = [victim, steamId, occurredAt]
+      ps += floorK.sql
+      pp.push(...floorK.params)
+      const prior = db.prepare(ps).get(...pp).c
+      delta = prior === 0 ? POINTS.perVBloodFirst : POINTS.perVBloodRepeat
+    } else {
+      return null
+    }
+    const before = Math.max(0, after - delta)
+    const rankBefore = rankForPoints(before)
+    const rankAfter = rankForPoints(after)
+    return rankAfter.index > rankBefore.index ? rankAfter.tier.name : null
+  } catch {
+    return null
+  }
 }
 
 // --- Castle raids -----------------------------------------------------------
