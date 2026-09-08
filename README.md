@@ -190,3 +190,7 @@ chmod +x deploy.sh   # once
 > `server/data/sessions`. Make sure that directory is on a **persistent disk**
 > (some hosts have ephemeral filesystems that reset on deploy). For heavier use,
 > swap `store.js` for SQLite/Postgres.
+
+## Credits
+
+Designed and built entirely by **Claude AI** ([Claude Code](https://claude.com/claude-code), Anthropic) in collaboration with the Execute-Gaming community.
