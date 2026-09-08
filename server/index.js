@@ -1112,15 +1112,22 @@ async function fetchServerOnline(srv) {
   if (!srv) return { online: false, count: 0, players: [] }
   const status = await getLiveStatus(srv.id)
   const online = status?.state === 'online'
-  const players = getOnlinePlayers(srv.id).map((p) => {
-    const member = getUserByProvider('steam', p.steamId)
-    const linked = member && !member.banned ? member : null
-    return {
-      name: p.charName || 'Unknown',
-      steamId: p.steamId,
-      member: linked ? { key: keyOf(linked.id), username: linked.username } : undefined,
-    }
-  })
+  const raw = getOnlinePlayers(srv.id)
+  // All-time (all-servers) points, so the number matches each player's rank identity
+  // on their profile / the leaderboard. One batched query for everyone online.
+  const points = allTimePoints(raw.map((p) => p.steamId))
+  const players = raw
+    .map((p) => {
+      const member = getUserByProvider('steam', p.steamId)
+      const linked = member && !member.banned ? member : null
+      return {
+        name: p.charName || 'Unknown',
+        steamId: p.steamId,
+        points: points[p.steamId] || 0,
+        member: linked ? { key: keyOf(linked.id), username: linked.username } : undefined,
+      }
+    })
+    .sort((a, b) => b.points - a.points)
   return {
     online,
     count: online ? status.players : 0,

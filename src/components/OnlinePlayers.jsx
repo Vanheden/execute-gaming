@@ -1,13 +1,7 @@
 import { useEffect, useState } from 'react'
 import { linkProps } from '../lib/router.js'
 
-function timeAgo(minutes) {
-  if (minutes == null) return ''
-  const h = Math.floor(minutes / 60)
-  const m = Math.floor(minutes % 60)
-  if (h > 0) return `${h}h ${m}m`
-  return `${m}m`
-}
+const fmtPoints = (n) => (Number(n) || 0).toLocaleString('en-US')
 
 export default function OnlinePlayers({ serverId }) {
   const [data, setData] = useState(null)
@@ -53,9 +47,7 @@ export default function OnlinePlayers({ serverId }) {
               ) : (
                 <span className="onlineplayers__name">{name}</span>
               )}
-              {p.time != null && (
-                <span className="onlineplayers__time">{timeAgo(p.time)}</span>
-              )}
+              <span className="onlineplayers__points">{fmtPoints(p.points)} pts</span>
             </li>
           )
         })}

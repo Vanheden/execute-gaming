@@ -3079,6 +3079,12 @@ body.has-banner .nav {
   color: var(--text-faint);
   font-variant-numeric: tabular-nums;
 }
+.onlineplayers__points {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--c-gold, #ffd24a);
+  font-variant-numeric: tabular-nums;
+}
 .onlineplayers__more {
   font-size: 0.75rem;
   color: var(--text-faint);
